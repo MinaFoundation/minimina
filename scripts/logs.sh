@@ -22,4 +22,9 @@ echo_logo() {
 
 echo_config() {
 
+  printf "\n"
+  echo "===================="
+  echo "  Configurations"
+  echo "===================="
+
 }
