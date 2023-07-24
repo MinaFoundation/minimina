@@ -1,7 +1,7 @@
 mod cli;
 
 use clap::Parser;
-use cli::{Cli, Commands, NetworkCommand, NodeCommand, NetworkId};
+use cli::{Cli, Commands, NetworkCommand, NodeCommand};
 
 fn main() {
     let cli: Cli = Cli::parse();
@@ -11,19 +11,21 @@ fn main() {
                 println!("Network create command with topology {}, genesis_ledger {}, and network_id {:?}.", cmd.topology.display(), cmd.genesis_ledger.display(), cmd.network_id.network_id);
             },
             NetworkCommand::Deploy(cmd) => {
-                println!("Network deploy command with network_id {:?}.", cmd.network_id.network_id);
+                println!("Network deploy command with network_id {:?}.", cmd.network_id);
             },
             NetworkCommand::Destroy(cmd) => {
-                let NetworkId { network_id } = cmd.network_id;
-                println!("Network destroy command with network_id {:?}.", network_id);
+                println!("Network destroy command with network_id {:?}.", cmd.network_id);
             },
         },
         Commands::Node(node_cmd) => match node_cmd {
             NodeCommand::Start(cmd) => {
-                println!("Node start command with node_id {:?}.", cmd.node_id.node_id);
+                println!("Node start command with node_id {:?}.", cmd.node_id);
             },
             NodeCommand::Stop(cmd) => {
-                println!("Node stop command with node_id {:?}.", cmd.node_id.node_id);
+                println!("Node stop command with node_id {:?}.", cmd.node_id);
+            },
+            NodeCommand::Logs(cmd) => {
+                println!("Node logs command with node_id {:?}.", cmd.node_id);
             },
         },
     }

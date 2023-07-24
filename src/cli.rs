@@ -20,8 +20,8 @@ pub enum Commands {
 #[derive(Subcommand)]
 pub enum NetworkCommand {
     Create(CreateNetworkArgs),
-    Deploy(DeployArgs),
-    Destroy(DestroyArgs),
+    Deploy(NetworkId),
+    Destroy(NetworkId),
 }
 
 #[derive(Args, Debug)]
@@ -42,38 +42,15 @@ pub struct CreateNetworkArgs {
     pub network_id: NetworkId,
 }
 
-#[derive(Args)]
-pub struct DeployArgs {
-    #[clap(flatten)]
-    pub network_id: NetworkId,
-}
-
-#[derive(Args)]
-pub struct DestroyArgs {
-    #[clap(flatten)]
-    pub network_id: NetworkId,
-}
-
 #[derive(Subcommand)]
 pub enum NodeCommand {
-    Start(StartArgs),
-    Stop(StopArgs),
+    Start(NodeId),
+    Stop(NodeId),
+    Logs(NodeId),
 }
 
 #[derive(Args, Debug)]
 pub struct NodeId {
     #[clap(short, long)]
     pub node_id: String,
-}
-
-#[derive(Args)]
-pub struct StartArgs {
-    #[clap(flatten)]
-    pub node_id: NodeId,
-}
-
-#[derive(Args)]
-pub struct StopArgs {
-    #[clap(flatten)]
-    pub node_id: NodeId,
 }
