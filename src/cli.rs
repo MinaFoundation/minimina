@@ -1,7 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(author, version, about = "MiniMina - A Command-line Tool for Spinning up Mina Network Locally", long_about = None)]
+#[command(author, version, about = "MiniMina - A Command-line Tool for Spinning up Mina Network Locally")]
 #[command(propagate_version = true)]
 pub struct Cli {
     #[clap(subcommand)]
@@ -10,18 +10,23 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// Manage local network
     #[clap(subcommand)]
     Network(NetworkCommand),
 
+    /// Manage a single node
     #[clap(subcommand)]
     Node(NodeCommand),
 }
 
 #[derive(Subcommand)]
 pub enum NetworkCommand {
+    /// Create a local network
     Create(CreateNetworkArgs),
-    Deploy(NetworkId),
-    Destroy(NetworkId),
+    /// Start a local network
+    Start(NetworkId),
+    /// Stop a local network
+    Stop(NetworkId),
 }
 
 #[derive(Args, Debug)]
@@ -44,8 +49,11 @@ pub struct CreateNetworkArgs {
 
 #[derive(Subcommand)]
 pub enum NodeCommand {
+    /// Start a node
     Start(NodeId),
+    /// Stop a node
     Stop(NodeId),
+    /// Get logs from a node
     Logs(NodeId),
 }
 
@@ -86,11 +94,11 @@ mod tests {
     }
 
     #[test]
-    fn test_network_deploy_command() {
+    fn test_network_start_command() {
         let args = vec![
             "minimina",
             "network",
-            "deploy",
+            "start",
             "--network-id",
             "test",
         ];
@@ -98,7 +106,7 @@ mod tests {
         let cli = Cli::parse_from(args);
 
         match cli.command {
-            Command::Network(NetworkCommand::Deploy(args)) => {
+            Command::Network(NetworkCommand::Start(args)) => {
                 assert_eq!(args.network_id, "test");
             }
             _ => panic!("Unexpected command parsed"),
@@ -106,11 +114,11 @@ mod tests {
     }
 
     #[test]
-    fn test_network_destroy_command() {
+    fn test_network_stop_command() {
         let args = vec![
             "minimina",
             "network",
-            "destroy",
+            "stop",
             "--network-id",
             "test",
         ];
@@ -118,7 +126,7 @@ mod tests {
         let cli = Cli::parse_from(args);
 
         match cli.command {
-            Command::Network(NetworkCommand::Destroy(args)) => {
+            Command::Network(NetworkCommand::Stop(args)) => {
                 assert_eq!(args.network_id, "test");
             }
             _ => panic!("Unexpected command parsed"),

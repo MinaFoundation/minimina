@@ -10,10 +10,10 @@ fn main() {
             NetworkCommand::Create(cmd) => {
                 println!("Network create command with topology {}, genesis_ledger {}, and network_id {:?}.", cmd.topology.display(), cmd.genesis_ledger.display(), cmd.network_id.network_id);
             },
-            NetworkCommand::Deploy(cmd) => {
+            NetworkCommand::Start(cmd) => {
                 println!("Network deploy command with network_id {:?}.", cmd.network_id);
             },
-            NetworkCommand::Destroy(cmd) => {
+            NetworkCommand::Stop(cmd) => {
                 println!("Network destroy command with network_id {:?}.", cmd.network_id);
             },
         },
