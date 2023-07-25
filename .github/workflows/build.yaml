@@ -12,7 +12,7 @@ env:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: minafoundation-default-runners
 
     steps:
     - name: 📥 Checkout
