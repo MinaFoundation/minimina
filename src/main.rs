@@ -1,12 +1,12 @@
 mod cli;
 
 use clap::Parser;
-use cli::{Cli, Commands, NetworkCommand, NodeCommand};
+use cli::{Cli, Command, NetworkCommand, NodeCommand};
 
 fn main() {
     let cli: Cli = Cli::parse();
-    match cli.commands {
-        Commands::Network(net_cmd) => match net_cmd {
+    match cli.command {
+        Command::Network(net_cmd) => match net_cmd {
             NetworkCommand::Create(cmd) => {
                 println!("Network create command with topology {}, genesis_ledger {}, and network_id {:?}.", cmd.topology.display(), cmd.genesis_ledger.display(), cmd.network_id.network_id);
             },
@@ -17,7 +17,7 @@ fn main() {
                 println!("Network destroy command with network_id {:?}.", cmd.network_id);
             },
         },
-        Commands::Node(node_cmd) => match node_cmd {
+        Command::Node(node_cmd) => match node_cmd {
             NodeCommand::Start(cmd) => {
                 println!("Node start command with node_id {:?}.", cmd.node_id);
             },

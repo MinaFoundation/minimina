@@ -5,11 +5,11 @@ use clap::{Args, Parser, Subcommand};
 #[command(propagate_version = true)]
 pub struct Cli {
     #[clap(subcommand)]
-    pub commands: Commands,
+    pub command: Command,
 }
 
 #[derive(Subcommand)]
-pub enum Commands {
+pub enum Command {
     #[clap(subcommand)]
     Network(NetworkCommand),
 
@@ -75,8 +75,8 @@ mod tests {
 
         let cli = Cli::parse_from(args);
 
-        match cli.commands {
-            Commands::Network(NetworkCommand::Create(args)) => {
+        match cli.command {
+            Command::Network(NetworkCommand::Create(args)) => {
                 assert_eq!(args.topology, std::path::PathBuf::from("/path/to/file"));
                 assert_eq!(args.genesis_ledger, std::path::PathBuf::from("/path/to/dir"));
                 assert_eq!(args.network_id.network_id, "test");
@@ -97,8 +97,8 @@ mod tests {
 
         let cli = Cli::parse_from(args);
 
-        match cli.commands {
-            Commands::Network(NetworkCommand::Deploy(args)) => {
+        match cli.command {
+            Command::Network(NetworkCommand::Deploy(args)) => {
                 assert_eq!(args.network_id, "test");
             }
             _ => panic!("Unexpected command parsed"),
@@ -117,8 +117,8 @@ mod tests {
 
         let cli = Cli::parse_from(args);
 
-        match cli.commands {
-            Commands::Network(NetworkCommand::Destroy(args)) => {
+        match cli.command {
+            Command::Network(NetworkCommand::Destroy(args)) => {
                 assert_eq!(args.network_id, "test");
             }
             _ => panic!("Unexpected command parsed"),
@@ -137,8 +137,8 @@ mod tests {
 
         let cli = Cli::parse_from(args);
 
-        match cli.commands {
-            Commands::Node(NodeCommand::Start(args)) => {
+        match cli.command {
+            Command::Node(NodeCommand::Start(args)) => {
                 assert_eq!(args.node_id, "test");
             }
             _ => panic!("Unexpected command parsed"),
@@ -157,8 +157,8 @@ mod tests {
 
         let cli = Cli::parse_from(args);
 
-        match cli.commands {
-            Commands::Node(NodeCommand::Stop(args)) => {
+        match cli.command {
+            Command::Node(NodeCommand::Stop(args)) => {
                 assert_eq!(args.node_id, "test");
             }
             _ => panic!("Unexpected command parsed"),
@@ -177,8 +177,8 @@ mod tests {
 
         let cli = Cli::parse_from(args);
 
-        match cli.commands {
-            Commands::Node(NodeCommand::Logs(args)) => {
+        match cli.command {
+            Command::Node(NodeCommand::Logs(args)) => {
                 assert_eq!(args.node_id, "test");
             }
             _ => panic!("Unexpected command parsed"),
