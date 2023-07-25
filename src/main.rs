@@ -8,7 +8,7 @@ fn main() {
     match cli.command {
         Command::Network(net_cmd) => match net_cmd {
             NetworkCommand::Create(cmd) => {
-                println!("Network create command with topology {}, genesis_ledger {}, and network_id {}.", cmd.topology.display(), cmd.genesis_ledger.display(), cmd.network_id.network_id);
+                println!("Network create command with topology {}, genesis_ledger {}, and network_id {}.", cmd.topology.display(), cmd.genesis_ledger.display(), cmd.network_id());
             }
             NetworkCommand::Delete(cmd) => {
                 println!("Network delete command with network_id {}.", cmd.network_id);

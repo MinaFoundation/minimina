@@ -89,6 +89,13 @@ impl NodeCommandArgs {
     }
 }
 
+impl CreateNetworkArgs {
+    // helper function to get network_id
+    pub fn network_id(&self) -> &str {
+        &self.network_id.network_id
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -116,7 +123,7 @@ mod tests {
                     args.genesis_ledger,
                     std::path::PathBuf::from("/path/to/dir")
                 );
-                assert_eq!(args.network_id.network_id, "test");
+                assert_eq!(args.network_id(), "test");
             }
             _ => panic!("Unexpected command parsed"),
         }
