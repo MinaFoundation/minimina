@@ -56,17 +56,37 @@ pub struct CreateNetworkArgs {
 #[derive(Subcommand)]
 pub enum NodeCommand {
     /// Start a node
-    Start(NodeId),
+    Start(NodeCommandArgs),
     /// Stop a node
-    Stop(NodeId),
+    Stop(NodeCommandArgs),
     /// Get logs from a node
-    Logs(NodeId),
+    Logs(NodeCommandArgs),
 }
 
 #[derive(Args, Debug)]
 pub struct NodeId {
-    #[clap(short, long)]
+    #[clap(short = 'i', long)]
     pub node_id: String,
+}
+
+#[derive(Args, Debug)]
+pub struct NodeCommandArgs {
+    #[clap(flatten)]
+    pub node_id: NodeId,
+
+    #[clap(flatten)]
+    pub network_id: NetworkId,
+}
+
+impl NodeCommandArgs {
+    // helper functions to get node_id and network_id
+    pub fn node_id(&self) -> &str {
+        &self.node_id.node_id
+    }
+
+    pub fn network_id(&self) -> &str {
+        &self.network_id.network_id
+    }
 }
 
 #[cfg(test)]
@@ -152,7 +172,8 @@ mod tests {
 
         match cli.command {
             Command::Node(NodeCommand::Start(args)) => {
-                assert_eq!(args.node_id, "test");
+                assert_eq!(args.node_id(), "test");
+                assert_eq!(args.network_id(), "default");
             }
             _ => panic!("Unexpected command parsed"),
         }
@@ -160,13 +181,22 @@ mod tests {
 
     #[test]
     fn test_node_stop_command() {
-        let args = vec!["minimina", "node", "stop", "--node-id", "test"];
+        let args = vec![
+            "minimina",
+            "node",
+            "stop",
+            "--node-id",
+            "test",
+            "--network-id",
+            "banana",
+        ];
 
         let cli = Cli::parse_from(args);
 
         match cli.command {
             Command::Node(NodeCommand::Stop(args)) => {
-                assert_eq!(args.node_id, "test");
+                assert_eq!(args.node_id(), "test");
+                assert_eq!(args.network_id(), "banana");
             }
             _ => panic!("Unexpected command parsed"),
         }
@@ -180,7 +210,8 @@ mod tests {
 
         match cli.command {
             Command::Node(NodeCommand::Logs(args)) => {
-                assert_eq!(args.node_id, "test");
+                assert_eq!(args.node_id(), "test");
+                assert_eq!(args.network_id(), "default");
             }
             _ => panic!("Unexpected command parsed"),
         }
