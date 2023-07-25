@@ -23,6 +23,8 @@ pub enum Command {
 pub enum NetworkCommand {
     /// Create a local network
     Create(CreateNetworkArgs),
+    /// Delete a local network
+    Delete(NetworkId),
     /// Start a local network
     Start(NetworkId),
     /// Stop a local network
@@ -88,6 +90,26 @@ mod tests {
                 assert_eq!(args.topology, std::path::PathBuf::from("/path/to/file"));
                 assert_eq!(args.genesis_ledger, std::path::PathBuf::from("/path/to/dir"));
                 assert_eq!(args.network_id.network_id, "test");
+            }
+            _ => panic!("Unexpected command parsed"),
+        }
+    }
+
+    #[test]
+    fn test_network_delete_command() {
+        let args = vec![
+            "minimina",
+            "network",
+            "delete",
+            "--network-id",
+            "test",
+        ];
+
+        let cli = Cli::parse_from(args);
+
+        match cli.command {
+            Command::Network(NetworkCommand::Delete(args)) => {
+                assert_eq!(args.network_id, "test");
             }
             _ => panic!("Unexpected command parsed"),
         }
