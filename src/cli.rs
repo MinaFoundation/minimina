@@ -146,6 +146,18 @@ mod tests {
     }
 
     #[test]
+    fn test_network_list_command() {
+        let args = vec!["minimina", "network", "list"];
+
+        let cli = Cli::parse_from(args);
+
+        match cli.command {
+            Command::Network(NetworkCommand::List) => {}
+            _ => panic!("Unexpected command parsed"),
+        }
+    }
+
+    #[test]
     fn test_network_start_command() {
         let args = vec!["minimina", "network", "start", "--network-id", "test"];
 

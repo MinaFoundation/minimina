@@ -29,3 +29,42 @@ impl DockerComposeGenerator {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_generate_docker_compose() {
+        let dir_manager = DirectoryManager::_new_with_base_path(
+            "/tmp/minimina-testing-docker-compose-gen".into(),
+        );
+        let network_id = "test_network";
+
+        // Create the network directory
+        dir_manager.create_network_directory(network_id).unwrap();
+
+        // Generate a docker-compose file
+        let generator = DockerComposeGenerator::new(dir_manager);
+        let topology = std::path::PathBuf::from("path/to/topology");
+        generator
+            .generate_docker_compose(network_id, &topology)
+            .unwrap();
+
+        // Check that the file was created and has the correct contents
+        let mut file_path = generator.directory_manager._base_path().clone();
+        file_path.push(network_id);
+        file_path.push("docker-compose.yaml");
+
+        let contents = fs::read_to_string(file_path).unwrap();
+        assert!(contents.contains("version: '3.5'"));
+        assert!(contents.contains("services:\n  block-producer:"));
+
+        // Clean up
+        generator
+            .directory_manager
+            .delete_network_directory(network_id)
+            .unwrap();
+    }
+}

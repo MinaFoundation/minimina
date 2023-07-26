@@ -13,6 +13,15 @@ impl DirectoryManager {
         DirectoryManager { base_path }
     }
 
+    // for testing purposes
+    pub fn _new_with_base_path(base_path: PathBuf) -> Self {
+        DirectoryManager { base_path }
+    }
+
+    pub fn _base_path(&self) -> &PathBuf {
+        &self.base_path
+    }
+
     pub fn network_path(&self, network_id: &str) -> PathBuf {
         let mut network_path = self.base_path.clone();
         network_path.push(network_id);
@@ -54,5 +63,70 @@ impl DirectoryManager {
             std::fs::create_dir_all(subdirectory_path)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_and_delete_network_directory() {
+        let dir_manager = DirectoryManager::_new_with_base_path("/tmp/minimina-testing".into());
+        let network_id = "test_network";
+
+        // Create the network directory
+        dir_manager.create_network_directory(network_id).unwrap();
+        let network_path = dir_manager.network_path(network_id);
+        assert!(network_path.exists());
+
+        // Delete the network directory
+        dir_manager.delete_network_directory(network_id).unwrap();
+        assert!(!network_path.exists());
+    }
+
+    #[test]
+    fn test_create_subdirectories() {
+        let dir_manager = DirectoryManager::_new_with_base_path("/tmp/minimina-testing".into());
+        let network_id = "test_network";
+        let subdirectories = ["subdir1", "subdir2"];
+
+        // Create the network and subdirectories
+        dir_manager.create_network_directory(network_id).unwrap();
+        dir_manager
+            .create_subdirectories(network_id, &subdirectories)
+            .unwrap();
+
+        for subdir in &subdirectories {
+            let mut subdir_path = dir_manager._base_path().clone();
+            subdir_path.push(network_id);
+            subdir_path.push(subdir);
+            assert!(subdir_path.exists());
+        }
+
+        // Clean up
+        dir_manager.delete_network_directory(network_id).unwrap();
+    }
+
+    #[test]
+    fn test_list_networks() {
+        let dir_manager = DirectoryManager::new();
+        let network_ids = ["test_network1", "test_network2"];
+
+        // Create some network directories
+        for network_id in &network_ids {
+            dir_manager.create_network_directory(network_id).unwrap();
+        }
+
+        // Check that all network directories are listed
+        let listed_networks = dir_manager.list_network_directories().unwrap();
+        for network_id in &network_ids {
+            assert!(listed_networks.contains(&network_id.to_string()));
+        }
+
+        // Clean up
+        for network_id in &network_ids {
+            dir_manager.delete_network_directory(network_id).unwrap();
+        }
     }
 }
