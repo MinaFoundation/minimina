@@ -72,7 +72,9 @@ mod tests {
 
     #[test]
     fn test_create_and_delete_network_directory() {
-        let dir_manager = DirectoryManager::_new_with_base_path("/tmp/minimina-testing".into());
+        let dir_manager = DirectoryManager::_new_with_base_path(
+            "/tmp/test_create_and_delete_network_directory-testing".into(),
+        );
         let network_id = "test_network";
 
         // Create the network directory
@@ -87,7 +89,8 @@ mod tests {
 
     #[test]
     fn test_create_subdirectories() {
-        let dir_manager = DirectoryManager::_new_with_base_path("/tmp/minimina-testing".into());
+        let dir_manager =
+            DirectoryManager::_new_with_base_path("/tmp/test_create_subdirectories-testing".into());
         let network_id = "test_network";
         let subdirectories = ["subdir1", "subdir2"];
 
@@ -110,7 +113,9 @@ mod tests {
 
     #[test]
     fn test_list_networks() {
-        let dir_manager = DirectoryManager::new();
+        let dir_manager =
+            DirectoryManager::_new_with_base_path("/tmp/test_list_networks-testing".into());
+
         let network_ids = ["test_network1", "test_network2"];
 
         // Create some network directories
