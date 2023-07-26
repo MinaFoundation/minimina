@@ -19,8 +19,14 @@ jobs:
     - name: 📥 Checkout
       uses: actions/checkout@v3
 
+    - name: ✅ Format
+      run: cargo fmt --all -- --check
+
+    - name: 🔍 Lint
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
     - name: 🛠️ Build
       run: cargo build --verbose
 
-    - name: 🧪 Run tests
+    - name: 🧪 Test
       run: cargo test --verbose
