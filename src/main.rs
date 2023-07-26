@@ -14,7 +14,7 @@ fn main() {
     match cli.command {
         Command::Network(net_cmd) => match net_cmd {
             NetworkCommand::Create(cmd) => {
-                println!("Creating network with network-id = {}.", cmd.network_id());
+                println!("Creating network with network-id '{}'.", cmd.network_id());
                 directory_manager
                     .create_network_directory(cmd.network_id())
                     .expect("Failed to create network directory");
@@ -46,7 +46,34 @@ fn main() {
                 );
             }
             NetworkCommand::Delete(cmd) => {
-                println!("Network delete command with network_id {}.", cmd.network_id);
+                match directory_manager.delete_network_directory(&cmd.network_id) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!(
+                            "Failed to delete network directory for network_id '{}' with error = {}",
+                            cmd.network_id, e
+                        );
+                        return;
+                    }
+                }
+
+                println!("Network '{}' deleted successfully.", cmd.network_id);
+            }
+            NetworkCommand::List => {
+                let networks = directory_manager
+                    .list_network_directories()
+                    .expect("Failed to list networks");
+
+                if networks.is_empty() {
+                    println!("No networks found.");
+                    return;
+                }
+
+                println!("Available networks:");
+
+                for network in networks {
+                    println!("  {}", network);
+                }
             }
             NetworkCommand::Start(cmd) => {
                 println!("Network start command with network_id {}.", cmd.network_id);

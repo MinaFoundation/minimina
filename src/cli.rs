@@ -29,6 +29,8 @@ pub enum NetworkCommand {
     Create(CreateNetworkArgs),
     /// Delete a local network
     Delete(NetworkId),
+    /// List local networks
+    List,
     /// Start a local network
     Start(NetworkId),
     /// Stop a local network

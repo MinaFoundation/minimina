@@ -24,9 +24,22 @@ impl DirectoryManager {
         std::fs::create_dir_all(network_path)
     }
 
-    pub fn _delete_network_directory(&self, network_id: &str) -> std::io::Result<()> {
+    pub fn delete_network_directory(&self, network_id: &str) -> std::io::Result<()> {
         let network_path = self.network_path(network_id);
         std::fs::remove_dir_all(network_path)
+    }
+
+    pub fn list_network_directories(&self) -> std::io::Result<Vec<String>> {
+        let mut networks = vec![];
+        for entry in std::fs::read_dir(&self.base_path)? {
+            let entry = entry?;
+            if entry.file_type()?.is_dir() {
+                if let Some(network_id) = entry.file_name().to_str() {
+                    networks.push(network_id.to_string());
+                }
+            }
+        }
+        Ok(networks)
     }
 
     pub fn create_subdirectories(
