@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::directory_manager::DirectoryManager;
 use std::fs::File;
@@ -16,7 +16,7 @@ impl DockerComposeGenerator {
     pub fn generate_docker_compose(
         &self,
         network_id: &str,
-        _topology: &PathBuf,
+        _topology: &Path,
     ) -> std::io::Result<()> {
         // TODO: Implement actual generation logic based on topology
         let contents = "version: '3.5'\nservices:\n  block-producer:\n    image: gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley\n";
