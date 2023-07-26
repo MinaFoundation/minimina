@@ -26,13 +26,13 @@ MiniMina will use `docker` and `docker-compose` and requires it to be installed 
 
 ### Building
 
-To build MiniMina, use the `cargo build` command in the root directory of the repository:
+To build MiniMina, use the `cargo build --release` command in the root directory of the repository:
 
 ```bash
-cargo build
+cargo build --release
 ```
 
-This will produce an executable file in the `target/debug/` directory.
+This will produce an executable file in the `target/release/` directory.
 
 ### Testing
 
