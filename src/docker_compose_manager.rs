@@ -48,7 +48,7 @@ impl DockerComposeManager {
             network_id,
         ];
 
-        let mut args: Vec<&str> = base_args.iter().cloned().collect();
+        let mut args: Vec<&str> = base_args.to_vec();
         args.extend_from_slice(subcommands);
 
         let output = run_command("docker", &args)?;
