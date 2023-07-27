@@ -29,6 +29,8 @@ pub enum NetworkCommand {
     Create(CreateNetworkArgs),
     /// Delete a local network
     Delete(NetworkId),
+    /// List local networks
+    List,
     /// Start a local network
     Start(NetworkId),
     /// Stop a local network
@@ -139,6 +141,18 @@ mod tests {
             Command::Network(NetworkCommand::Delete(args)) => {
                 assert_eq!(args.network_id, "test");
             }
+            _ => panic!("Unexpected command parsed"),
+        }
+    }
+
+    #[test]
+    fn test_network_list_command() {
+        let args = vec!["minimina", "network", "list"];
+
+        let cli = Cli::parse_from(args);
+
+        match cli.command {
+            Command::Network(NetworkCommand::List) => {}
             _ => panic!("Unexpected command parsed"),
         }
     }
