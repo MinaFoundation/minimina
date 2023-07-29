@@ -1,16 +1,17 @@
 use std::path::Path;
 
+use crate::cmd::run_command;
 use crate::directory_manager::DirectoryManager;
 use std::fs::File;
 use std::io::Write;
 
-pub struct DockerComposeGenerator {
+pub struct DockerComposeManager {
     directory_manager: DirectoryManager,
 }
 
-impl DockerComposeGenerator {
+impl DockerComposeManager {
     pub fn new(directory_manager: DirectoryManager) -> Self {
-        DockerComposeGenerator { directory_manager }
+        DockerComposeManager { directory_manager }
     }
 
     pub fn generate_docker_compose(
@@ -26,6 +27,36 @@ impl DockerComposeGenerator {
 
         let mut file = File::create(file_path)?;
         file.write_all(contents.as_bytes())?;
+        Ok(())
+    }
+
+    pub fn run_docker_compose(
+        &self,
+        network_id: &str,
+        subcommands: &[&str],
+    ) -> std::io::Result<()> {
+        let mut file_path = self.directory_manager.network_path(network_id);
+        file_path.push("docker-compose.yaml");
+
+        let base_args = &[
+            "compose",
+            "-f",
+            file_path
+                .to_str()
+                .expect("Failed to convert file path to str"),
+            "-p",
+            network_id,
+        ];
+
+        let mut args: Vec<&str> = base_args.to_vec();
+        args.extend_from_slice(subcommands);
+
+        let output = run_command("docker", &args)?;
+
+        println!("status: {}", output.status);
+        println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+
         Ok(())
     }
 }
@@ -46,7 +77,7 @@ mod tests {
         dir_manager.create_network_directory(network_id).unwrap();
 
         // Generate a docker-compose file
-        let generator = DockerComposeGenerator::new(dir_manager);
+        let generator = DockerComposeManager::new(dir_manager);
         let topology = std::path::PathBuf::from("path/to/topology");
         generator
             .generate_docker_compose(network_id, &topology)

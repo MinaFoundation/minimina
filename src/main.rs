@@ -1,11 +1,12 @@
 mod cli;
+mod cmd;
 mod directory_manager;
-mod docker_compose_generator;
+mod docker_compose_manager;
 
 use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
 use directory_manager::DirectoryManager;
-use docker_compose_generator::DockerComposeGenerator;
+use docker_compose_manager::DockerComposeManager;
 
 fn main() {
     let cli: Cli = Cli::parse();
@@ -33,7 +34,7 @@ fn main() {
                     )
                     .expect("Failed to create subdirectories");
 
-                let docker_compose_generator = DockerComposeGenerator::new(directory_manager);
+                let docker_compose_generator = DockerComposeManager::new(directory_manager);
                 docker_compose_generator
                     .generate_docker_compose(cmd.network_id(), &cmd.topology)
                     .expect("Failed to generate docker-compose.yaml");
@@ -76,10 +77,28 @@ fn main() {
                 }
             }
             NetworkCommand::Start(cmd) => {
-                println!("Network start command with network_id {}.", cmd.network_id);
+                let docker_compose_manager = DockerComposeManager::new(directory_manager);
+                match docker_compose_manager.run_docker_compose(&cmd.network_id, &["up", "-d"]) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!(
+                            "Failed to start network with network_id '{}' with error = {}",
+                            cmd.network_id, e
+                        );
+                    }
+                }
             }
             NetworkCommand::Stop(cmd) => {
-                println!("Network stop command with network_id {}.", cmd.network_id);
+                let docker_compose_manager = DockerComposeManager::new(directory_manager);
+                match docker_compose_manager.run_docker_compose(&cmd.network_id, &["down"]) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!(
+                            "Failed to stop network with network_id '{}' with error = {}",
+                            cmd.network_id, e
+                        );
+                    }
+                }
             }
         },
         Command::Node(node_cmd) => match node_cmd {
