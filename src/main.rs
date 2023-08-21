@@ -19,20 +19,16 @@ fn main() {
                 directory_manager
                     .create_network_directory(cmd.network_id())
                     .expect("Failed to create network directory");
+
+                let subdirectories = ["block_producer_keys", "libp2p_keys", "nodes"];
+
                 directory_manager
-                    .create_subdirectories(
-                        cmd.network_id(),
-                        &[
-                            "fish_keys",
-                            "libp2p_keys",
-                            "nodes",
-                            "service-keys",
-                            "snark_coordinator_keys",
-                            "whale_keys",
-                            "zkapp_keys",
-                        ],
-                    )
+                    .create_subdirectories(cmd.network_id(), &subdirectories)
                     .expect("Failed to create subdirectories");
+
+                directory_manager
+                    .chmod_network_subdirectories(cmd.network_id(), &subdirectories, 0o700)
+                    .expect("Failed to chmod subdirectories");
 
                 let docker_compose_generator = DockerComposeManager::new(directory_manager);
                 docker_compose_generator

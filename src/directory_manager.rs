@@ -1,4 +1,5 @@
 use dirs::home_dir;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
 pub struct DirectoryManager {
@@ -61,6 +62,21 @@ impl DirectoryManager {
             subdirectory_path.push(network_id);
             subdirectory_path.push(subdirectory);
             std::fs::create_dir_all(subdirectory_path)?;
+        }
+        Ok(())
+    }
+
+    pub fn chmod_network_subdirectories(
+        &self,
+        network_id: &str,
+        subdirectories: &[&str],
+        mode: u32,
+    ) -> std::io::Result<()> {
+        for subdirectory in subdirectories {
+            let mut subdirectory_path = self.base_path.clone();
+            subdirectory_path.push(network_id);
+            subdirectory_path.push(subdirectory);
+            std::fs::set_permissions(subdirectory_path, std::fs::Permissions::from_mode(mode))?;
         }
         Ok(())
     }
@@ -133,5 +149,36 @@ mod tests {
         for network_id in &network_ids {
             dir_manager.delete_network_directory(network_id).unwrap();
         }
+    }
+
+    #[test]
+    fn test_chmod_network_subdirectories() {
+        let dir_manager = DirectoryManager::_new_with_base_path(
+            "/tmp/test_chmod_network_subdirectories-testing".into(),
+        );
+        let network_id = "test_network";
+        let subdirectories = ["subdir1", "subdir2"];
+
+        // Create the network and subdirectories
+        dir_manager.create_network_directory(network_id).unwrap();
+        dir_manager
+            .create_subdirectories(network_id, &subdirectories)
+            .unwrap();
+        // Set readonly permissions
+        dir_manager
+            .chmod_network_subdirectories(network_id, &subdirectories, 0o444)
+            .unwrap();
+
+        // Check that the subdirectories have readonly permissions
+        for subdir in &subdirectories {
+            let mut subdir_path = dir_manager._base_path().clone();
+            subdir_path.push(network_id);
+            subdir_path.push(subdir);
+            let metadata = std::fs::metadata(subdir_path).unwrap();
+            assert_eq!(metadata.permissions().readonly(), true);
+        }
+
+        // Clean up
+        dir_manager.delete_network_directory(network_id).unwrap();
     }
 }
