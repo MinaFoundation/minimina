@@ -3,21 +3,25 @@
 This guide will help you set up a local Mina network with 1 seed node, 2 block producers, 1 snark coordinator and 1 snark worker.
 
 ## Prerequisites
+
 - Ensure Docker is installed on your machine.
 
 ## Step-by-step Guide
 
 1. **Create Required Directories**
 
-Create necessary directories for your local Mina network: 
+Create necessary directories for your local Mina network:
+
 ```bash
 mkdir -p ~/.minimina/default
 ```
+
 2. **Generate Key Pairs for Block Producers**
 
 We need to generate key pairs for our block producers `mina-bp-1` and `mina-bp-2`. Keys for the seed node and snark coordinator will be hardcoded inside our docker-compose.
 
 Use the following script to generate the necessary key pairs using the Docker image:
+
 ```bash
 #!/bin/bash
 
@@ -54,6 +58,7 @@ done
 3. **Set Permissions for Generated Keys**
 
 Ensure correct file permissions for the generated keys:
+
 ```bash
 chmod 700 ~/.minimina/default/libp2p_keys
 chmod 700 ~/.minimina/default/block_producer_keys
@@ -114,27 +119,32 @@ cp docs/docker_compose_example/docker-compose-example.yaml ~/.minimina/default/d
 6. **Start the Network**
 
 Once everything is configured, spin up the local network.
+
 ```bash
 cd ~/.minimina/default
 docker compose up
 ```
+
 And that's it! Your local Mina network should now be running. Monitor the logs to ensure all services are operating without errors.
 
 > ⚠️ Depending on your Docker version, you might need to use `docker-compose up` and `docker-compose down` instead.
 
 7. **Monitor and manage the network**
 
- - To check running processes:
+- To check running processes:
+
 ```bash
 docker ps
 ```
 
- - To view the logs of a specific Mina daemon (for example, mina-bp-1):
+- To view the logs of a specific Mina daemon (for example, mina-bp-1):
+
 ```bash
 docker logs mina-bp-1 -f
 ```
 
 - To check the status of a particular daemon (consult the `docker-compose.yaml` file to determine the client port for a specific daemon):
+
 ```bash
 docker run \
 --rm \
@@ -146,6 +156,7 @@ client status -daemon-port 4000
 8. **Stop the network**
 
 If you wish to stop the network, simply run:
+
 ```bash
 cd ~/.minimina/default
 docker compose down
