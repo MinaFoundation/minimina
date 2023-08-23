@@ -34,7 +34,7 @@ fn main() {
                     .expect("Failed to create subdirectories");
 
                 directory_manager
-                    .chmod_network_subdirectories(cmd.network_id(), 0o700)
+                    .set_subdirectories_permissions(cmd.network_id(), 0o700)
                     .expect("Failed to set permissions for subdirectories");
 
                 // pattern match on &cmd.topology
