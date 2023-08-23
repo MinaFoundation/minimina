@@ -20,99 +20,49 @@ mkdir -p ~/.minimina/default
 
 We need to generate key pairs for our block producers `mina-bp-1` and `mina-bp-2` making sure that folder containing keys have appopriate file permissions. Keys for the seed node and snark coordinator will be hardcoded inside our docker-compose.
 
-Use the following script to generate the necessary key pairs using the Docker image:
+Use the [generate_keys.sh](generate_keys.sh) helper script to produce necessary key pairs using the Docker image:
 
 ```bash
-#!/bin/bash
+$ ./docs/docker_compose_example/generate_keys.sh 
+----------------
+mina-bp-1 keys: 
 
-declare -a bp_array=("mina-bp-1" "mina-bp-2")
-declare bp_dir=~/.minimina/default/block_producer_keys
-declare libp2p_dir=~/.minimina/default/libp2p_keys
+Using password from environment variable MINA_PRIVKEY_PASS
+Keypair generated
+Public key: B62qmA6aWP4TLDG7TPqRoTm9yJNbqe46ZZftVYtRdSdRrh2BuccDm81
+Raw public key: 50A63B492627EB9A66E3AC2268AF7F649793F63E474E0E51D5722D79D13D4591
 
-# Create directories holding keys ensuring correct file permissions
-mkdir -p $bp_dir $libp2p_dir
-chmod 700 $bp_dir $libp2p_dir
+libp2p keypair:
+CAESQFWdTju2nlLVu1exgaKYMwDmWxKfDmk/jeWGKTTNQZw+vBcBuN9Dlxul0maxgBD85Mp4rYPuKmGNbXXTXk8+GWg=,CAESILwXAbjfQ5cbpdJmsYAQ/OTKeK2D7iphjW11015PPhlo,12D3KooWNUbARSnVbRyaNTuQYVuPZnCTx2A591h3AP1YUXkAc5JP
 
-for bp in "${bp_array[@]}"; do
+----------------
+mina-bp-2 keys: 
 
-    echo "----------------"
-    echo "$bp keys: "
-    echo
-    
-    # Generate block producer keys
-    docker run \
-    --rm \
-    --env MINA_PRIVKEY_PASS='naughty blue worm' \
-    --entrypoint mina \
-    -v $bp_dir:/keys \
-    gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley \
-    advanced generate-keypair -privkey-path /keys/$bp
+Using password from environment variable MINA_PRIVKEY_PASS
+Keypair generated
+Public key: B62qqD5HUTos1Ezui8Z6YuGxAjm6WY94wqmgfYfpwGz7z8jBuwyAUvJ
+Raw public key: C987E064EC8B1297351D95DECE263D678D71AB10DC3D6F7D4AACCBA259BCCC80
 
-    echo
-    # Generate libp2p keys
-    docker run \
-    --rm \
-    --env MINA_LIBP2P_PASS='naughty blue worm' \
-    --entrypoint mina \
-    -v $libp2p_dir:/keys \
-    gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley \
-    libp2p generate-keypair -privkey-path /keys/$bp
-    echo
-done
+libp2p keypair:
+CAESQCkVLr2hqOCCfY8qg68Q4CsdbbWwLFXDtJl9E/6Rdh4WXQ29UTGubEeNUf0erg6Pl47oi8oXqHHZv5QIqzkuVWE=,CAESIF0NvVExrmxHjVH9Hq4Oj5eO6IvKF6hx2b+UCKs5LlVh,12D3KooWG5cEeAm2JgaNdv8mZ4ivyLfpAdF4PHh7RarfRnZHNMqi
 ```
 
 3. **Generate Genesis Ledger File**
 
 Generate genesis ledger file ensuring that generated keys for block producers will have funds to be able to produce blocks.
 
-Here is a simple helper script generating `genesis_ledger.json` file in `~/.minimina/default` directory:
+Use the [generate_ledger.sh](generate_ledger.sh) helper script to produce `genesis_ledger.json` file in `~/.minimina/default` directory:
 
 ```bash
-#!/bin/bash
-
-# Define the path to the block producer keys
-declare bp_dir=~/.minimina/default/block_producer_keys
-
-# Read the contents of the public key files
-declare mina_bp_1_key=$(<"$bp_dir/mina-bp-1.pub")
-declare mina_bp_2_key=$(<"$bp_dir/mina-bp-2.pub")
-
-# Write the JSON structure to ~/.minimina/default/genesis_ledger.json
-declare genesis_ledger_path=~/.minimina/default/genesis_ledger.json
-cat <<EOF > $genesis_ledger_path
-{
-  "genesis": {
-    "genesis_state_timestamp": "2023-08-16T17:45:29+0200"
-  },
-  "ledger": {
-    "name": "release",
-    "num_accounts": 250,
-    "accounts": [
-     {
-      "pk": "$mina_bp_1_key",
-      "sk": null,
-      "balance": "11550000.000000000",
-      "delegate": null
-     },
-     {
-      "pk": "$mina_bp_2_key",
-      "sk": null,
-      "balance": "11550000.000000000",
-      "delegate": null
-     }
-    ]
-  }
-}
-EOF
-
-echo "Generated genesis ledger file in $genesis_ledger_path including keys:"
-echo "Key 1: $mina_bp_1_key"
-echo "Key 2: $mina_bp_2_key"
+$ ./docs/docker_compose_example/generate_ledger.sh 
+Generated genesis ledger file in /home/piotr/.minimina/default/genesis_ledger.json including keys:
+Key 1: B62qmA6aWP4TLDG7TPqRoTm9yJNbqe46ZZftVYtRdSdRrh2BuccDm81
+Key 2: B62qqD5HUTos1Ezui8Z6YuGxAjm6WY94wqmgfYfpwGz7z8jBuwyAUvJ
 ```
 
 4. **Docker Compose Configuration**
 
-Copy `docker-compose-example.yaml` to `~/.minimina/default/docker-compose.yaml`. 
+Copy [docker-compose-example.yaml](docker-compose-example.yaml) to `~/.minimina/default/docker-compose.yaml`. 
 
 ```bash
 cp docs/docker_compose_example/docker-compose-example.yaml ~/.minimina/default/docker-compose.yaml
