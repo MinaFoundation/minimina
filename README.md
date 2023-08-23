@@ -22,7 +22,7 @@ cd minimina
 
 MiniMina is written in Rust and requires the Rust compiler and its package manager, Cargo. If you don't have Rust installed, you can install it from the official website: https://www.rust-lang.org/tools/install.
 
-MiniMina will use `docker` and `docker-compose` and requires it to be installed on user's machine. See: https://docs.docker.com/engine/install/.
+MiniMina will use `docker` and requires it to be installed on user's machine. See: https://docs.docker.com/engine/install/.
 
 ### Building
 
