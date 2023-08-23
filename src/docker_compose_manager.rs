@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use log::info;
+
 use crate::cmd::run_command;
 use crate::directory_manager::DirectoryManager;
 use std::fs::File;
@@ -53,9 +55,9 @@ impl DockerComposeManager {
 
         let output = run_command("docker", &args)?;
 
-        println!("status: {}", output.status);
-        println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-        println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+        info!("status: {}", output.status);
+        info!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        info!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 
         Ok(())
     }

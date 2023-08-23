@@ -7,15 +7,24 @@ use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
 use directory_manager::DirectoryManager;
 use docker_compose_manager::DockerComposeManager;
+use env_logger::{Builder, Env};
+use log::{error, info, warn};
 
 fn main() {
+    Builder::from_env(Env::default().default_filter_or("info")).init();
     let cli: Cli = Cli::parse();
     let directory_manager = DirectoryManager::new();
 
     match cli.command {
         Command::Network(net_cmd) => match net_cmd {
             NetworkCommand::Create(cmd) => {
-                println!("Creating network with network-id '{}'.", cmd.network_id());
+                if directory_manager.network_path_exists(cmd.network_id()) {
+                    warn!(
+                        "Network with network-id '{}' already exists. Overwiting!",
+                        cmd.network_id()
+                    );
+                }
+                info!("Creating network with network-id '{}'.", cmd.network_id());
                 directory_manager
                     .create_network_directory(cmd.network_id())
                     .expect("Failed to create network directory");
@@ -33,7 +42,7 @@ fn main() {
                 // pattern match on &cmd.topology
                 match &cmd.topology {
                     Some(topology) => {
-                        println!(
+                        info!(
                             "Copying topology from '{}' to network directory.",
                             topology.display()
                         );
@@ -47,7 +56,7 @@ fn main() {
                 // pattern match on &cmd.genesis_ledger
                 match &cmd.genesis_ledger {
                     Some(genesis_ledger) => {
-                        println!(
+                        info!(
                             "Copying genesis ledger from '{}' to network directory.",
                             genesis_ledger.display()
                         );
@@ -61,7 +70,7 @@ fn main() {
                 match directory_manager.delete_network_directory(&cmd.network_id) {
                     Ok(_) => {}
                     Err(e) => {
-                        println!(
+                        error!(
                             "Failed to delete network directory for network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
@@ -69,7 +78,7 @@ fn main() {
                     }
                 }
 
-                println!("Network '{}' deleted successfully.", cmd.network_id);
+                info!("Network '{}' deleted successfully.", cmd.network_id);
             }
             NetworkCommand::List => {
                 let networks = directory_manager
@@ -92,7 +101,7 @@ fn main() {
                 match docker_compose_manager.run_docker_compose(&cmd.network_id, &["up", "-d"]) {
                     Ok(_) => {}
                     Err(e) => {
-                        println!(
+                        error!(
                             "Failed to start network with network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
@@ -104,7 +113,7 @@ fn main() {
                 match docker_compose_manager.run_docker_compose(&cmd.network_id, &["down"]) {
                     Ok(_) => {}
                     Err(e) => {
-                        println!(
+                        error!(
                             "Failed to stop network with network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
@@ -114,21 +123,21 @@ fn main() {
         },
         Command::Node(node_cmd) => match node_cmd {
             NodeCommand::Start(cmd) => {
-                println!(
+                info!(
                     "Node start command with node_id {}, network_id {}.",
                     cmd.node_id(),
                     cmd.network_id()
                 );
             }
             NodeCommand::Stop(cmd) => {
-                println!(
+                info!(
                     "Node stop command with node_id {}, network_id {}.",
                     cmd.node_id(),
                     cmd.network_id()
                 );
             }
             NodeCommand::Logs(cmd) => {
-                println!(
+                info!(
                     "Node logs command with node_id {}, network_id {}.",
                     cmd.node_id(),
                     cmd.network_id()

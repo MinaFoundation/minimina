@@ -29,6 +29,11 @@ impl DirectoryManager {
         network_path
     }
 
+    pub fn network_path_exists(&self, network_id: &str) -> bool {
+        let network_path = self.network_path(network_id);
+        network_path.exists()
+    }
+
     pub fn create_network_directory(&self, network_id: &str) -> std::io::Result<()> {
         let network_path = self.network_path(network_id);
         std::fs::create_dir_all(network_path)
