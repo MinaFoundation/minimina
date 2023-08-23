@@ -46,10 +46,10 @@ pub struct NetworkId {
 #[derive(Args)]
 pub struct CreateNetworkArgs {
     #[clap(short = 't', long)]
-    pub topology: std::path::PathBuf,
+    pub topology: Option<std::path::PathBuf>,
 
     #[clap(short = 'g', long)]
-    pub genesis_ledger: std::path::PathBuf,
+    pub genesis_ledger: Option<std::path::PathBuf>,
 
     #[clap(flatten)]
     pub network_id: NetworkId,
@@ -120,10 +120,13 @@ mod tests {
 
         match cli.command {
             Command::Network(NetworkCommand::Create(args)) => {
-                assert_eq!(args.topology, std::path::PathBuf::from("/path/to/file"));
+                assert_eq!(
+                    args.topology,
+                    Some(std::path::PathBuf::from("/path/to/file"))
+                );
                 assert_eq!(
                     args.genesis_ledger,
-                    std::path::PathBuf::from("/path/to/dir")
+                    Some(std::path::PathBuf::from("/path/to/dir"))
                 );
                 assert_eq!(args.network_id(), "test");
             }

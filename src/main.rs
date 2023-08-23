@@ -28,19 +28,34 @@ fn main() {
 
                 directory_manager
                     .chmod_network_subdirectories(cmd.network_id(), &subdirectories, 0o700)
-                    .expect("Failed to chmod subdirectories");
+                    .expect("Failed to set permissions for subdirectories");
 
-                let docker_compose_generator = DockerComposeManager::new(directory_manager);
-                docker_compose_generator
-                    .generate_docker_compose(cmd.network_id(), &cmd.topology)
-                    .expect("Failed to generate docker-compose.yaml");
+                // pattern match on &cmd.topology
+                match &cmd.topology {
+                    Some(topology) => {
+                        println!(
+                            "Copying topology from '{}' to network directory.",
+                            topology.display()
+                        );
+                    }
+                    None => {
+                        //generate key-pairs for default topology
+                        //generate default topology
+                    }
+                }
 
-                println!(
-                    "Network '{}' created successfully using topology '{}' and genesis ledger '{}'.",
-                    cmd.network_id(),
-                    cmd.topology.display(),
-                    cmd.genesis_ledger.display()
-                );
+                // pattern match on &cmd.genesis_ledger
+                match &cmd.genesis_ledger {
+                    Some(genesis_ledger) => {
+                        println!(
+                            "Copying genesis ledger from '{}' to network directory.",
+                            genesis_ledger.display()
+                        );
+                    }
+                    None => {
+                        //generate default genesis ledger
+                    }
+                }
             }
             NetworkCommand::Delete(cmd) => {
                 match directory_manager.delete_network_directory(&cmd.network_id) {
