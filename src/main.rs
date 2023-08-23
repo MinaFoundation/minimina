@@ -29,14 +29,12 @@ fn main() {
                     .create_network_directory(cmd.network_id())
                     .expect("Failed to create network directory");
 
-                let subdirectories = ["block_producer_keys", "libp2p_keys", "nodes"];
-
                 directory_manager
-                    .create_subdirectories(cmd.network_id(), &subdirectories)
+                    .create_subdirectories(cmd.network_id())
                     .expect("Failed to create subdirectories");
 
                 directory_manager
-                    .chmod_network_subdirectories(cmd.network_id(), &subdirectories, 0o700)
+                    .chmod_network_subdirectories(cmd.network_id(), 0o700)
                     .expect("Failed to set permissions for subdirectories");
 
                 // pattern match on &cmd.topology

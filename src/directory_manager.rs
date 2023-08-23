@@ -4,29 +4,52 @@ use std::path::PathBuf;
 
 pub struct DirectoryManager {
     base_path: PathBuf,
+    subdirectories: [&'static str; 3],
 }
 
 impl DirectoryManager {
     pub fn new() -> Self {
         let mut base_path = home_dir().expect("Home directory not found");
         base_path.push(".minimina");
-
-        DirectoryManager { base_path }
+        DirectoryManager {
+            base_path,
+            subdirectories: Self::default_subdirectories(),
+        }
     }
 
     // for testing purposes
     pub fn _new_with_base_path(base_path: PathBuf) -> Self {
-        DirectoryManager { base_path }
+        DirectoryManager {
+            base_path,
+            subdirectories: Self::default_subdirectories(),
+        }
+    }
+
+    fn default_subdirectories() -> [&'static str; 3] {
+        ["block_producer_keys", "libp2p_keys", "nodes"]
     }
 
     pub fn _base_path(&self) -> &PathBuf {
         &self.base_path
     }
 
+    // return path to network directory
     pub fn network_path(&self, network_id: &str) -> PathBuf {
         let mut network_path = self.base_path.clone();
         network_path.push(network_id);
         network_path
+    }
+
+    // return paths to all subdirectories for given network
+    pub fn network_subdirectories_paths(&self, network_id: &str) -> Vec<PathBuf> {
+        let mut subdirectories_paths = vec![];
+        for subdirectory in &self.subdirectories {
+            let mut subdirectory_path = self.base_path.clone();
+            subdirectory_path.push(network_id);
+            subdirectory_path.push(subdirectory);
+            subdirectories_paths.push(subdirectory_path);
+        }
+        subdirectories_paths
     }
 
     pub fn network_path_exists(&self, network_id: &str) -> bool {
@@ -57,31 +80,16 @@ impl DirectoryManager {
         Ok(networks)
     }
 
-    pub fn create_subdirectories(
-        &self,
-        network_id: &str,
-        subdirectories: &[&str],
-    ) -> std::io::Result<()> {
-        for subdirectory in subdirectories {
-            let mut subdirectory_path = self.base_path.clone();
-            subdirectory_path.push(network_id);
-            subdirectory_path.push(subdirectory);
-            std::fs::create_dir_all(subdirectory_path)?;
+    pub fn create_subdirectories(&self, network_id: &str) -> std::io::Result<()> {
+        for subdirectory in Self::network_subdirectories_paths(&self, network_id) {
+            std::fs::create_dir_all(subdirectory)?;
         }
         Ok(())
     }
 
-    pub fn chmod_network_subdirectories(
-        &self,
-        network_id: &str,
-        subdirectories: &[&str],
-        mode: u32,
-    ) -> std::io::Result<()> {
-        for subdirectory in subdirectories {
-            let mut subdirectory_path = self.base_path.clone();
-            subdirectory_path.push(network_id);
-            subdirectory_path.push(subdirectory);
-            std::fs::set_permissions(subdirectory_path, std::fs::Permissions::from_mode(mode))?;
+    pub fn chmod_network_subdirectories(&self, network_id: &str, mode: u32) -> std::io::Result<()> {
+        for subdirectory in Self::network_subdirectories_paths(&self, network_id) {
+            std::fs::set_permissions(subdirectory, std::fs::Permissions::from_mode(mode))?;
         }
         Ok(())
     }
@@ -113,13 +121,11 @@ mod tests {
         let dir_manager =
             DirectoryManager::_new_with_base_path("/tmp/test_create_subdirectories-testing".into());
         let network_id = "test_network";
-        let subdirectories = ["subdir1", "subdir2"];
+        let subdirectories = ["block_producer_keys", "libp2p_keys", "nodes"];
 
         // Create the network and subdirectories
         dir_manager.create_network_directory(network_id).unwrap();
-        dir_manager
-            .create_subdirectories(network_id, &subdirectories)
-            .unwrap();
+        dir_manager.create_subdirectories(network_id).unwrap();
 
         for subdir in &subdirectories {
             let mut subdir_path = dir_manager._base_path().clone();
@@ -162,16 +168,14 @@ mod tests {
             "/tmp/test_chmod_network_subdirectories-testing".into(),
         );
         let network_id = "test_network";
-        let subdirectories = ["subdir1", "subdir2"];
+        let subdirectories = ["block_producer_keys", "libp2p_keys", "nodes"];
 
         // Create the network and subdirectories
         dir_manager.create_network_directory(network_id).unwrap();
-        dir_manager
-            .create_subdirectories(network_id, &subdirectories)
-            .unwrap();
+        dir_manager.create_subdirectories(network_id).unwrap();
         // Set readonly permissions
         dir_manager
-            .chmod_network_subdirectories(network_id, &subdirectories, 0o444)
+            .chmod_network_subdirectories(network_id, 0o444)
             .unwrap();
 
         // Check that the subdirectories have readonly permissions
