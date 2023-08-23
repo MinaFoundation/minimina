@@ -23,7 +23,7 @@ We need to generate key pairs for our block producers `mina-bp-1` and `mina-bp-2
 Use the [generate_keys.sh](generate_keys.sh) helper script to produce necessary key pairs using the Docker image:
 
 ```bash
-$ ./docs/docker_compose_example/generate_keys.sh 
+$ ./docs/docker_compose_example/generate_keys.sh
 ----------------
 mina-bp-1 keys: 
 
@@ -54,7 +54,7 @@ Generate genesis ledger file ensuring that generated keys for block producers wi
 Use the [generate_ledger.sh](generate_ledger.sh) helper script to produce `genesis_ledger.json` file in `~/.minimina/default` directory:
 
 ```bash
-$ ./docs/docker_compose_example/generate_ledger.sh 
+$ ./docs/docker_compose_example/generate_ledger.sh
 Generated genesis ledger file in /home/piotr/.minimina/default/genesis_ledger.json including keys:
 Key 1: B62qmA6aWP4TLDG7TPqRoTm9yJNbqe46ZZftVYtRdSdRrh2BuccDm81
 Key 2: B62qqD5HUTos1Ezui8Z6YuGxAjm6WY94wqmgfYfpwGz7z8jBuwyAUvJ
@@ -62,7 +62,7 @@ Key 2: B62qqD5HUTos1Ezui8Z6YuGxAjm6WY94wqmgfYfpwGz7z8jBuwyAUvJ
 
 4. **Docker Compose Configuration**
 
-Copy [docker-compose-example.yaml](docker-compose-example.yaml) to `~/.minimina/default/docker-compose.yaml`. 
+Copy [docker-compose-example.yaml](docker-compose-example.yaml) to `~/.minimina/default/docker-compose.yaml`.
 
 ```bash
 cp docs/docker_compose_example/docker-compose-example.yaml ~/.minimina/default/docker-compose.yaml
