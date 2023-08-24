@@ -1,10 +1,11 @@
 mod cli;
 mod cmd;
+mod default_ledger_generator;
 mod directory_manager;
 mod docker_compose_manager;
 mod keys;
 
-use crate::keys::Keys;
+use crate::{default_ledger_generator::DefaultLedgerGenerator, keys::Keys};
 use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
 use directory_manager::DirectoryManager;
@@ -39,6 +40,8 @@ fn main() {
                     .set_subdirectories_permissions(cmd.network_id(), 0o700)
                     .expect("Failed to set permissions for subdirectories");
 
+                let network_path = directory_manager.network_path(cmd.network_id());
+
                 // pattern match on &cmd.topology
                 match &cmd.topology {
                     Some(topology) => {
@@ -65,19 +68,18 @@ fn main() {
                         info!("Genesis ledger not provided. Generating default genesis ledger.");
                         //generate key-pairs for default topology
                         let block_producers = vec!["mina-bp-1", "mina-bp-2"];
-                        let keys = Keys::new(directory_manager);
-                        let bp_key_pairs = keys
-                            .generate_bp_key_pairs(cmd.network_id(), &block_producers)
+                        let bp_keys = Keys::generate_bp_key_pairs(&network_path, &block_producers)
                             .expect("Failed to generate key pairs for block producers.");
 
-                        let libp2p_keys = keys
-                            .generate_libp2p_key_pairs(cmd.network_id(), &block_producers)
-                            .expect("Failed to generate key pairs for block producers.");
-
-                        println!("{:?}", bp_key_pairs);
-                        println!("{:?}", libp2p_keys);
+                        let _libp2p_keys =
+                            Keys::generate_libp2p_key_pairs(&network_path, &block_producers)
+                                .expect("Failed to generate libp2p key pairs for block producers.");
 
                         //generate default genesis ledger
+                        match DefaultLedgerGenerator::generate(&network_path, bp_keys) {
+                            Ok(()) => info!("Successfully generated ledger!"),
+                            Err(e) => error!("Error generating ledger: {}", e),
+                        }
                     }
                 }
             }

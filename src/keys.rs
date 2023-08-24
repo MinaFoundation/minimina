@@ -1,25 +1,18 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use log::info;
 
-use crate::{cmd::run_command, directory_manager::DirectoryManager};
+use crate::cmd::run_command;
 
-pub struct Keys {
-    pub directory_manager: DirectoryManager,
-}
+pub struct Keys;
 
 impl Keys {
-    pub fn new(directory_manager: DirectoryManager) -> Self {
-        Self { directory_manager }
-    }
-
     // generate bp key pair for single service
     pub fn generate_bp_key_pair(
-        &self,
-        network_id: &str,
+        network_path: &Path,
         service_name: &str,
     ) -> std::io::Result<String> {
-        let mut bp_dir = self.directory_manager.network_path(network_id);
+        let mut bp_dir = network_path.to_path_buf();
         bp_dir.push("block_producer_keys");
 
         info!(
@@ -70,26 +63,24 @@ impl Keys {
     }
 
     // generate bp key pairs for multiple services
-    pub fn generate_bp_key_pairs<'a>(
-        &self,
-        network_id: &str,
-        service_names: &'a [&'a str],
-    ) -> std::io::Result<HashMap<&'a str, String>> {
+    pub fn generate_bp_key_pairs(
+        network_path: &Path,
+        service_names: &[&str],
+    ) -> std::io::Result<HashMap<String, String>> {
         let mut public_keys = HashMap::new();
         for &service_name in service_names {
-            let public_key = self.generate_bp_key_pair(network_id, service_name)?;
-            public_keys.insert(service_name, public_key);
+            let public_key = Self::generate_bp_key_pair(network_path, service_name)?;
+            public_keys.insert(service_name.to_string(), public_key);
         }
         Ok(public_keys)
     }
 
     // generate libp2p key pair for single service
     pub fn generate_libp2p_key_pair(
-        &self,
-        network_id: &str,
+        network_path: &Path,
         service_name: &str,
     ) -> std::io::Result<String> {
-        let mut libp2p_dir = self.directory_manager.network_path(network_id);
+        let mut libp2p_dir = network_path.to_path_buf();
         libp2p_dir.push("libp2p_keys");
 
         info!(
@@ -125,15 +116,14 @@ impl Keys {
     }
 
     // generate libp2p key pairs for multiple services
-    pub fn generate_libp2p_key_pairs<'a>(
-        &self,
-        network_id: &str,
-        service_names: &'a [&'a str],
-    ) -> std::io::Result<HashMap<&'a str, String>> {
+    pub fn generate_libp2p_key_pairs(
+        network_path: &Path,
+        service_names: &[&str],
+    ) -> std::io::Result<HashMap<String, String>> {
         let mut keypairs = HashMap::new();
         for &service_name in service_names {
-            let keypair = self.generate_libp2p_key_pair(network_id, service_name)?;
-            keypairs.insert(service_name, keypair);
+            let keypair = Self::generate_libp2p_key_pair(network_path, service_name)?;
+            keypairs.insert(service_name.to_string(), keypair);
         }
         Ok(keypairs)
     }
