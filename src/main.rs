@@ -2,14 +2,14 @@ mod cli;
 mod cmd;
 mod default_ledger_generator;
 mod directory_manager;
-mod docker_compose_manager;
+mod docker_compose;
 mod keys;
 
 use crate::{default_ledger_generator::DefaultLedgerGenerator, keys::Keys};
 use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
 use directory_manager::DirectoryManager;
-use docker_compose_manager::DockerComposeManager;
+use docker_compose::DockerCompose;
 use env_logger::{Builder, Env};
 use log::{error, info, warn};
 
@@ -52,7 +52,16 @@ fn main() {
                     }
                     None => {
                         info!("Topology not provided. Generating default topology.");
-                        //generate default docker compose file
+                        let docker_compose_manager = DockerCompose::new(&network_path);
+                        match docker_compose_manager._generate_docker_compose() {
+                            Ok(_) => {
+                                info!("Successfully generated docker-compose.yaml!");
+                            }
+                            Err(e) => {
+                                error!("Failed to generate docker-compose.yaml with error = {}", e);
+                                return;
+                            }
+                        }
                     }
                 }
 
@@ -114,8 +123,9 @@ fn main() {
                 }
             }
             NetworkCommand::Start(cmd) => {
-                let docker_compose_manager = DockerComposeManager::new(directory_manager);
-                match docker_compose_manager.run_docker_compose(&cmd.network_id, &["up", "-d"]) {
+                let network_path = directory_manager.network_path(&cmd.network_id);
+                let docker_compose_manager = DockerCompose::new(&network_path);
+                match docker_compose_manager.run_docker_compose(&["up", "-d"]) {
                     Ok(_) => {}
                     Err(e) => {
                         error!(
@@ -126,8 +136,9 @@ fn main() {
                 }
             }
             NetworkCommand::Stop(cmd) => {
-                let docker_compose_manager = DockerComposeManager::new(directory_manager);
-                match docker_compose_manager.run_docker_compose(&cmd.network_id, &["down"]) {
+                let network_path = directory_manager.network_path(&cmd.network_id);
+                let docker_compose_manager = DockerCompose::new(&network_path);
+                match docker_compose_manager.run_docker_compose(&["down"]) {
                     Ok(_) => {}
                     Err(e) => {
                         error!(
