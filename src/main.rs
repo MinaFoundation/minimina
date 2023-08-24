@@ -28,21 +28,20 @@ fn main() {
                     );
                 }
                 info!("Creating network with network-id '{}'.", cmd.network_id());
-                directory_manager
-                    .create_network_directory(cmd.network_id())
-                    .expect("Failed to create network directory");
+                // create directory structure for network
+                let network_path = match directory_manager.generate_dir_structure(cmd.network_id())
+                {
+                    Ok(np) => np,
+                    Err(e) => {
+                        error!(
+                            "Failed to set up network directory structure for network_id '{}' with error = {}",
+                            cmd.network_id(), e
+                        );
+                        return;
+                    }
+                };
 
-                directory_manager
-                    .create_subdirectories(cmd.network_id())
-                    .expect("Failed to create subdirectories");
-
-                directory_manager
-                    .set_subdirectories_permissions(cmd.network_id(), 0o700)
-                    .expect("Failed to set permissions for subdirectories");
-
-                let network_path = directory_manager.network_path(cmd.network_id());
-
-                // pattern match on &cmd.topology
+                // generate docker-compose.yaml
                 match &cmd.topology {
                     Some(topology) => {
                         info!(
@@ -65,7 +64,7 @@ fn main() {
                     }
                 }
 
-                // pattern match on &cmd.genesis_ledger
+                // generate genesis ledger
                 match &cmd.genesis_ledger {
                     Some(genesis_ledger) => {
                         info!(

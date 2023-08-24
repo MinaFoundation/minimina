@@ -38,8 +38,7 @@ impl DockerCompose {
         let base_args = &[
             "compose",
             "-f",
-            &self
-                .docker_compose_path
+            self.docker_compose_path
                 .to_str()
                 .expect("Failed to convert file path to str"),
             "-p",

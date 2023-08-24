@@ -1,4 +1,5 @@
 use dirs::home_dir;
+use log::info;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
@@ -41,8 +42,20 @@ impl DirectoryManager {
         ["block_producer_keys", "libp2p_keys", "nodes"]
     }
 
+    pub fn generate_dir_structure(&self, network_id: &str) -> std::io::Result<PathBuf> {
+        info!(
+            "Creating directory structure for network-id '{}'",
+            network_id
+        );
+        self.create_network_directory(network_id)?;
+        self.create_subdirectories(network_id)?;
+        self.set_subdirectories_permissions(network_id, 0o700)?;
+        let np = self.network_path(network_id);
+        Ok(np)
+    }
+
     // return paths to all subdirectories for given network
-    pub fn subdirectories_paths(&self, network_id: &str) -> Vec<PathBuf> {
+    fn subdirectories_paths(&self, network_id: &str) -> Vec<PathBuf> {
         let mut subdirectories_paths = vec![];
         for subdirectory in &self.subdirectories {
             let mut subdirectory_path = self.base_path.clone();
@@ -81,18 +94,14 @@ impl DirectoryManager {
         Ok(networks)
     }
 
-    pub fn create_subdirectories(&self, network_id: &str) -> std::io::Result<()> {
+    fn create_subdirectories(&self, network_id: &str) -> std::io::Result<()> {
         for subdirectory in self.subdirectories_paths(network_id) {
             std::fs::create_dir_all(subdirectory)?;
         }
         Ok(())
     }
 
-    pub fn set_subdirectories_permissions(
-        &self,
-        network_id: &str,
-        mode: u32,
-    ) -> std::io::Result<()> {
+    fn set_subdirectories_permissions(&self, network_id: &str, mode: u32) -> std::io::Result<()> {
         for subdirectory in self.subdirectories_paths(network_id) {
             std::fs::set_permissions(subdirectory, std::fs::Permissions::from_mode(mode))?;
         }
