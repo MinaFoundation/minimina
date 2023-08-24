@@ -2,7 +2,9 @@ mod cli;
 mod cmd;
 mod directory_manager;
 mod docker_compose_manager;
+mod keys;
 
+use crate::keys::Keys;
 use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
 use directory_manager::DirectoryManager;
@@ -46,8 +48,8 @@ fn main() {
                         );
                     }
                     None => {
-                        //generate key-pairs for default topology
-                        //generate default topology
+                        info!("Topology not provided. Generating default topology.");
+                        //generate default docker compose file
                     }
                 }
 
@@ -60,6 +62,21 @@ fn main() {
                         );
                     }
                     None => {
+                        info!("Genesis ledger not provided. Generating default genesis ledger.");
+                        //generate key-pairs for default topology
+                        let block_producers = vec!["mina-bp-1", "mina-bp-2"];
+                        let keys = Keys::new(directory_manager);
+                        let bp_key_pairs = keys
+                            .generate_bp_key_pairs(cmd.network_id(), &block_producers)
+                            .expect("Failed to generate key pairs for block producers.");
+
+                        let libp2p_keys = keys
+                            .generate_libp2p_key_pairs(cmd.network_id(), &block_producers)
+                            .expect("Failed to generate key pairs for block producers.");
+
+                        println!("{:?}", bp_key_pairs);
+                        println!("{:?}", libp2p_keys);
+
                         //generate default genesis ledger
                     }
                 }

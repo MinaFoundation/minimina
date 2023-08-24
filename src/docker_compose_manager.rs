@@ -16,7 +16,7 @@ impl DockerComposeManager {
         DockerComposeManager { directory_manager }
     }
 
-    pub fn generate_docker_compose(
+    pub fn _generate_docker_compose(
         &self,
         network_id: &str,
         _topology: &Path,
@@ -82,7 +82,7 @@ mod tests {
         let generator = DockerComposeManager::new(dir_manager);
         let topology = std::path::PathBuf::from("path/to/topology");
         generator
-            .generate_docker_compose(network_id, &topology)
+            ._generate_docker_compose(network_id, &topology)
             .unwrap();
 
         // Check that the file was created and has the correct contents

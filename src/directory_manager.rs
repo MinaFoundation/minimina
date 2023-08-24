@@ -82,7 +82,7 @@ impl DirectoryManager {
     }
 
     pub fn create_subdirectories(&self, network_id: &str) -> std::io::Result<()> {
-        for subdirectory in Self::subdirectories_paths(&self, network_id) {
+        for subdirectory in self.subdirectories_paths(network_id) {
             std::fs::create_dir_all(subdirectory)?;
         }
         Ok(())
@@ -93,7 +93,7 @@ impl DirectoryManager {
         network_id: &str,
         mode: u32,
     ) -> std::io::Result<()> {
-        for subdirectory in Self::subdirectories_paths(&self, network_id) {
+        for subdirectory in self.subdirectories_paths(network_id) {
             std::fs::set_permissions(subdirectory, std::fs::Permissions::from_mode(mode))?;
         }
         Ok(())
@@ -189,7 +189,7 @@ mod tests {
             subdir_path.push(network_id);
             subdir_path.push(subdir);
             let metadata = std::fs::metadata(subdir_path).unwrap();
-            assert_eq!(metadata.permissions().readonly(), true);
+            assert!(metadata.permissions().readonly());
         }
 
         // Clean up
