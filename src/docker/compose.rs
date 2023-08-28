@@ -19,12 +19,18 @@ pub struct ServiceConfig {
     pub service_type: ServiceType,
     pub service_name: String,
     pub docker_image: String,
-    pub client_port: u16,
+    pub client_port: Option<u16>,
     pub public_key: Option<String>,
     pub public_key_path: Option<String>,
     pub libp2p_keypair: Option<String>,
     pub peers: Option<Vec<String>>,
-    pub snark_worker_fees: Option<String>,
+
+    //snark coordinator specific
+    pub snark_coordinator_port: Option<u16>,
+    pub snark_coordinator_fees: Option<String>,
+
+    //snark worker specific
+    pub snark_worker_proof_level: Option<String>,
 }
 
 impl ServiceConfig {
@@ -39,7 +45,7 @@ impl ServiceConfig {
 
     // generate base daemon command common for most mina services
     fn generate_base_command(&self) -> Vec<String> {
-        let client_port = self.client_port;
+        let client_port = self.client_port.unwrap_or(3100);
         let rest_port = client_port + 1;
         let external_port = rest_port + 1;
         let metrics_port = external_port + 1;
@@ -132,6 +138,7 @@ impl ServiceConfig {
         base_command.join(" ")
     }
 
+    // generate command for snark coordinator node
     fn generate_snark_coordinator_command(&self) -> String {
         assert_eq!(self.service_type, ServiceType::SnarkCoordinator);
 
@@ -140,7 +147,19 @@ impl ServiceConfig {
         base_command.push("-work-selection".to_string());
         base_command.push("seq".to_string());
 
-        if let Some(snark_worker_fees) = &self.snark_worker_fees {
+        if let Some(peers) = &self.peers {
+            for peer in peers.iter() {
+                base_command.push("-peer".to_string());
+                base_command.push(peer.clone());
+            }
+        } else {
+            warn!(
+                "No peers provided for snark coordinator node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
+
+        if let Some(snark_worker_fees) = &self.snark_coordinator_fees {
             base_command.push("-snark-worker-fee".to_string());
             base_command.push(snark_worker_fees.clone());
         } else {
@@ -166,6 +185,48 @@ impl ServiceConfig {
         } else {
             warn!(
                 "No libp2p keypair provided for snark coordinator node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
+
+        base_command.join(" ")
+    }
+
+    fn generate_snark_worker_command(&self) -> String {
+        // implement this command:
+        //
+        // internal snark-worker
+        // -proof-level none
+        // -shutdown-on-disconnect false
+        // -daemon-address localhost:7000
+        // -config-directory /local-network/nodes/snark_workers/mina-snark-worker-1
+
+        assert_eq!(self.service_type, ServiceType::SnarkWorker);
+        let mut base_command = vec![
+            "internal".to_string(),
+            "snark-worker".to_string(),
+            "-shutdown-on-disconnect".to_string(),
+            "false".to_string(),
+            "-config-directory".to_string(),
+            format!("/local-network/nodes/{}", self.service_name),
+        ];
+
+        if let Some(snark_coordinator_port) = &self.snark_coordinator_port {
+            base_command.push("-daemon-address".to_string());
+            base_command.push(format!("localhost:{}", snark_coordinator_port));
+        } else {
+            warn!(
+                "No snark coordinator port provided for snark worker node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
+
+        if let Some(proof_level) = &self.snark_worker_proof_level {
+            base_command.push("-proof-level".to_string());
+            base_command.push(proof_level.clone());
+        } else {
+            warn!(
+                "No proof level provided for snark worker node '{}'. This is not recommended.",
                 self.service_name
             );
         }
@@ -242,6 +303,7 @@ impl DockerCompose {
                         ServiceType::SnarkCoordinator => {
                             config.generate_snark_coordinator_command()
                         }
+                        ServiceType::SnarkWorker => config.generate_snark_worker_command(),
                         _ => String::new(),
                     },
                 };

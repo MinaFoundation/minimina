@@ -118,12 +118,14 @@ fn main() {
                                 service_type: ServiceType::Seed,
                                 service_name: seed_name.into(),
                                 docker_image: docker_image.into(),
-                                client_port: 3100,
+                                client_port: Some(3100),
                                 public_key: None,
                                 public_key_path: None,
                                 libp2p_keypair: Some(libp2p_keys[seed_name].key_string.clone()),
                                 peers: None,
-                                snark_worker_fees: None,
+                                snark_coordinator_fees: None,
+                                snark_coordinator_port: None,
+                                snark_worker_proof_level: None,
                             };
                             let peers = ServiceConfig::generate_peers(
                                 [libp2p_keys[seed_name].key_string.clone()].to_vec(),
@@ -135,14 +137,16 @@ fn main() {
                                 service_type: ServiceType::BlockProducer,
                                 service_name: bp_1_name.into(),
                                 docker_image: docker_image.into(),
-                                client_port: 4000,
+                                client_port: Some(4000),
                                 public_key: None,
                                 public_key_path: Some(bp_keys[bp_1_name].key_path_docker.clone()),
                                 libp2p_keypair: Some(
                                     libp2p_keys[bp_1_name].key_path_docker.clone(),
                                 ),
                                 peers: Some(peers.clone()),
-                                snark_worker_fees: None,
+                                snark_coordinator_fees: None,
+                                snark_coordinator_port: None,
+                                snark_worker_proof_level: None,
                             };
 
                             let bp_2_name = "mina-bp-2";
@@ -150,14 +154,16 @@ fn main() {
                                 service_type: ServiceType::BlockProducer,
                                 service_name: bp_2_name.into(),
                                 docker_image: docker_image.into(),
-                                client_port: 4005,
+                                client_port: Some(4005),
                                 public_key: None,
                                 public_key_path: Some(bp_keys[bp_2_name].key_path_docker.clone()),
                                 libp2p_keypair: Some(
                                     libp2p_keys[bp_2_name].key_path_docker.clone(),
                                 ),
                                 peers: Some(peers.clone()),
-                                snark_worker_fees: None,
+                                snark_coordinator_fees: None,
+                                snark_coordinator_port: None,
+                                snark_worker_proof_level: None,
                             };
 
                             let snark_coordinator_name = "mina-snark-coordinator";
@@ -165,7 +171,7 @@ fn main() {
                                 service_type: ServiceType::SnarkCoordinator,
                                 service_name: snark_coordinator_name.into(),
                                 docker_image: docker_image.into(),
-                                client_port: 7000,
+                                client_port: Some(7000),
                                 public_key: Some(
                                     bp_keys[snark_coordinator_name].key_string.clone(),
                                 ),
@@ -174,10 +180,27 @@ fn main() {
                                     libp2p_keys[snark_coordinator_name].key_path_docker.clone(),
                                 ),
                                 peers: Some(peers.clone()),
-                                snark_worker_fees: Some("0.001".into()),
+                                snark_coordinator_fees: Some("0.001".into()),
+                                snark_coordinator_port: None,
+                                snark_worker_proof_level: None,
+                            };
+                            let snark_worker_1_name = "mina-snark-worker-1";
+                            let snark_worker_1 = ServiceConfig {
+                                service_type: ServiceType::SnarkWorker,
+                                service_name: snark_worker_1_name.into(),
+                                docker_image: docker_image.into(),
+                                client_port: None,
+                                public_key: None,
+                                public_key_path: None,
+                                libp2p_keypair: None,
+                                peers: None,
+                                snark_coordinator_fees: None,
+                                snark_coordinator_port: Some(7000),
+                                snark_worker_proof_level: Some("none".into()),
                             };
 
-                            let services = vec![seed, bp_1, bp_2, snark_coordinator];
+                            let services =
+                                vec![seed, bp_1, bp_2, snark_coordinator, snark_worker_1];
 
                             match docker_manager.compose_generate_file(services) {
                                 Ok(()) => info!("Successfully generated docker-compose.yaml!"),
