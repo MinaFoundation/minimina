@@ -9,7 +9,7 @@ use crate::cmd::run_command;
 
 #[derive(Debug)]
 pub struct ServiceKeys {
-    pub key: String,
+    pub key_string: String,
     pub key_path_docker: String,
 }
 
@@ -70,7 +70,7 @@ impl KeysManager {
             .to_string();
 
         let keys = ServiceKeys {
-            key: public_key,
+            key_string: public_key,
             key_path_docker: pkey_path,
         };
         debug!("Generated keypair: {:?}", keys);
@@ -120,7 +120,7 @@ impl KeysManager {
         let stdout_str = String::from_utf8_lossy(&output.stdout);
         let keypair = stdout_str.replace("libp2p keypair:", "").trim().to_string();
         let keys = ServiceKeys {
-            key: keypair,
+            key_string: keypair,
             key_path_docker: pkey_path,
         };
         debug!("Generated keypair: {:?}", keys);

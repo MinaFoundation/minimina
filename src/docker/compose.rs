@@ -19,70 +19,158 @@ pub struct ServiceConfig {
     pub service_type: ServiceType,
     pub service_name: String,
     pub docker_image: String,
+    pub client_port: u16,
     pub public_key: Option<String>,
     pub public_key_path: Option<String>,
     pub libp2p_keypair: Option<String>,
     pub peers: Option<Vec<String>>,
-    pub client_port: Option<u16>,
+    pub snark_worker_fees: Option<String>,
 }
 
 impl ServiceConfig {
-    fn generate_seed_command(&self) -> String {
-        assert_eq!(self.service_type, ServiceType::Seed);
+    // helper function to generate peers list based on libp2p keypair list and external port
+    pub fn generate_peers(libp2p_keypairs: Vec<String>, external_port: u16) -> Vec<String> {
+        libp2p_keypairs
+            .into_iter()
+            .filter_map(|s| s.split(',').last().map(|s| s.to_string()))
+            .map(|last_key| format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", external_port, last_key))
+            .collect()
+    }
 
-        let client_port = self.client_port.unwrap_or(3100);
+    // generate base daemon command common for most mina services
+    fn generate_base_command(&self) -> Vec<String> {
+        let client_port = self.client_port;
         let rest_port = client_port + 1;
         let external_port = rest_port + 1;
         let metrics_port = external_port + 1;
         let libp2p_metrics_port = metrics_port + 1;
 
-        let client_port_str = client_port.to_string();
-        let rest_port_str = rest_port.to_string();
-        let external_port_str = external_port.to_string();
-        let metrics_port_str = metrics_port.to_string();
-        let libp2p_metric_port = libp2p_metrics_port.to_string();
-        let base_command = vec![
-            "daemon",
-            "-client-port",
-            &client_port_str,
-            "-rest-port",
-            &rest_port_str,
-            "-insecure-rest-server",
-            "-external-port",
-            &external_port_str,
-            "-metrics-port",
-            &metrics_port_str,
-            "-libp2p-metrics-port",
-            &libp2p_metric_port,
-            "-config-file",
-            "/local-network/genesis_ledger.json",
-            "-log-json",
-            "-log-level",
-            "Trace",
-            "-file-log-level",
-            "Trace",
-            "-seed",
-        ];
+        vec![
+            "daemon".to_string(),
+            "-client-port".to_string(),
+            client_port.to_string(),
+            "-rest-port".to_string(),
+            rest_port.to_string(),
+            "-insecure-rest-server".to_string(),
+            "-external-port".to_string(),
+            external_port.to_string(),
+            "-metrics-port".to_string(),
+            metrics_port.to_string(),
+            "-libp2p-metrics-port".to_string(),
+            libp2p_metrics_port.to_string(),
+            "-config-file".to_string(),
+            "/local-network/genesis_ledger.json".to_string(),
+            "-log-json".to_string(),
+            "-log-level".to_string(),
+            "Trace".to_string(),
+            "-file-log-level".to_string(),
+            "Trace".to_string(),
+            "-config-directory".to_string(),
+            format!("/local-network/nodes/{}", self.service_name),
+        ]
+    }
 
-        let libp2p_keypair = match &self.libp2p_keypair {
-            Some(libp2p_keypair) => {
-                let libp2p_keypair = format!("-libp2p-keypair {}", libp2p_keypair);
-                libp2p_keypair
+    // generate command for seed node
+    fn generate_seed_command(&self) -> String {
+        assert_eq!(self.service_type, ServiceType::Seed);
+
+        let mut base_command = self.generate_base_command();
+        base_command.push("-seed".to_string());
+
+        if let Some(libp2p_keypair) = &self.libp2p_keypair {
+            base_command.push("-libp2p-keypair".to_string());
+            base_command.push(libp2p_keypair.clone());
+        } else {
+            warn!(
+                "No libp2p keypair provided for seed node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
+
+        base_command.join(" ")
+    }
+
+    // generate command for block producer node
+    fn generate_block_producer_command(&self) -> String {
+        assert_eq!(self.service_type, ServiceType::BlockProducer);
+
+        let mut base_command = self.generate_base_command();
+
+        // Handling multiple peers
+        if let Some(ref peers) = self.peers {
+            for peer in peers.iter() {
+                base_command.push("-peer".to_string());
+                base_command.push(peer.clone());
             }
-            None => {
-                warn!("No libp2p keypair provided for seed node. This is not recommended.");
-                "".to_string()
-            }
-        };
+        } else {
+            warn!(
+                "No peers provided for block producer node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
 
-        let config_directory = format!(
-            "-config-directory /local-network/nodes/{}",
-            self.service_name
-        );
+        if let Some(public_key_path) = &self.public_key_path {
+            base_command.push("-block-producer-key".to_string());
+            base_command.push(public_key_path.clone());
+        } else {
+            warn!(
+                "No public key path provided for block producer node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
 
-        [base_command, vec![&libp2p_keypair, &config_directory]]
-            .concat()
-            .join(" ")
+        if let Some(libp2p_keypair) = &self.libp2p_keypair {
+            base_command.push("-libp2p-keypair".to_string());
+            base_command.push(libp2p_keypair.clone());
+        } else {
+            warn!(
+                "No libp2p keypair provided for block producer node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
+
+        base_command.join(" ")
+    }
+
+    fn generate_snark_coordinator_command(&self) -> String {
+        assert_eq!(self.service_type, ServiceType::SnarkCoordinator);
+
+        let mut base_command = self.generate_base_command();
+
+        base_command.push("-work-selection".to_string());
+        base_command.push("seq".to_string());
+
+        if let Some(snark_worker_fees) = &self.snark_worker_fees {
+            base_command.push("-snark-worker-fee".to_string());
+            base_command.push(snark_worker_fees.clone());
+        } else {
+            warn!(
+                "No snark worker fees provided for snark coordinator node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
+
+        if let Some(public_key) = &self.public_key {
+            base_command.push("-run-snark-coordinator".to_string());
+            base_command.push(public_key.clone());
+        } else {
+            warn!(
+                "No public key provided for snark coordinator node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
+
+        if let Some(libp2p_keypair) = &self.libp2p_keypair {
+            base_command.push("-libp2p-keypair".to_string());
+            base_command.push(libp2p_keypair.clone());
+        } else {
+            warn!(
+                "No libp2p keypair provided for snark coordinator node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
+
+        base_command.join(" ")
     }
 }
 
@@ -150,6 +238,10 @@ impl DockerCompose {
                     image: config.docker_image.to_string(),
                     command: match config.service_type {
                         ServiceType::Seed => config.generate_seed_command(),
+                        ServiceType::BlockProducer => config.generate_block_producer_command(),
+                        ServiceType::SnarkCoordinator => {
+                            config.generate_snark_coordinator_command()
+                        }
                         _ => String::new(),
                     },
                 };

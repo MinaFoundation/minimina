@@ -46,13 +46,13 @@ impl DefaultLedgerGenerator {
 
     pub fn generate(
         network_path: &Path,
-        bp_keys: HashMap<String, ServiceKeys>,
+        bp_keys: &HashMap<String, ServiceKeys>,
     ) -> std::io::Result<()> {
         info!("Generating default genesis ledger.");
         let accounts: Vec<Account> = bp_keys
-            .into_values()
+            .values()
             .map(|key_info| Account {
-                pk: key_info.key,
+                pk: key_info.key_string.clone(),
                 sk: None,
                 balance: "11550000.000000000",
                 delegate: None,
