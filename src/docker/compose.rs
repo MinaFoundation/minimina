@@ -1,8 +1,9 @@
-use log::warn;
+use log::{debug, warn};
 use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
 use serde_yaml;
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum ServiceType {
@@ -115,8 +116,8 @@ struct Defaults {
 
 #[derive(Serialize)]
 struct Environment {
-    MINA_PRIVKEY_PASS: &'static str,
-    MINA_LIBP2P_PASS: &'static str,
+    mina_privkey_pass: &'static str,
+    mina_libp2p_pass: &'static str,
 }
 
 #[derive(Serialize)]
@@ -136,7 +137,7 @@ where
 }
 
 impl DockerCompose {
-    pub fn generate(configs: Vec<ServiceConfig>, network_path: &PathBuf) -> String {
+    pub fn generate(configs: Vec<ServiceConfig>, network_path: &Path) -> String {
         let networt_path_string = network_path
             .to_str()
             .expect("Failed to convert network path to str");
@@ -163,15 +164,17 @@ impl DockerCompose {
                 entrypoint: vec!["mina"],
                 volumes: vec![format!("{}:/local-network", networt_path_string)],
                 environment: Environment {
-                    MINA_PRIVKEY_PASS: "naughty blue worm",
-                    MINA_LIBP2P_PASS: "naughty blue worm",
+                    mina_privkey_pass: "naughty blue worm",
+                    mina_libp2p_pass: "naughty blue worm",
                 },
             },
             services,
         };
 
         let yaml_output = serde_yaml::to_string(&compose).unwrap();
-        Self::post_process_yaml(yaml_output)
+        let generated_file = Self::post_process_yaml(yaml_output);
+        debug!("Generated docker-compose.yaml: {}", generated_file);
+        generated_file
     }
 
     // fix the format of the yaml output
@@ -181,5 +184,7 @@ impl DockerCompose {
             "x-defaults: &default-attributes",
         )
         .replace("<<: '*default-attributes'", "<<: *default-attributes")
+        .replace("mina_privkey_pass", "MINA_PRIVKEY_PASS")
+        .replace("mina_libp2p_pass", "MINA_LIBP2P_PASS")
     }
 }

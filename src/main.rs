@@ -106,7 +106,7 @@ fn main() {
                             docker_image: docker_image.into(),
                             public_key: None,
                             public_key_path: None,
-                            libp2p_keypair: None,
+                            libp2p_keypair: Some("CAES".into()),
                             peers: None,
                             client_port: Some(4000),
                         };

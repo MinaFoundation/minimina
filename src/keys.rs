@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use log::{debug, info};
 
@@ -16,7 +19,7 @@ pub struct KeysManager {
 }
 
 impl KeysManager {
-    pub fn new(network_path: &PathBuf, docker_image: &str) -> Self {
+    pub fn new(network_path: &Path, docker_image: &str) -> Self {
         KeysManager {
             network_path: network_path.to_path_buf(),
             docker_image: docker_image.to_string(),
