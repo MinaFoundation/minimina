@@ -2,14 +2,18 @@ mod cli;
 mod cmd;
 mod default_ledger_generator;
 mod directory_manager;
-mod docker_compose;
+mod docker;
 mod keys;
 
-use crate::{default_ledger_generator::DefaultLedgerGenerator, keys::Keys};
+use crate::{
+    default_ledger_generator::DefaultLedgerGenerator,
+    docker::compose::{ServiceConfig, ServiceType},
+    keys::KeysManager,
+};
 use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
 use directory_manager::DirectoryManager;
-use docker_compose::DockerCompose;
+use docker::manager::DockerManager;
 use env_logger::{Builder, Env};
 use log::{error, info, warn};
 
@@ -41,28 +45,11 @@ fn main() {
                     }
                 };
 
-                // generate docker-compose.yaml
-                match &cmd.topology {
-                    Some(topology) => {
-                        info!(
-                            "Copying topology from '{}' to network directory.",
-                            topology.display()
-                        );
-                    }
-                    None => {
-                        info!("Topology not provided. Generating default topology.");
-                        let docker_compose_manager = DockerCompose::new(&network_path);
-                        match docker_compose_manager._generate_docker_compose() {
-                            Ok(_) => {
-                                info!("Successfully generated docker-compose.yaml!");
-                            }
-                            Err(e) => {
-                                error!("Failed to generate docker-compose.yaml with error = {}", e);
-                                return;
-                            }
-                        }
-                    }
-                }
+                // hardcode docker image for now
+                let docker_image =
+                    "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley";
+
+                let docker_manager = DockerManager::new(&network_path);
 
                 // generate genesis ledger
                 match &cmd.genesis_ledger {
@@ -75,18 +62,59 @@ fn main() {
                     None => {
                         info!("Genesis ledger not provided. Generating default genesis ledger.");
                         //generate key-pairs for default topology
+                        let keys_manager = KeysManager::new(&network_path, docker_image);
                         let block_producers = vec!["mina-bp-1", "mina-bp-2"];
-                        let bp_keys = Keys::generate_bp_key_pairs(&network_path, &block_producers)
+                        let bp_keys = keys_manager
+                            .generate_bp_key_pairs(&block_producers)
                             .expect("Failed to generate key pairs for block producers.");
 
-                        let _libp2p_keys =
-                            Keys::generate_libp2p_key_pairs(&network_path, &block_producers)
-                                .expect("Failed to generate libp2p key pairs for block producers.");
+                        let _libp2p_keys = keys_manager
+                            .generate_libp2p_key_pairs(&block_producers)
+                            .expect("Failed to generate libp2p key pairs for block producers.");
 
                         //generate default genesis ledger
                         match DefaultLedgerGenerator::generate(&network_path, bp_keys) {
                             Ok(()) => info!("Successfully generated ledger!"),
                             Err(e) => error!("Error generating ledger: {}", e),
+                        }
+                    }
+                }
+
+                // generate docker-compose.yaml
+                match &cmd.topology {
+                    Some(topology) => {
+                        info!(
+                            "Generating docker-compose based on provided topology '{}'.",
+                            topology.display()
+                        );
+                    }
+                    None => {
+                        info!("Topology not provided. Generating docker-compose based on default topology.");
+                        let seed = ServiceConfig {
+                            service_type: ServiceType::Seed,
+                            service_name: "mina-seed-1".into(),
+                            docker_image: docker_image.into(),
+                            public_key: None,
+                            public_key_path: None,
+                            libp2p_keypair: Some("CAESQNf7ldToowe604aFXdZ76GqW/XVlDmnXmBT+otorvIekBmBaDWu/6ZwYkZzqfr+3IrEh6FLbHQ3VSmubV9I9Kpc=,CAESIAZgWg1rv+mcGJGc6n6/tyKxIehS2x0N1Uprm1fSPSqX,12D3KooWAFFq2yEQFFzhU5dt64AWqawRuomG9hL8rSmm5vxhAsgr".into()),
+                            peers: None,
+                            client_port: Some(3100),
+                        };
+                        let bp_1 = ServiceConfig {
+                            service_type: ServiceType::BlockProducer,
+                            service_name: "mina-bp-1".into(),
+                            docker_image: docker_image.into(),
+                            public_key: None,
+                            public_key_path: None,
+                            libp2p_keypair: None,
+                            peers: None,
+                            client_port: Some(4000),
+                        };
+                        let services = vec![seed, bp_1];
+
+                        match docker_manager.compose_generate_file(services) {
+                            Ok(()) => info!("Successfully generated docker-compose.yaml!"),
+                            Err(e) => error!("Error generating docker-compose.yaml: {}", e),
                         }
                     }
                 }
@@ -123,8 +151,8 @@ fn main() {
             }
             NetworkCommand::Start(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
-                let docker_compose_manager = DockerCompose::new(&network_path);
-                match docker_compose_manager.run_docker_compose(&["up", "-d"]) {
+                let docker_manager = DockerManager::new(&network_path);
+                match docker_manager.compose_up() {
                     Ok(_) => {}
                     Err(e) => {
                         error!(
@@ -136,8 +164,8 @@ fn main() {
             }
             NetworkCommand::Stop(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
-                let docker_compose_manager = DockerCompose::new(&network_path);
-                match docker_compose_manager.run_docker_compose(&["down"]) {
+                let docker_manager = DockerManager::new(&network_path);
+                match docker_manager.compose_down() {
                     Ok(_) => {}
                     Err(e) => {
                         error!(

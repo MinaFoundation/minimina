@@ -8,6 +8,8 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
+use crate::keys::ServiceKeys;
+
 #[derive(Serialize)]
 struct GenesisLedger {
     genesis: Genesis,
@@ -42,12 +44,15 @@ impl DefaultLedgerGenerator {
         datetime.format("%Y-%m-%dT%H:%M:%S%z").to_string()
     }
 
-    pub fn generate(network_path: &Path, bp_keys: HashMap<String, String>) -> std::io::Result<()> {
+    pub fn generate(
+        network_path: &Path,
+        bp_keys: HashMap<String, ServiceKeys>,
+    ) -> std::io::Result<()> {
         info!("Generating default genesis ledger.");
         let accounts: Vec<Account> = bp_keys
             .into_values()
-            .map(|public_key| Account {
-                pk: public_key,
+            .map(|key_info| Account {
+                pk: key_info.key,
                 sk: None,
                 balance: "11550000.000000000",
                 delegate: None,

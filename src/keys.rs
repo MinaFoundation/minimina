@@ -1,27 +1,34 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::PathBuf};
 
-use log::info;
+use log::{debug, info};
 
 use crate::cmd::run_command;
 
-pub struct Keys;
+#[derive(Debug)]
+pub struct ServiceKeys {
+    pub key: String,
+    pub key_path_docker: String,
+}
 
-impl Keys {
+pub struct KeysManager {
+    pub network_path: PathBuf,
+    pub docker_image: String,
+}
+
+impl KeysManager {
+    pub fn new(network_path: &PathBuf, docker_image: &str) -> Self {
+        KeysManager {
+            network_path: network_path.to_path_buf(),
+            docker_image: docker_image.to_string(),
+        }
+    }
     // generate bp key pair for single service
-    pub fn generate_bp_key_pair(
-        network_path: &Path,
-        service_name: &str,
-    ) -> std::io::Result<String> {
-        let mut bp_dir = network_path.to_path_buf();
-        bp_dir.push("block_producer_keys");
+    pub fn generate_bp_key_pair(&self, service_name: &str) -> std::io::Result<ServiceKeys> {
+        info!("Creating block producer keys for: {}", service_name);
 
-        info!(
-            "Creating block producer keys for: {:?}/{}",
-            bp_dir, service_name
-        );
-
-        let volume_path = format!("{}:/keys", bp_dir.to_str().unwrap());
-        let pkey_path = format!("/keys/{}", service_name);
+        let key_subdir = "block_producer_keys";
+        let volume_path = format!("{}:/local-network", self.network_path.to_str().unwrap());
+        let pkey_path = format!("/local-network/{}/{}", key_subdir, service_name);
         let args = vec![
             "run",
             "--rm",
@@ -31,7 +38,7 @@ impl Keys {
             "mina",
             "-v",
             &volume_path,
-            "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+            self.docker_image.as_str(),
             "advanced",
             "generate-keypair",
             "-privkey-path",
@@ -59,37 +66,34 @@ impl Keys {
             })?
             .to_string();
 
-        Ok(public_key)
+        let keys = ServiceKeys {
+            key: public_key,
+            key_path_docker: pkey_path,
+        };
+        debug!("Generated keypair: {:?}", keys);
+        Ok(keys)
     }
 
     // generate bp key pairs for multiple services
     pub fn generate_bp_key_pairs(
-        network_path: &Path,
+        &self,
         service_names: &[&str],
-    ) -> std::io::Result<HashMap<String, String>> {
+    ) -> std::io::Result<HashMap<String, ServiceKeys>> {
         let mut public_keys = HashMap::new();
         for &service_name in service_names {
-            let public_key = Self::generate_bp_key_pair(network_path, service_name)?;
+            let public_key = self.generate_bp_key_pair(service_name)?;
             public_keys.insert(service_name.to_string(), public_key);
         }
         Ok(public_keys)
     }
 
     // generate libp2p key pair for single service
-    pub fn generate_libp2p_key_pair(
-        network_path: &Path,
-        service_name: &str,
-    ) -> std::io::Result<String> {
-        let mut libp2p_dir = network_path.to_path_buf();
-        libp2p_dir.push("libp2p_keys");
+    pub fn generate_libp2p_key_pair(&self, service_name: &str) -> std::io::Result<ServiceKeys> {
+        info!("Creating libp2p keys for: {}", service_name);
 
-        info!(
-            "Creating libp2p keys for: {:?}/{}",
-            libp2p_dir, service_name
-        );
-
-        let volume_path = format!("{}:/keys", libp2p_dir.to_str().unwrap());
-        let pkey_path = format!("/keys/{}", service_name);
+        let key_subdir = "libp2p_keys";
+        let volume_path = format!("{}:/local-network", self.network_path.to_str().unwrap());
+        let pkey_path = format!("/local-network/{}/{}", key_subdir, service_name);
 
         let args = vec![
             "run",
@@ -100,7 +104,7 @@ impl Keys {
             "mina",
             "-v",
             &volume_path,
-            "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+            self.docker_image.as_str(),
             "libp2p",
             "generate-keypair",
             "-privkey-path",
@@ -112,17 +116,22 @@ impl Keys {
         // Extract the full keypair
         let stdout_str = String::from_utf8_lossy(&output.stdout);
         let keypair = stdout_str.replace("libp2p keypair:", "").trim().to_string();
-        Ok(keypair)
+        let keys = ServiceKeys {
+            key: keypair,
+            key_path_docker: pkey_path,
+        };
+        debug!("Generated keypair: {:?}", keys);
+        Ok(keys)
     }
 
     // generate libp2p key pairs for multiple services
     pub fn generate_libp2p_key_pairs(
-        network_path: &Path,
+        &self,
         service_names: &[&str],
-    ) -> std::io::Result<HashMap<String, String>> {
+    ) -> std::io::Result<HashMap<String, ServiceKeys>> {
         let mut keypairs = HashMap::new();
         for &service_name in service_names {
-            let keypair = Self::generate_libp2p_key_pair(network_path, service_name)?;
+            let keypair = self.generate_libp2p_key_pair(service_name)?;
             keypairs.insert(service_name.to_string(), keypair);
         }
         Ok(keypairs)
