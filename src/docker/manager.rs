@@ -35,7 +35,7 @@ impl DockerManager {
     }
 
     pub fn compose_down(&self) -> std::io::Result<()> {
-        self.run_docker_compose(&["down", "-d"])
+        self.run_docker_compose(&["down"])
     }
 
     fn run_docker_compose(&self, subcommands: &[&str]) -> std::io::Result<()> {
