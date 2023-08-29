@@ -4,13 +4,15 @@ mod default_ledger_generator;
 mod directory_manager;
 mod docker;
 mod keys;
+mod output;
+mod service;
 
 use std::collections::HashMap;
 
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
-    docker::compose::{ServiceConfig, ServiceType},
     keys::{KeysManager, ServiceKeys},
+    service::{ServiceConfig, ServiceType},
 };
 use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
@@ -202,7 +204,7 @@ fn main() {
                             let services =
                                 vec![seed, bp_1, bp_2, snark_coordinator, snark_worker_1];
 
-                            match docker_manager.compose_generate_file(services) {
+                            match docker_manager.compose_generate_file(services.clone()) {
                                 Ok(()) => info!("Successfully generated docker-compose.yaml!"),
                                 Err(e) => error!("Error generating docker-compose.yaml: {}", e),
                             }
@@ -212,6 +214,7 @@ fn main() {
                     }
                 }
             }
+
             NetworkCommand::Delete(cmd) => {
                 match directory_manager.delete_network_directory(&cmd.network_id) {
                     Ok(_) => {}

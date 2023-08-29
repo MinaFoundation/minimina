@@ -1,13 +1,20 @@
-/// This is the `manager` module for Docker operations.
-///
-/// It provides functionalities for starting, stopping the docker-compose as well as generating it to disk.
+//! # Docker Manager Module
+//!
+//! Provides an interface for managing Docker operations within the application.
+//! Specifically, it offers functionalities to:
+//! - Generate a `docker-compose.yaml` file from provided service configurations.
+//! - Start up services using the generated Docker Compose file.
+//! - Shut down active services.
+//! - Handle interactions with the Docker CLI.
+
 use std::path::{Path, PathBuf};
 
 use crate::cmd::run_command;
+use crate::service::ServiceConfig;
 use std::fs::File;
 use std::io::Write;
 
-use super::compose::{DockerCompose, ServiceConfig};
+use super::compose::DockerCompose;
 
 pub struct DockerManager {
     pub network_path: PathBuf,
