@@ -26,6 +26,41 @@ pub mod network {
         pub status: String,
     }
 
+    impl Status {
+        pub fn new(network_id: &str) -> Self {
+            Status {
+                network_id: network_id.to_string(),
+                status: "unknown".to_string(),
+            }
+        }
+
+        /// Parse the output of `docker compose ls` to get the status of the network
+        pub fn set_status_from_output(&self, output: &str) -> Option<Status> {
+            // Split the output into lines
+            let lines: Vec<&str> = output.lines().collect();
+
+            // Search for the line that starts with the given network_id
+            let data_line = lines
+                .iter()
+                .find(|&&line| line.trim().starts_with(&self.network_id))?;
+
+            let parts: Vec<&str> = data_line.trim().split_whitespace().collect();
+
+            // Make sure the line has enough parts to parse
+            if parts.len() < 3 {
+                return None;
+            }
+
+            // Extract the status from the line
+            let status = parts[1].to_string();
+
+            Some(Status {
+                network_id: self.network_id.to_string(),
+                status,
+            })
+        }
+    }
+
     #[derive(Debug, Serialize)]
     pub struct Delete {
         pub network_id: String,

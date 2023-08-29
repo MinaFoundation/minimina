@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
     keys::{KeysManager, ServiceKeys},
-    output::network,
+    output::network::{self},
     service::{ServiceConfig, ServiceType},
 };
 use clap::Parser;
@@ -20,7 +20,7 @@ use cli::{Cli, Command, NetworkCommand, NodeCommand};
 use directory_manager::DirectoryManager;
 use docker::manager::DockerManager;
 use env_logger::{Builder, Env};
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 
 fn main() {
     Builder::from_env(Env::default().default_filter_or("warn")).init();
@@ -229,6 +229,45 @@ fn main() {
                 }
             }
 
+            NetworkCommand::Status(cmd) => {
+                let network_path = directory_manager.network_path(&cmd.network_id);
+                let docker_manager = DockerManager::new(&network_path);
+                match docker_manager.compose_ls() {
+                    Ok(out) => {
+                        let output_str = String::from_utf8(out.stdout)
+                            .unwrap_or_else(|_| "Invalid UTF-8".to_string());
+                        let status = network::Status::new(&cmd.network_id);
+                        match status.set_status_from_output(&output_str) {
+                            Some(status) => {
+                                println!("{}", status);
+                            }
+                            None => {
+                                println!(
+                                    "{}",
+                                    network::Status {
+                                        network_id: cmd.network_id,
+                                        status: "not_running".to_string(),
+                                    }
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let error_message = format!(
+                            "Failed to get status for network with network_id '{}' with error = {}",
+                            cmd.network_id, e
+                        );
+                        error!("{}", error_message);
+                        println!(
+                            "{}",
+                            output::Error {
+                                message: error_message
+                            }
+                        )
+                    }
+                }
+            }
+
             NetworkCommand::Delete(cmd) => {
                 match directory_manager.delete_network_directory(&cmd.network_id) {
                     Ok(_) => {}
@@ -265,8 +304,7 @@ fn main() {
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker_manager = DockerManager::new(&network_path);
                 match docker_manager.compose_up() {
-                    Ok(out) => {
-                        debug!("docker-compose down output: {:?}", out);
+                    Ok(_) => {
                         println!(
                             "{}",
                             network::Start {
@@ -294,8 +332,7 @@ fn main() {
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker_manager = DockerManager::new(&network_path);
                 match docker_manager.compose_down() {
-                    Ok(out) => {
-                        debug!("docker-compose down output: {:?}", out);
+                    Ok(_) => {
                         println!(
                             "{}",
                             network::Stop {

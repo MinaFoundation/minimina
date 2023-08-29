@@ -31,6 +31,8 @@ pub enum NetworkCommand {
     Delete(NetworkId),
     /// List local networks
     List,
+    /// Get status of a local network
+    Status(NetworkId),
     /// Start a local network
     Start(NetworkId),
     /// Stop a local network

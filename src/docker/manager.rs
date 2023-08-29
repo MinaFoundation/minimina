@@ -46,6 +46,10 @@ impl DockerManager {
         self.run_docker_compose(&["down"])
     }
 
+    pub fn compose_ls(&self) -> std::io::Result<Output> {
+        self.run_docker_compose(&["ls"])
+    }
+
     fn run_docker_compose(&self, subcommands: &[&str]) -> std::io::Result<Output> {
         let network_id = self
             .network_path
