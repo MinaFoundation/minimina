@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
     keys::{KeysManager, ServiceKeys},
+    output::network,
     service::{ServiceConfig, ServiceType},
 };
 use clap::Parser;
@@ -19,7 +20,7 @@ use cli::{Cli, Command, NetworkCommand, NodeCommand};
 use directory_manager::DirectoryManager;
 use docker::manager::DockerManager;
 use env_logger::{Builder, Env};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 
 fn main() {
     Builder::from_env(Env::default().default_filter_or("warn")).init();
@@ -242,6 +243,7 @@ fn main() {
 
                 info!("Network '{}' deleted successfully.", cmd.network_id);
             }
+
             NetworkCommand::List => {
                 let networks = directory_manager
                     .list_network_directories()
@@ -258,29 +260,61 @@ fn main() {
                     println!("  {}", network);
                 }
             }
+
             NetworkCommand::Start(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker_manager = DockerManager::new(&network_path);
                 match docker_manager.compose_up() {
-                    Ok(_) => {}
+                    Ok(out) => {
+                        debug!("docker-compose down output: {:?}", out);
+                        println!(
+                            "{}",
+                            network::Start {
+                                network_id: cmd.network_id
+                            }
+                        )
+                    }
                     Err(e) => {
-                        error!(
+                        let error_message = format!(
                             "Failed to start network with network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
+                        error!("{}", error_message);
+                        println!(
+                            "{}",
+                            output::Error {
+                                message: error_message
+                            }
+                        )
                     }
                 }
             }
+
             NetworkCommand::Stop(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker_manager = DockerManager::new(&network_path);
                 match docker_manager.compose_down() {
-                    Ok(_) => {}
+                    Ok(out) => {
+                        debug!("docker-compose down output: {:?}", out);
+                        println!(
+                            "{}",
+                            network::Stop {
+                                network_id: cmd.network_id
+                            }
+                        )
+                    }
                     Err(e) => {
-                        error!(
+                        let error_message = format!(
                             "Failed to stop network with network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
+                        error!("{}", error_message);
+                        println!(
+                            "{}",
+                            output::Error {
+                                message: error_message
+                            }
+                        )
                     }
                 }
             }

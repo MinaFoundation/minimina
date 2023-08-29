@@ -8,6 +8,7 @@
 //! - Handle interactions with the Docker CLI.
 
 use std::path::{Path, PathBuf};
+use std::process::Output;
 
 use crate::cmd::run_command;
 use crate::service::ServiceConfig;
@@ -37,15 +38,15 @@ impl DockerManager {
         Ok(())
     }
 
-    pub fn compose_up(&self) -> std::io::Result<()> {
+    pub fn compose_up(&self) -> std::io::Result<Output> {
         self.run_docker_compose(&["up", "-d"])
     }
 
-    pub fn compose_down(&self) -> std::io::Result<()> {
+    pub fn compose_down(&self) -> std::io::Result<Output> {
         self.run_docker_compose(&["down"])
     }
 
-    fn run_docker_compose(&self, subcommands: &[&str]) -> std::io::Result<()> {
+    fn run_docker_compose(&self, subcommands: &[&str]) -> std::io::Result<Output> {
         let network_id = self
             .network_path
             .file_name()
@@ -66,9 +67,8 @@ impl DockerManager {
         let mut args: Vec<&str> = base_args.to_vec();
         args.extend_from_slice(subcommands);
 
-        let _ = run_command("docker", &args)?;
-
-        Ok(())
+        let out = run_command("docker", &args)?;
+        Ok(out)
     }
 }
 

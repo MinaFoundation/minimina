@@ -91,7 +91,7 @@ pub mod node {
 
 #[derive(Debug, serde::Serialize)]
 pub struct Error {
-    pub network_id: String,
+    pub message: String,
 }
 
 impl ServiceConfig {
@@ -143,3 +143,4 @@ impl_display!(node::ArchiveData);
 impl_display!(node::MinaLogs);
 impl_display!(node::PrecomputedBlocks);
 impl_display!(node::ReplayerLogs);
+impl_display!(Error);
