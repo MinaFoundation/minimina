@@ -22,7 +22,7 @@ use env_logger::{Builder, Env};
 use log::{error, info, warn};
 
 fn main() {
-    Builder::from_env(Env::default().default_filter_or("info")).init();
+    Builder::from_env(Env::default().default_filter_or("warn")).init();
     let cli: Cli = Cli::parse();
     let directory_manager = DirectoryManager::new();
 
@@ -96,19 +96,20 @@ fn main() {
                             &network_path,
                             bp_keys_opt.as_ref().unwrap(),
                         ) {
-                            Ok(()) => info!("Successfully generated ledger!"),
-                            Err(e) => error!("Error generating ledger: {}", e),
+                            Ok(()) => {}
+                            Err(e) => error!("Error generating default ledger: {}", e),
                         }
                     }
                 }
 
                 // generate docker-compose.yaml based on topology
-                match &cmd.topology {
+                let services = match &cmd.topology {
                     Some(topology) => {
                         info!(
                             "Generating docker-compose based on provided topology '{}'.",
                             topology.display()
                         );
+                        vec![]
                     }
                     None => {
                         info!("Topology not provided. Generating docker-compose based on default topology.");
@@ -208,10 +209,22 @@ fn main() {
                                 Ok(()) => info!("Successfully generated docker-compose.yaml!"),
                                 Err(e) => error!("Error generating docker-compose.yaml: {}", e),
                             }
+                            services
                         } else {
-                            error!("Failed to generate docker-compose.yaml. No block producer or libp2p keys found.");
+                            error!("Failed to generate docker-compose.yaml. Keys not generated.");
+                            return;
                         }
                     }
+                };
+
+                // generate command output
+                let result = output::generate_network_create(services.clone(), cmd.network_id());
+                println!("{}", result);
+                let json_data = format!("{}", result);
+                let json_path = network_path.join("network.json");
+                match std::fs::write(json_path, json_data) {
+                    Ok(()) => {}
+                    Err(e) => error!("Error generating network.json: {}", e),
                 }
             }
 
