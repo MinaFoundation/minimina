@@ -44,7 +44,7 @@ pub mod network {
                 .iter()
                 .find(|&&line| line.trim().starts_with(&self.network_id))?;
 
-            let parts: Vec<&str> = data_line.trim().split_whitespace().collect();
+            let parts: Vec<&str> = data_line.split_whitespace().collect();
 
             // Make sure the line has enough parts to parse
             if parts.len() < 3 {
