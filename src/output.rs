@@ -16,6 +16,37 @@ pub mod network {
     }
 
     #[derive(Debug, Serialize)]
+    pub struct ListInfo {
+        pub network_id: String,
+        pub config_dir: String,
+    }
+
+    #[derive(Debug, Serialize)]
+    pub struct List {
+        pub networks: Vec<ListInfo>,
+    }
+
+    impl List {
+        pub fn new() -> Self {
+            List { networks: vec![] }
+        }
+
+        pub fn update(&mut self, networks: Vec<String>, base_dir: &str) {
+            for network in networks {
+                let config_dir = format!("{}/{}", base_dir, network);
+                self.add_network(network, config_dir.as_str());
+            }
+        }
+
+        pub fn add_network(&mut self, network_id: String, config_dir: &str) {
+            self.networks.push(ListInfo {
+                network_id,
+                config_dir: config_dir.to_string(),
+            });
+        }
+    }
+
+    #[derive(Debug, Serialize)]
     pub struct Stop {
         pub network_id: String,
     }
@@ -176,6 +207,8 @@ impl_display!(network::Create);
 impl_display!(network::Start);
 impl_display!(network::Stop);
 impl_display!(network::Status);
+impl_display!(network::ListInfo);
+impl_display!(network::List);
 impl_display!(node::Start);
 impl_display!(node::Stop);
 impl_display!(node::ArchiveData);

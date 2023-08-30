@@ -250,12 +250,7 @@ fn main() {
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!(
-                            "{}",
-                            output::Error {
-                                error_message: error_message
-                            }
-                        )
+                        println!("{}", output::Error { error_message })
                     }
                 }
             }
@@ -289,12 +284,7 @@ fn main() {
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!(
-                            "{}",
-                            output::Error {
-                                error_message: error_message
-                            }
-                        )
+                        println!("{}", output::Error { error_message })
                     }
                 }
             }
@@ -303,10 +293,12 @@ fn main() {
                 match directory_manager.delete_network_directory(&cmd.network_id) {
                     Ok(_) => {}
                     Err(e) => {
-                        error!(
+                        let error_message = format!(
                             "Failed to delete network directory for network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
+                        error!("{}", error_message);
+                        println!("{}", output::Error { error_message });
                         return;
                     }
                 }
@@ -319,15 +311,15 @@ fn main() {
                     .list_network_directories()
                     .expect("Failed to list networks");
 
+                let mut list = network::List::new();
                 if networks.is_empty() {
-                    println!("No networks found.");
-                    return;
-                }
-
-                println!("Available networks:");
-
-                for network in networks {
-                    println!("  {}", network);
+                    println!("{}", list);
+                } else {
+                    list.update(
+                        networks,
+                        directory_manager.base_path.as_path().to_str().unwrap(),
+                    );
+                    println!("{}", list);
                 }
             }
 
@@ -349,12 +341,7 @@ fn main() {
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!(
-                            "{}",
-                            output::Error {
-                                error_message: error_message
-                            }
-                        )
+                        println!("{}", output::Error { error_message })
                     }
                 }
             }
@@ -377,12 +364,7 @@ fn main() {
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!(
-                            "{}",
-                            output::Error {
-                                error_message: error_message
-                            }
-                        )
+                        println!("{}", output::Error { error_message })
                     }
                 }
             }
