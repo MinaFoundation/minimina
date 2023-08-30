@@ -120,7 +120,7 @@ fn main() {
                             let seed_name = "mina-seed-1";
                             let seed = ServiceConfig {
                                 service_type: ServiceType::Seed,
-                                service_name: seed_name.into(),
+                                service_name: format!["{}-{}", &cmd.network_id(), seed_name],
                                 docker_image: docker_image.into(),
                                 client_port: Some(3100),
                                 public_key: None,
@@ -139,7 +139,7 @@ fn main() {
                             let bp_1_name = "mina-bp-1";
                             let bp_1 = ServiceConfig {
                                 service_type: ServiceType::BlockProducer,
-                                service_name: bp_1_name.into(),
+                                service_name: format!["{}-{}", &cmd.network_id(), bp_1_name],
                                 docker_image: docker_image.into(),
                                 client_port: Some(4000),
                                 public_key: None,
@@ -156,7 +156,7 @@ fn main() {
                             let bp_2_name = "mina-bp-2";
                             let bp_2 = ServiceConfig {
                                 service_type: ServiceType::BlockProducer,
-                                service_name: bp_2_name.into(),
+                                service_name: format!["{}-{}", &cmd.network_id(), bp_2_name],
                                 docker_image: docker_image.into(),
                                 client_port: Some(4005),
                                 public_key: None,
@@ -173,7 +173,11 @@ fn main() {
                             let snark_coordinator_name = "mina-snark-coordinator";
                             let snark_coordinator = ServiceConfig {
                                 service_type: ServiceType::SnarkCoordinator,
-                                service_name: snark_coordinator_name.into(),
+                                service_name: format![
+                                    "{}-{}",
+                                    &cmd.network_id(),
+                                    snark_coordinator_name
+                                ],
                                 docker_image: docker_image.into(),
                                 client_port: Some(7000),
                                 public_key: Some(
@@ -191,7 +195,11 @@ fn main() {
                             let snark_worker_1_name = "mina-snark-worker-1";
                             let snark_worker_1 = ServiceConfig {
                                 service_type: ServiceType::SnarkWorker,
-                                service_name: snark_worker_1_name.into(),
+                                service_name: format![
+                                    "{}-{}",
+                                    &cmd.network_id(),
+                                    snark_worker_1_name
+                                ],
                                 docker_image: docker_image.into(),
                                 client_port: None,
                                 public_key: None,
@@ -219,7 +227,7 @@ fn main() {
                 };
 
                 // generate command output
-                let result = output::generate_network_create(services.clone(), cmd.network_id());
+                let result = output::generate_network_info(services.clone(), cmd.network_id());
                 println!("{}", result);
                 let json_data = format!("{}", result);
                 let json_path = network_path.join("network.json");
