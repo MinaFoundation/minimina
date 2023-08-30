@@ -258,35 +258,48 @@ fn main() {
             NetworkCommand::Status(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker_manager = DockerManager::new(&network_path);
-                match docker_manager.compose_ls() {
-                    Ok(out) => {
-                        let output_str = String::from_utf8(out.stdout)
-                            .unwrap_or_else(|_| "Invalid UTF-8".to_string());
-                        let status = network::Status::new(&cmd.network_id);
-                        match status.set_status_from_output(&output_str) {
-                            Some(status) => {
-                                println!("{}", status);
-                            }
-                            None => {
-                                println!(
-                                    "{}",
-                                    network::Status {
-                                        network_id: cmd.network_id,
-                                        status: "not_running".to_string(),
-                                    }
-                                );
-                            }
-                        }
-                    }
+                let ls_out = match docker_manager.compose_ls() {
+                    Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get status for network with network_id '{}' with error = {}",
+                            "Failed to get status from docker compose ls for network with network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!("{}", output::Error { error_message })
+                        println!(
+                            "{}",
+                            output::Error {
+                                error_message: error_message.clone()
+                            }
+                        );
+                        return;
                     }
-                }
+                };
+
+                let ps_out = match docker_manager.compose_ps() {
+                    Ok(out) => out,
+                    Err(e) => {
+                        let error_message = format!(
+                            "Failed to get status from docker compose ps for network with network_id '{}' with error = {}",
+                            cmd.network_id, e
+                        );
+                        error!("{}", error_message);
+                        println!(
+                            "{}",
+                            output::Error {
+                                error_message: error_message.clone()
+                            }
+                        );
+                        return;
+                    }
+                };
+
+                let docker_compose_file_path = network_path.join("docker-compose.yaml");
+                let mut status = network::Status::new(&cmd.network_id);
+                status.update_from_compose_ls(ls_out, docker_compose_file_path.to_str().unwrap());
+                status.update_from_compose_ps(ps_out);
+
+                println!("{}", status);
             }
 
             NetworkCommand::Delete(cmd) => {
