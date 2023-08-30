@@ -253,7 +253,7 @@ fn main() {
                         println!(
                             "{}",
                             output::Error {
-                                message: error_message
+                                error_message: error_message
                             }
                         )
                     }
@@ -292,7 +292,7 @@ fn main() {
                         println!(
                             "{}",
                             output::Error {
-                                message: error_message
+                                error_message: error_message
                             }
                         )
                     }
@@ -352,7 +352,7 @@ fn main() {
                         println!(
                             "{}",
                             output::Error {
-                                message: error_message
+                                error_message: error_message
                             }
                         )
                     }
@@ -380,7 +380,7 @@ fn main() {
                         println!(
                             "{}",
                             output::Error {
-                                message: error_message
+                                error_message: error_message
                             }
                         )
                     }

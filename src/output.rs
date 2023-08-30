@@ -130,7 +130,7 @@ pub mod node {
 
 #[derive(Debug, serde::Serialize)]
 pub struct Error {
-    pub message: String,
+    pub error_message: String,
 }
 
 impl ServiceConfig {
