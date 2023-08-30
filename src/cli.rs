@@ -33,6 +33,8 @@ pub enum NetworkCommand {
     List,
     /// Get status of a local network
     Status(NetworkId),
+    /// Get details of a local network
+    Info(NetworkId),
     /// Start a local network
     Start(NetworkId),
     /// Stop a local network

@@ -237,6 +237,29 @@ fn main() {
                 }
             }
 
+            NetworkCommand::Info(cmd) => {
+                let network_path = directory_manager.network_path(&cmd.network_id);
+                let json_path = network_path.join("network.json");
+                match std::fs::read_to_string(json_path) {
+                    Ok(json_data) => {
+                        println!("{}", json_data);
+                    }
+                    Err(e) => {
+                        let error_message = format!(
+                            "Failed to get info for network with network_id '{}' with error = {}",
+                            cmd.network_id, e
+                        );
+                        error!("{}", error_message);
+                        println!(
+                            "{}",
+                            output::Error {
+                                message: error_message
+                            }
+                        )
+                    }
+                }
+            }
+
             NetworkCommand::Status(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker_manager = DockerManager::new(&network_path);
