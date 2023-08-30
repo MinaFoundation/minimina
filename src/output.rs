@@ -35,6 +35,10 @@ pub mod network {
         }
 
         /// Parse the output of `docker compose ls` to get the status of the network
+        /// Output:
+        /// NAME                STATUS              CONFIG FILES
+        /// default             running(5)          /home/piotr/.minimina/default/docker-compose.yaml
+        /// test5               running(1)          /home/piotr/.minimina/test5/docker-compose.yaml
         pub fn set_status_from_output(&self, output: &str) -> Option<Status> {
             // Split the output into lines
             let lines: Vec<&str> = output.lines().collect();
@@ -42,7 +46,7 @@ pub mod network {
             // Search for the line that starts with the given network_id
             let data_line = lines
                 .iter()
-                .find(|&&line| line.trim().starts_with(&self.network_id))?;
+                .find(|&&line| line.split_whitespace().next() == Some(&self.network_id))?;
 
             let parts: Vec<&str> = data_line.split_whitespace().collect();
 
@@ -136,7 +140,7 @@ impl ServiceConfig {
             client_port: self.client_port,
             graphql_uri: self
                 .client_port
-                .map(|port| format!("http://localhost:{}/graphql", port + 2)),
+                .map(|port| format!("http://localhost:{}/graphql", port + 1)),
             public_key: self.public_key.clone(),
             libp2p_keypair: self.libp2p_keypair.clone(),
             node_type: self.service_type.clone(),
@@ -144,7 +148,7 @@ impl ServiceConfig {
     }
 }
 
-pub fn generate_network_create(services: Vec<ServiceConfig>, network_id: &str) -> network::Create {
+pub fn generate_network_info(services: Vec<ServiceConfig>, network_id: &str) -> network::Create {
     let mut node_map: HashMap<String, node::Info> = HashMap::new();
     for (i, service) in services.iter().enumerate() {
         let node_name = format!("node{}", i);
