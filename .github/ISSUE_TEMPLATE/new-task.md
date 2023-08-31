@@ -1,6 +1,6 @@
 ---
-name: New Task
-about: Describe this issue template's purpose here.
+name: "\U0001F527 New task"
+about: Maintenance | Bug | New feature
 title: New Task
 labels: ''
 assignees: ''
