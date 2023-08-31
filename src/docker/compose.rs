@@ -3,7 +3,7 @@
 //! This module facilitates the generation contents of `docker-compose.yaml` for
 //! deploying various Mina services in a Docker environment.
 
-use log::debug;
+use log::{debug, error};
 use serde::ser::{SerializeStruct, Serializer};
 use serde::Serialize;
 use serde_yaml;
@@ -11,10 +11,11 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::service::{ServiceConfig, ServiceType};
+use crate::utils::get_current_user_uid_gid;
 
 #[derive(Serialize)]
 pub(crate) struct DockerCompose {
-    version: &'static str,
+    version: String,
     #[serde(
         rename = "x-defaults",
         serialize_with = "serialize_defaults_with_anchor"
@@ -34,16 +35,17 @@ where
 
 #[derive(Serialize)]
 struct Defaults {
-    network_mode: &'static str,
-    entrypoint: Vec<&'static str>,
+    network_mode: String,
+    user: String,
+    entrypoint: Vec<String>,
     volumes: Vec<String>,
     environment: Environment,
 }
 
 #[derive(Serialize)]
 struct Environment {
-    mina_privkey_pass: &'static str,
-    mina_libp2p_pass: &'static str,
+    mina_privkey_pass: String,
+    mina_libp2p_pass: String,
 }
 
 #[derive(Serialize)]
@@ -88,15 +90,23 @@ impl DockerCompose {
             })
             .collect();
 
+        let uid_gid = match get_current_user_uid_gid() {
+            Some(uid_gid) => uid_gid,
+            None => {
+                error!("Unable to retrieve UID and GID of current user");
+                String::new()
+            }
+        };
         let compose = DockerCompose {
-            version: "3.8",
+            version: "3.8".to_string(),
             x_defaults: Defaults {
-                network_mode: "host",
-                entrypoint: vec!["mina"],
+                network_mode: "host".to_string(),
+                user: uid_gid,
+                entrypoint: vec!["mina".to_string()],
                 volumes: vec![format!("{}:/local-network", networt_path_string)],
                 environment: Environment {
-                    mina_privkey_pass: "naughty blue worm",
-                    mina_libp2p_pass: "naughty blue worm",
+                    mina_privkey_pass: "naughty blue worm".to_string(),
+                    mina_libp2p_pass: "naughty blue worm".to_string(),
                 },
             },
             services,

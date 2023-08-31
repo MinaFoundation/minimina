@@ -12,8 +12,8 @@ use std::process::Output;
 
 use serde::{Deserialize, Serialize};
 
-use crate::cmd::run_command;
 use crate::service::ServiceConfig;
+use crate::utils::run_command;
 use std::fs::File;
 use std::io::Write;
 
@@ -125,6 +125,3 @@ impl DockerManager {
         Ok(out)
     }
 }
-
-#[cfg(test)]
-mod tests {}

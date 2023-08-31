@@ -5,7 +5,7 @@ use std::{
 
 use log::{debug, info};
 
-use crate::cmd::run_command;
+use crate::utils::{get_current_user_uid_gid, run_command};
 
 #[derive(Debug)]
 pub struct ServiceKeys {
@@ -28,6 +28,15 @@ impl KeysManager {
     // generate bp key pair for single service
     pub fn generate_bp_key_pair(&self, service_name: &str) -> std::io::Result<ServiceKeys> {
         info!("Creating block producer keys for: {}", service_name);
+        let uid_gid = match get_current_user_uid_gid() {
+            Some(uid_gid) => uid_gid,
+            None => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Unable to retrieve UID and GID of current user",
+                ))
+            }
+        };
 
         let key_subdir = "block_producer_keys";
         let volume_path = format!("{}:/local-network", self.network_path.to_str().unwrap());
@@ -35,6 +44,8 @@ impl KeysManager {
         let args = vec![
             "run",
             "--rm",
+            "--user",
+            uid_gid.as_str(),
             "--env",
             "MINA_PRIVKEY_PASS=naughty blue worm",
             "--entrypoint",
@@ -101,6 +112,8 @@ impl KeysManager {
         let args = vec![
             "run",
             "--rm",
+            // "--user",
+            // "1000:1000",
             "--env",
             "MINA_LIBP2P_PASS=naughty blue worm",
             "--entrypoint",

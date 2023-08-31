@@ -1,11 +1,11 @@
 mod cli;
-mod cmd;
 mod default_ledger_generator;
 mod directory_manager;
 mod docker;
 mod keys;
 mod output;
 mod service;
+mod utils;
 
 use std::collections::HashMap;
 
@@ -142,11 +142,9 @@ fn main() {
                                 service_name: format!["{}-{}", &cmd.network_id(), bp_1_name],
                                 docker_image: docker_image.into(),
                                 client_port: Some(4000),
-                                public_key: None,
+                                public_key: Some(bp_keys[bp_1_name].key_string.clone()),
                                 public_key_path: Some(bp_keys[bp_1_name].key_path_docker.clone()),
-                                libp2p_keypair: Some(
-                                    libp2p_keys[bp_1_name].key_path_docker.clone(),
-                                ),
+                                libp2p_keypair: Some(libp2p_keys[bp_1_name].key_string.clone()),
                                 peers: Some(peers.clone()),
                                 snark_coordinator_fees: None,
                                 snark_coordinator_port: None,
@@ -159,11 +157,9 @@ fn main() {
                                 service_name: format!["{}-{}", &cmd.network_id(), bp_2_name],
                                 docker_image: docker_image.into(),
                                 client_port: Some(4005),
-                                public_key: None,
+                                public_key: Some(bp_keys[bp_2_name].key_string.clone()),
                                 public_key_path: Some(bp_keys[bp_2_name].key_path_docker.clone()),
-                                libp2p_keypair: Some(
-                                    libp2p_keys[bp_2_name].key_path_docker.clone(),
-                                ),
+                                libp2p_keypair: Some(libp2p_keys[bp_2_name].key_string.clone()),
                                 peers: Some(peers.clone()),
                                 snark_coordinator_fees: None,
                                 snark_coordinator_port: None,
@@ -185,7 +181,7 @@ fn main() {
                                 ),
                                 public_key_path: None,
                                 libp2p_keypair: Some(
-                                    libp2p_keys[snark_coordinator_name].key_path_docker.clone(),
+                                    libp2p_keys[snark_coordinator_name].key_string.clone(),
                                 ),
                                 peers: Some(peers.clone()),
                                 snark_coordinator_fees: Some("0.001".into()),
