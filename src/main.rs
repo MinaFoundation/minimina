@@ -294,7 +294,7 @@ fn main() {
                     }
                 };
 
-                let docker_compose_file_path = network_path.join("docker-compose.yaml");
+                let docker_compose_file_path = docker_manager.docker_compose_path.as_path();
                 let mut status = network::Status::new(&cmd.network_id);
                 status.update_from_compose_ls(ls_out, docker_compose_file_path.to_str().unwrap());
                 status.update_from_compose_ps(ps_out);
@@ -304,7 +304,14 @@ fn main() {
 
             NetworkCommand::Delete(cmd) => {
                 match directory_manager.delete_network_directory(&cmd.network_id) {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        println!(
+                            "{}",
+                            network::Delete {
+                                network_id: cmd.network_id
+                            }
+                        )
+                    }
                     Err(e) => {
                         let error_message = format!(
                             "Failed to delete network directory for network_id '{}' with error = {}",
@@ -312,11 +319,8 @@ fn main() {
                         );
                         error!("{}", error_message);
                         println!("{}", output::Error { error_message });
-                        return;
                     }
                 }
-
-                info!("Network '{}' deleted successfully.", cmd.network_id);
             }
 
             NetworkCommand::List => {

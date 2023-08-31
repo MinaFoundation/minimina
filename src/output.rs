@@ -235,6 +235,7 @@ impl_display!(network::Stop);
 impl_display!(network::Status);
 impl_display!(network::ListInfo);
 impl_display!(network::List);
+impl_display!(network::Delete);
 impl_display!(node::Start);
 impl_display!(node::Stop);
 impl_display!(node::ArchiveData);
