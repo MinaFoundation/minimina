@@ -129,3 +129,46 @@ impl DockerCompose {
         .replace("mina_libp2p_pass", "MINA_LIBP2P_PASS")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::service::ServiceType;
+
+    #[test]
+    fn test_generate() {
+        let configs = vec![
+            ServiceConfig {
+                service_name: "seed".to_string(),
+                service_type: ServiceType::Seed,
+                client_port: Some(8300),
+                ..Default::default()
+            },
+            ServiceConfig {
+                service_name: "block-producer".to_string(),
+                service_type: ServiceType::BlockProducer,
+                client_port: Some(8301),
+                ..Default::default()
+            },
+            ServiceConfig {
+                service_name: "snark-coordinator".to_string(),
+                service_type: ServiceType::SnarkCoordinator,
+                client_port: Some(8302),
+                ..Default::default()
+            },
+            ServiceConfig {
+                service_name: "snark-worker".to_string(),
+                service_type: ServiceType::SnarkWorker,
+                client_port: Some(8303),
+                ..Default::default()
+            },
+        ];
+        let network_path = Path::new("/tmp");
+        let docker_compose = DockerCompose::generate(configs, network_path);
+        println!("{:?}", docker_compose);
+        assert!(docker_compose.contains("seed"));
+        assert!(docker_compose.contains("block-producer"));
+        assert!(docker_compose.contains("snark-coordinator"));
+        assert!(docker_compose.contains("snark-worker"));
+    }
+}

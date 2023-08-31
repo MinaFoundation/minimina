@@ -6,16 +6,17 @@
 use log::warn;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 pub enum ServiceType {
     Seed,
+    #[default]
     BlockProducer,
     SnarkWorker,
     SnarkCoordinator,
     ArchiveNode,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ServiceConfig {
     pub service_type: ServiceType,
     pub service_name: String,
