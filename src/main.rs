@@ -221,15 +221,30 @@ fn main() {
                         }
                     }
                 };
-
-                // generate command output
-                let result = output::generate_network_info(services.clone(), cmd.network_id());
-                println!("{}", result);
-                let json_data = format!("{}", result);
-                let json_path = network_path.join("network.json");
-                match std::fs::write(json_path, json_data) {
-                    Ok(()) => {}
-                    Err(e) => error!("Error generating network.json: {}", e),
+                //create network
+                match docker_manager.compose_create() {
+                    Ok(_) => {
+                        info!("Successfully created network!");
+                        // generate command output
+                        let result =
+                            output::generate_network_info(services.clone(), cmd.network_id());
+                        println!("{}", result);
+                        let json_data = format!("{}", result);
+                        let json_path = network_path.join("network.json");
+                        match std::fs::write(json_path, json_data) {
+                            Ok(()) => {}
+                            Err(e) => error!("Error generating network.json: {}", e),
+                        }
+                    }
+                    Err(e) => {
+                        let error_message = format!(
+                            "Failed to register network with 'docker compose create' with network_id '{}' with error = {}",
+                            cmd.network_id(),
+                            e
+                        );
+                        error!("{}", error_message);
+                        println!("{}", output::Error { error_message })
+                    }
                 }
             }
 
@@ -299,22 +314,34 @@ fn main() {
             }
 
             NetworkCommand::Delete(cmd) => {
-                match directory_manager.delete_network_directory(&cmd.network_id) {
-                    Ok(_) => {
-                        println!(
-                            "{}",
-                            network::Delete {
-                                network_id: cmd.network_id
-                            }
-                        )
-                    }
+                let docker_manager =
+                    DockerManager::new(&directory_manager.network_path(&cmd.network_id));
+                match docker_manager.compose_down() {
+                    Ok(_) => match directory_manager.delete_network_directory(&cmd.network_id) {
+                        Ok(_) => {
+                            println!(
+                                "{}",
+                                network::Delete {
+                                    network_id: cmd.network_id
+                                }
+                            )
+                        }
+                        Err(e) => {
+                            let error_message = format!(
+                                    "Failed to delete network directory for network_id '{}' with error = {}",
+                                    cmd.network_id, e
+                                );
+                            error!("{}", error_message);
+                            println!("{}", output::Error { error_message });
+                        }
+                    },
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to delete network directory for network_id '{}' with error = {}",
+                            "Failed to delete network with network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!("{}", output::Error { error_message });
+                        println!("{}", output::Error { error_message })
                     }
                 }
             }
@@ -339,7 +366,7 @@ fn main() {
             NetworkCommand::Start(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker_manager = DockerManager::new(&network_path);
-                match docker_manager.compose_up() {
+                match docker_manager.compose_start() {
                     Ok(_) => {
                         println!(
                             "{}",
@@ -362,7 +389,7 @@ fn main() {
             NetworkCommand::Stop(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker_manager = DockerManager::new(&network_path);
-                match docker_manager.compose_down() {
+                match docker_manager.compose_stop() {
                     Ok(_) => {
                         println!(
                             "{}",

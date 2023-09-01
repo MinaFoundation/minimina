@@ -78,12 +78,24 @@ impl DockerManager {
         Ok(())
     }
 
-    pub fn compose_up(&self) -> std::io::Result<Output> {
+    pub fn _compose_up(&self) -> std::io::Result<Output> {
         self.run_docker_compose(&["up", "-d"])
     }
 
     pub fn compose_down(&self) -> std::io::Result<Output> {
-        self.run_docker_compose(&["down"])
+        self.run_docker_compose(&["down", "--volumes", "--remove-orphans", "--rmi", "all"])
+    }
+
+    pub fn compose_create(&self) -> std::io::Result<Output> {
+        self.run_docker_compose(&["create"])
+    }
+
+    pub fn compose_start(&self) -> std::io::Result<Output> {
+        self.run_docker_compose(&["start"])
+    }
+
+    pub fn compose_stop(&self) -> std::io::Result<Output> {
+        self.run_docker_compose(&["stop"])
     }
 
     pub fn compose_ls(&self) -> std::io::Result<Vec<ComposeInfo>> {
