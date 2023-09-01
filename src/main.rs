@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
-    keys::{KeysManager, ServiceKeys},
+    keys::{KeysManager, NodeKey},
     output::network::{self},
     service::{ServiceConfig, ServiceType},
 };
@@ -58,8 +58,8 @@ fn main() {
                 let docker = DockerManager::new(&network_path);
 
                 // key-pairs for block producers and libp2p keys for all services
-                let mut bp_keys_opt: Option<HashMap<String, ServiceKeys>> = None;
-                let mut libp2p_keys_opt: Option<HashMap<String, ServiceKeys>> = None;
+                let mut bp_keys_opt: Option<HashMap<String, NodeKey>> = None;
+                let mut libp2p_keys_opt: Option<HashMap<String, NodeKey>> = None;
 
                 // generate genesis ledger
                 match &cmd.genesis_ledger {

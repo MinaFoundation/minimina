@@ -1,3 +1,19 @@
+//! # Keys Module
+//!
+//! This module provides functionalities related to key management for local network.
+//! It contains:
+//! - Structures to represent mina node keys (`NodeKey`).
+//! - A manager (`KeysManager`) that provides methods for generating:
+//!   - Block producer key pairs.
+//!   - libp2p key pairs.
+//!
+//! The `KeysManager` relies on Docker and a specific Docker image to generate these key pairs,
+//! and uses the filesystem to store and manage these keys. It is designed to produce keys for multiple services
+//! and ensure the necessary environment settings are present during the key generation process.
+//!
+//! Typical use involves creating a `KeysManager` instance with the desired configurations,
+//! then invoking the key generation methods as needed.
+
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -8,7 +24,7 @@ use log::{debug, info};
 use crate::utils::{get_current_user_uid_gid, run_command};
 
 #[derive(Debug)]
-pub struct ServiceKeys {
+pub struct NodeKey {
     pub key_string: String,
     pub key_path_docker: String,
 }
@@ -26,7 +42,7 @@ impl KeysManager {
         }
     }
     // generate bp key pair for single service
-    pub fn generate_bp_key_pair(&self, service_name: &str) -> std::io::Result<ServiceKeys> {
+    pub fn generate_bp_key_pair(&self, service_name: &str) -> std::io::Result<NodeKey> {
         info!("Creating block producer keys for: {}", service_name);
         let uid_gid = match get_current_user_uid_gid() {
             Some(uid_gid) => uid_gid,
@@ -80,7 +96,7 @@ impl KeysManager {
             })?
             .to_string();
 
-        let keys = ServiceKeys {
+        let keys = NodeKey {
             key_string: public_key,
             key_path_docker: pkey_path,
         };
@@ -92,7 +108,7 @@ impl KeysManager {
     pub fn generate_bp_key_pairs(
         &self,
         service_names: &[&str],
-    ) -> std::io::Result<HashMap<String, ServiceKeys>> {
+    ) -> std::io::Result<HashMap<String, NodeKey>> {
         let mut public_keys = HashMap::new();
         for &service_name in service_names {
             let public_key = self.generate_bp_key_pair(service_name)?;
@@ -102,7 +118,7 @@ impl KeysManager {
     }
 
     // generate libp2p key pair for single service
-    pub fn generate_libp2p_key_pair(&self, service_name: &str) -> std::io::Result<ServiceKeys> {
+    pub fn generate_libp2p_key_pair(&self, service_name: &str) -> std::io::Result<NodeKey> {
         info!("Creating libp2p keys for: {}", service_name);
 
         let key_subdir = "libp2p-keypairs";
@@ -132,7 +148,7 @@ impl KeysManager {
         // Extract the full keypair
         let stdout_str = String::from_utf8_lossy(&output.stdout);
         let keypair = stdout_str.replace("libp2p keypair:", "").trim().to_string();
-        let keys = ServiceKeys {
+        let keys = NodeKey {
             key_string: keypair,
             key_path_docker: pkey_path,
         };
@@ -144,7 +160,7 @@ impl KeysManager {
     pub fn generate_libp2p_key_pairs(
         &self,
         service_names: &[&str],
-    ) -> std::io::Result<HashMap<String, ServiceKeys>> {
+    ) -> std::io::Result<HashMap<String, NodeKey>> {
         let mut keypairs = HashMap::new();
         for &service_name in service_names {
             let keypair = self.generate_libp2p_key_pair(service_name)?;

@@ -1,4 +1,4 @@
-//! # Utils module
+//! # Utils Module
 //!
 //! This module provides utility functions to run external commands
 //! and fetch the UID and GID of the current user.

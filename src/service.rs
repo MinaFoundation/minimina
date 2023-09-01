@@ -1,4 +1,4 @@
-//! # Service Configuration Module
+//! # Service Module
 //!
 //! This module provides structures and methods to hold and manage configurations for different Mina daemons.
 //! With these configurations, docker-compose files can be dynamically generated to deploy and manage nodes in the network.
