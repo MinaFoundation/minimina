@@ -22,6 +22,18 @@ use docker::manager::DockerManager;
 use env_logger::{Builder, Env};
 use log::{error, info, warn};
 
+fn network_not_exists(network_id: &str) -> bool {
+    let directory_manager = DirectoryManager::new();
+    if directory_manager.network_path_exists(network_id) {
+        false
+    } else {
+        let error_message = format!("Network with network_id '{}' does not exist.", network_id);
+        error!("{}", error_message);
+        println!("{}", output::Error { error_message });
+        true
+    }
+}
+
 fn main() {
     Builder::from_env(Env::default().default_filter_or("warn")).init();
     let cli: Cli = Cli::parse();
@@ -249,6 +261,9 @@ fn main() {
             }
 
             NetworkCommand::Info(cmd) => {
+                if network_not_exists(&cmd.network_id) {
+                    return;
+                };
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let json_path = network_path.join("network.json");
                 match std::fs::read_to_string(json_path) {
@@ -267,6 +282,9 @@ fn main() {
             }
 
             NetworkCommand::Status(cmd) => {
+                if network_not_exists(&cmd.network_id) {
+                    return;
+                };
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker = DockerManager::new(&network_path);
                 let ls_out = match docker.compose_ls() {
@@ -314,6 +332,9 @@ fn main() {
             }
 
             NetworkCommand::Delete(cmd) => {
+                if network_not_exists(&cmd.network_id) {
+                    return;
+                };
                 let docker = DockerManager::new(&directory_manager.network_path(&cmd.network_id));
                 match docker.compose_down() {
                     Ok(_) => match directory_manager.delete_network_directory(&cmd.network_id) {
