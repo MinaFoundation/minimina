@@ -55,7 +55,7 @@ fn main() {
                     "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley";
 
                 // create docker manager
-                let docker_manager = DockerManager::new(&network_path);
+                let docker = DockerManager::new(&network_path);
 
                 // key-pairs for block producers and libp2p keys for all services
                 let mut bp_keys_opt: Option<HashMap<String, ServiceKeys>> = None;
@@ -210,7 +210,7 @@ fn main() {
                             let services =
                                 vec![seed, bp_1, bp_2, snark_coordinator, snark_worker_1];
 
-                            match docker_manager.compose_generate_file(services.clone()) {
+                            match docker.compose_generate_file(services.clone()) {
                                 Ok(()) => info!("Successfully generated docker-compose.yaml!"),
                                 Err(e) => error!("Error generating docker-compose.yaml: {}", e),
                             }
@@ -222,7 +222,7 @@ fn main() {
                     }
                 };
                 //create network
-                match docker_manager.compose_create() {
+                match docker.compose_create() {
                     Ok(_) => {
                         info!("Successfully created network!");
                         // generate command output
@@ -268,8 +268,8 @@ fn main() {
 
             NetworkCommand::Status(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
-                let docker_manager = DockerManager::new(&network_path);
-                let ls_out = match docker_manager.compose_ls() {
+                let docker = DockerManager::new(&network_path);
+                let ls_out = match docker.compose_ls() {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
@@ -287,7 +287,7 @@ fn main() {
                     }
                 };
 
-                let ps_out = match docker_manager.compose_ps() {
+                let ps_out = match docker.compose_ps() {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
@@ -305,18 +305,17 @@ fn main() {
                     }
                 };
 
-                let docker_compose_file_path = docker_manager.docker_compose_path.as_path();
+                let compose_file_path = docker.compose_path.as_path().to_str().unwrap();
                 let mut status = network::Status::new(&cmd.network_id);
-                status.update_from_compose_ls(ls_out, docker_compose_file_path.to_str().unwrap());
+                status.update_from_compose_ls(ls_out, compose_file_path);
                 status.update_from_compose_ps(ps_out);
 
                 println!("{}", status);
             }
 
             NetworkCommand::Delete(cmd) => {
-                let docker_manager =
-                    DockerManager::new(&directory_manager.network_path(&cmd.network_id));
-                match docker_manager.compose_down() {
+                let docker = DockerManager::new(&directory_manager.network_path(&cmd.network_id));
+                match docker.compose_down() {
                     Ok(_) => match directory_manager.delete_network_directory(&cmd.network_id) {
                         Ok(_) => {
                             println!(
@@ -365,8 +364,8 @@ fn main() {
 
             NetworkCommand::Start(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
-                let docker_manager = DockerManager::new(&network_path);
-                match docker_manager.compose_start() {
+                let docker = DockerManager::new(&network_path);
+                match docker.compose_start() {
                     Ok(_) => {
                         println!(
                             "{}",
@@ -388,8 +387,8 @@ fn main() {
 
             NetworkCommand::Stop(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
-                let docker_manager = DockerManager::new(&network_path);
-                match docker_manager.compose_stop() {
+                let docker = DockerManager::new(&network_path);
+                match docker.compose_stop() {
                     Ok(_) => {
                         println!(
                             "{}",

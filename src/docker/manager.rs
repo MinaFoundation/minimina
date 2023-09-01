@@ -59,20 +59,20 @@ pub struct ComposeInfo {
 
 pub struct DockerManager {
     pub network_path: PathBuf,
-    pub docker_compose_path: PathBuf,
+    pub compose_path: PathBuf,
 }
 
 impl DockerManager {
     pub fn new(network_path: &Path) -> Self {
-        let docker_compose_path = network_path.join("docker-compose.yaml");
+        let compose_path = network_path.join("docker-compose.yaml");
         DockerManager {
             network_path: network_path.to_path_buf(),
-            docker_compose_path,
+            compose_path,
         }
     }
 
     pub fn compose_generate_file(&self, configs: Vec<ServiceConfig>) -> std::io::Result<()> {
-        let mut file = File::create(&self.docker_compose_path)?;
+        let mut file = File::create(&self.compose_path)?;
         let contents = DockerCompose::generate(configs, &self.network_path);
         file.write_all(contents.as_bytes())?;
         Ok(())
@@ -123,7 +123,7 @@ impl DockerManager {
         let base_args = &[
             "compose",
             "-f",
-            self.docker_compose_path
+            self.compose_path
                 .to_str()
                 .expect("Failed to convert file path to str"),
             "-p",
