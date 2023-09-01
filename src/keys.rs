@@ -38,7 +38,7 @@ impl KeysManager {
             }
         };
 
-        let key_subdir = "block_producer_keys";
+        let key_subdir = "network-keypairs";
         let volume_path = format!("{}:/local-network", self.network_path.to_str().unwrap());
         let pkey_path = format!("/local-network/{}/{}", key_subdir, service_name);
         let args = vec![
@@ -105,7 +105,7 @@ impl KeysManager {
     pub fn generate_libp2p_key_pair(&self, service_name: &str) -> std::io::Result<ServiceKeys> {
         info!("Creating libp2p keys for: {}", service_name);
 
-        let key_subdir = "libp2p_keys";
+        let key_subdir = "libp2p-keypairs";
         let volume_path = format!("{}:/local-network", self.network_path.to_str().unwrap());
         let pkey_path = format!("/local-network/{}/{}", key_subdir, service_name);
 

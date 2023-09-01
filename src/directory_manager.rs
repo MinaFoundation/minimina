@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 pub struct DirectoryManager {
     pub base_path: PathBuf,
-    pub subdirectories: [&'static str; 3],
+    pub subdirectories: [&'static str; 2],
 }
 
 impl DirectoryManager {
@@ -38,8 +38,8 @@ impl DirectoryManager {
     }
 
     // list of all subdirectories that needs to be created for the network
-    fn subdirectories() -> [&'static str; 3] {
-        ["block_producer_keys", "libp2p_keys", "nodes"]
+    fn subdirectories() -> [&'static str; 2] {
+        ["network-keypairs", "libp2p-keypairs"]
     }
 
     pub fn generate_dir_structure(&self, network_id: &str) -> std::io::Result<PathBuf> {
