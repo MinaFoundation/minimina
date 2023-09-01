@@ -74,7 +74,7 @@ impl ServiceConfig {
             "-file-log-level".to_string(),
             "Trace".to_string(),
             "-config-directory".to_string(),
-            format!("/local-network/nodes/{}", self.service_name),
+            format!("/config-directory/{}", self.service_name),
         ]
     }
 
@@ -203,7 +203,7 @@ impl ServiceConfig {
             "-shutdown-on-disconnect".to_string(),
             "false".to_string(),
             "-config-directory".to_string(),
-            format!("/local-network/nodes/{}", self.service_name),
+            format!("/config-directory/{}", self.service_name),
         ];
 
         if let Some(snark_coordinator_port) = &self.snark_coordinator_port {

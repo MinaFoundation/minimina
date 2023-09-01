@@ -20,6 +20,7 @@ pub(crate) struct DockerCompose {
         serialize_with = "serialize_defaults_with_anchor"
     )]
     x_defaults: Defaults,
+    volumes: HashMap<String, Option<String>>,
     services: HashMap<String, Service>,
 }
 
@@ -67,6 +68,11 @@ impl DockerCompose {
         let networt_path_string = network_path
             .to_str()
             .expect("Failed to convert network path to str");
+        let volumes = {
+            let mut v = HashMap::new();
+            v.insert("config-directory".to_string(), None);
+            v
+        };
         let services: HashMap<String, Service> = configs
             .iter()
             .map(|config| {
@@ -93,12 +99,16 @@ impl DockerCompose {
             x_defaults: Defaults {
                 network_mode: "host".to_string(),
                 entrypoint: vec!["mina".to_string()],
-                volumes: vec![format!("{}:/local-network", networt_path_string)],
+                volumes: vec![
+                    format!("{}:/local-network", networt_path_string),
+                    "/config-directory:/config-directory".to_string(),
+                ],
                 environment: Environment {
                     mina_privkey_pass: "naughty blue worm".to_string(),
                     mina_libp2p_pass: "naughty blue worm".to_string(),
                 },
             },
+            volumes,
             services,
         };
 
@@ -117,6 +127,7 @@ impl DockerCompose {
         .replace("<<: '*default-attributes'", "<<: *default-attributes")
         .replace("mina_privkey_pass", "MINA_PRIVKEY_PASS")
         .replace("mina_libp2p_pass", "MINA_LIBP2P_PASS")
+        .replace("null", "")
     }
 }
 
