@@ -1,11 +1,11 @@
 mod cli;
-mod cmd;
 mod default_ledger_generator;
 mod directory_manager;
 mod docker;
 mod keys;
 mod output;
 mod service;
+mod utils;
 
 use std::collections::HashMap;
 
@@ -120,7 +120,7 @@ fn main() {
                             let seed_name = "mina-seed-1";
                             let seed = ServiceConfig {
                                 service_type: ServiceType::Seed,
-                                service_name: seed_name.into(),
+                                service_name: format!["{}-{}", &cmd.network_id(), seed_name],
                                 docker_image: docker_image.into(),
                                 client_port: Some(3100),
                                 public_key: None,
@@ -139,14 +139,12 @@ fn main() {
                             let bp_1_name = "mina-bp-1";
                             let bp_1 = ServiceConfig {
                                 service_type: ServiceType::BlockProducer,
-                                service_name: bp_1_name.into(),
+                                service_name: format!["{}-{}", &cmd.network_id(), bp_1_name],
                                 docker_image: docker_image.into(),
                                 client_port: Some(4000),
-                                public_key: None,
+                                public_key: Some(bp_keys[bp_1_name].key_string.clone()),
                                 public_key_path: Some(bp_keys[bp_1_name].key_path_docker.clone()),
-                                libp2p_keypair: Some(
-                                    libp2p_keys[bp_1_name].key_path_docker.clone(),
-                                ),
+                                libp2p_keypair: Some(libp2p_keys[bp_1_name].key_string.clone()),
                                 peers: Some(peers.clone()),
                                 snark_coordinator_fees: None,
                                 snark_coordinator_port: None,
@@ -156,14 +154,12 @@ fn main() {
                             let bp_2_name = "mina-bp-2";
                             let bp_2 = ServiceConfig {
                                 service_type: ServiceType::BlockProducer,
-                                service_name: bp_2_name.into(),
+                                service_name: format!["{}-{}", &cmd.network_id(), bp_2_name],
                                 docker_image: docker_image.into(),
                                 client_port: Some(4005),
-                                public_key: None,
+                                public_key: Some(bp_keys[bp_2_name].key_string.clone()),
                                 public_key_path: Some(bp_keys[bp_2_name].key_path_docker.clone()),
-                                libp2p_keypair: Some(
-                                    libp2p_keys[bp_2_name].key_path_docker.clone(),
-                                ),
+                                libp2p_keypair: Some(libp2p_keys[bp_2_name].key_string.clone()),
                                 peers: Some(peers.clone()),
                                 snark_coordinator_fees: None,
                                 snark_coordinator_port: None,
@@ -173,7 +169,11 @@ fn main() {
                             let snark_coordinator_name = "mina-snark-coordinator";
                             let snark_coordinator = ServiceConfig {
                                 service_type: ServiceType::SnarkCoordinator,
-                                service_name: snark_coordinator_name.into(),
+                                service_name: format![
+                                    "{}-{}",
+                                    &cmd.network_id(),
+                                    snark_coordinator_name
+                                ],
                                 docker_image: docker_image.into(),
                                 client_port: Some(7000),
                                 public_key: Some(
@@ -181,7 +181,7 @@ fn main() {
                                 ),
                                 public_key_path: None,
                                 libp2p_keypair: Some(
-                                    libp2p_keys[snark_coordinator_name].key_path_docker.clone(),
+                                    libp2p_keys[snark_coordinator_name].key_string.clone(),
                                 ),
                                 peers: Some(peers.clone()),
                                 snark_coordinator_fees: Some("0.001".into()),
@@ -191,7 +191,11 @@ fn main() {
                             let snark_worker_1_name = "mina-snark-worker-1";
                             let snark_worker_1 = ServiceConfig {
                                 service_type: ServiceType::SnarkWorker,
-                                service_name: snark_worker_1_name.into(),
+                                service_name: format![
+                                    "{}-{}",
+                                    &cmd.network_id(),
+                                    snark_worker_1_name
+                                ],
                                 docker_image: docker_image.into(),
                                 client_port: None,
                                 public_key: None,
@@ -219,7 +223,7 @@ fn main() {
                 };
 
                 // generate command output
-                let result = output::generate_network_create(services.clone(), cmd.network_id());
+                let result = output::generate_network_info(services.clone(), cmd.network_id());
                 println!("{}", result);
                 let json_data = format!("{}", result);
                 let json_path = network_path.join("network.json");
@@ -229,58 +233,90 @@ fn main() {
                 }
             }
 
-            NetworkCommand::Status(cmd) => {
+            NetworkCommand::Info(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
-                let docker_manager = DockerManager::new(&network_path);
-                match docker_manager.compose_ls() {
-                    Ok(out) => {
-                        let output_str = String::from_utf8(out.stdout)
-                            .unwrap_or_else(|_| "Invalid UTF-8".to_string());
-                        let status = network::Status::new(&cmd.network_id);
-                        match status.set_status_from_output(&output_str) {
-                            Some(status) => {
-                                println!("{}", status);
-                            }
-                            None => {
-                                println!(
-                                    "{}",
-                                    network::Status {
-                                        network_id: cmd.network_id,
-                                        status: "not_running".to_string(),
-                                    }
-                                );
-                            }
-                        }
+                let json_path = network_path.join("network.json");
+                match std::fs::read_to_string(json_path) {
+                    Ok(json_data) => {
+                        println!("{}", json_data);
                     }
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get status for network with network_id '{}' with error = {}",
+                            "Failed to get info for network with network_id '{}' with error = {}",
+                            cmd.network_id, e
+                        );
+                        error!("{}", error_message);
+                        println!("{}", output::Error { error_message })
+                    }
+                }
+            }
+
+            NetworkCommand::Status(cmd) => {
+                let network_path = directory_manager.network_path(&cmd.network_id);
+                let docker_manager = DockerManager::new(&network_path);
+                let ls_out = match docker_manager.compose_ls() {
+                    Ok(out) => out,
+                    Err(e) => {
+                        let error_message = format!(
+                            "Failed to get status from docker compose ls for network with network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
                         println!(
                             "{}",
                             output::Error {
-                                message: error_message
+                                error_message: error_message.clone()
                             }
-                        )
+                        );
+                        return;
                     }
-                }
+                };
+
+                let ps_out = match docker_manager.compose_ps() {
+                    Ok(out) => out,
+                    Err(e) => {
+                        let error_message = format!(
+                            "Failed to get status from docker compose ps for network with network_id '{}' with error = {}",
+                            cmd.network_id, e
+                        );
+                        error!("{}", error_message);
+                        println!(
+                            "{}",
+                            output::Error {
+                                error_message: error_message.clone()
+                            }
+                        );
+                        return;
+                    }
+                };
+
+                let docker_compose_file_path = docker_manager.docker_compose_path.as_path();
+                let mut status = network::Status::new(&cmd.network_id);
+                status.update_from_compose_ls(ls_out, docker_compose_file_path.to_str().unwrap());
+                status.update_from_compose_ps(ps_out);
+
+                println!("{}", status);
             }
 
             NetworkCommand::Delete(cmd) => {
                 match directory_manager.delete_network_directory(&cmd.network_id) {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        println!(
+                            "{}",
+                            network::Delete {
+                                network_id: cmd.network_id
+                            }
+                        )
+                    }
                     Err(e) => {
-                        error!(
+                        let error_message = format!(
                             "Failed to delete network directory for network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
-                        return;
+                        error!("{}", error_message);
+                        println!("{}", output::Error { error_message });
                     }
                 }
-
-                info!("Network '{}' deleted successfully.", cmd.network_id);
             }
 
             NetworkCommand::List => {
@@ -288,15 +324,15 @@ fn main() {
                     .list_network_directories()
                     .expect("Failed to list networks");
 
+                let mut list = network::List::new();
                 if networks.is_empty() {
-                    println!("No networks found.");
-                    return;
-                }
-
-                println!("Available networks:");
-
-                for network in networks {
-                    println!("  {}", network);
+                    println!("{}", list);
+                } else {
+                    list.update(
+                        networks,
+                        directory_manager.base_path.as_path().to_str().unwrap(),
+                    );
+                    println!("{}", list);
                 }
             }
 
@@ -318,12 +354,7 @@ fn main() {
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!(
-                            "{}",
-                            output::Error {
-                                message: error_message
-                            }
-                        )
+                        println!("{}", output::Error { error_message })
                     }
                 }
             }
@@ -346,12 +377,7 @@ fn main() {
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!(
-                            "{}",
-                            output::Error {
-                                message: error_message
-                            }
-                        )
+                        println!("{}", output::Error { error_message })
                     }
                 }
             }

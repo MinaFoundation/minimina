@@ -85,3 +85,32 @@ impl DefaultLedgerGenerator {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_generate_default_ledger() {
+        let network_path = PathBuf::from("/tmp");
+        let mut bp_keys_map: HashMap<String, ServiceKeys> = HashMap::new();
+        let service_key = ServiceKeys {
+            key_string: "test_key".to_string(),
+            key_path_docker: "test_key_path".to_string(),
+        };
+        bp_keys_map.insert("node0".to_string(), service_key);
+        let result = DefaultLedgerGenerator::generate(&network_path, &bp_keys_map);
+        println!("{:?}", result);
+        assert!(result.is_ok());
+
+        let path = network_path.to_path_buf();
+        let path = path.join("genesis_ledger.json");
+        assert!(path.exists());
+        let content = std::fs::read_to_string(path).unwrap();
+        assert!(content.contains("genesis_state_timestamp"));
+        assert!(content.contains("release"));
+        assert!(content.contains("test_key"));
+    }
+}

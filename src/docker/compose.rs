@@ -14,7 +14,7 @@ use crate::service::{ServiceConfig, ServiceType};
 
 #[derive(Serialize)]
 pub(crate) struct DockerCompose {
-    version: &'static str,
+    version: String,
     #[serde(
         rename = "x-defaults",
         serialize_with = "serialize_defaults_with_anchor"
@@ -34,16 +34,16 @@ where
 
 #[derive(Serialize)]
 struct Defaults {
-    network_mode: &'static str,
-    entrypoint: Vec<&'static str>,
+    network_mode: String,
+    entrypoint: Vec<String>,
     volumes: Vec<String>,
     environment: Environment,
 }
 
 #[derive(Serialize)]
 struct Environment {
-    mina_privkey_pass: &'static str,
-    mina_libp2p_pass: &'static str,
+    mina_privkey_pass: String,
+    mina_libp2p_pass: String,
 }
 
 #[derive(Serialize)]
@@ -89,14 +89,14 @@ impl DockerCompose {
             .collect();
 
         let compose = DockerCompose {
-            version: "3.8",
+            version: "3.8".to_string(),
             x_defaults: Defaults {
-                network_mode: "host",
-                entrypoint: vec!["mina"],
+                network_mode: "host".to_string(),
+                entrypoint: vec!["mina".to_string()],
                 volumes: vec![format!("{}:/local-network", networt_path_string)],
                 environment: Environment {
-                    mina_privkey_pass: "naughty blue worm",
-                    mina_libp2p_pass: "naughty blue worm",
+                    mina_privkey_pass: "naughty blue worm".to_string(),
+                    mina_libp2p_pass: "naughty blue worm".to_string(),
                 },
             },
             services,
@@ -117,5 +117,48 @@ impl DockerCompose {
         .replace("<<: '*default-attributes'", "<<: *default-attributes")
         .replace("mina_privkey_pass", "MINA_PRIVKEY_PASS")
         .replace("mina_libp2p_pass", "MINA_LIBP2P_PASS")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::service::ServiceType;
+
+    #[test]
+    fn test_generate() {
+        let configs = vec![
+            ServiceConfig {
+                service_name: "seed".to_string(),
+                service_type: ServiceType::Seed,
+                client_port: Some(8300),
+                ..Default::default()
+            },
+            ServiceConfig {
+                service_name: "block-producer".to_string(),
+                service_type: ServiceType::BlockProducer,
+                client_port: Some(8301),
+                ..Default::default()
+            },
+            ServiceConfig {
+                service_name: "snark-coordinator".to_string(),
+                service_type: ServiceType::SnarkCoordinator,
+                client_port: Some(8302),
+                ..Default::default()
+            },
+            ServiceConfig {
+                service_name: "snark-worker".to_string(),
+                service_type: ServiceType::SnarkWorker,
+                client_port: Some(8303),
+                ..Default::default()
+            },
+        ];
+        let network_path = Path::new("/tmp");
+        let docker_compose = DockerCompose::generate(configs, network_path);
+        println!("{:?}", docker_compose);
+        assert!(docker_compose.contains("seed"));
+        assert!(docker_compose.contains("block-producer"));
+        assert!(docker_compose.contains("snark-coordinator"));
+        assert!(docker_compose.contains("snark-worker"));
     }
 }

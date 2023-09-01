@@ -4,8 +4,8 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
 pub struct DirectoryManager {
-    base_path: PathBuf,
-    subdirectories: [&'static str; 3],
+    pub base_path: PathBuf,
+    pub subdirectories: [&'static str; 3],
 }
 
 impl DirectoryManager {
