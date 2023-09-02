@@ -1,3 +1,17 @@
+//! # Output Module
+//!
+//! This module is designed to serialize command output into JSON format.
+//!
+//! It primarily focuses on operations related to networks and nodes:
+//!
+//! - `network`: Structures and implementations for serializing output related to various network operations like
+//!    creation, start, listing, stopping, and more.
+//! - `node`: Structures and implementations for serializing output concerning node information and various node-related actions.
+//! - `Error`: Represents an error structure to be serialized into JSON format with an accompanying error message.
+//!
+//! This module also offers utility functions such as `generate_network_info` and implements display
+//! formatting for a number of types to further facilitate serialization.
+
 use crate::service::{ServiceConfig, ServiceType};
 use std::collections::HashMap;
 

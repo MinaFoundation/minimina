@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
-    keys::{KeysManager, ServiceKeys},
+    keys::{KeysManager, NodeKey},
     output::network::{self},
     service::{ServiceConfig, ServiceType},
 };
@@ -21,6 +21,18 @@ use directory_manager::DirectoryManager;
 use docker::manager::DockerManager;
 use env_logger::{Builder, Env};
 use log::{error, info, warn};
+
+fn network_not_exists(network_id: &str) -> bool {
+    let directory_manager = DirectoryManager::new();
+    if directory_manager.network_path_exists(network_id) {
+        false
+    } else {
+        let error_message = format!("Network with network_id '{}' does not exist.", network_id);
+        error!("{}", error_message);
+        println!("{}", output::Error { error_message });
+        true
+    }
+}
 
 fn main() {
     Builder::from_env(Env::default().default_filter_or("warn")).init();
@@ -55,11 +67,11 @@ fn main() {
                     "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley";
 
                 // create docker manager
-                let docker_manager = DockerManager::new(&network_path);
+                let docker = DockerManager::new(&network_path);
 
                 // key-pairs for block producers and libp2p keys for all services
-                let mut bp_keys_opt: Option<HashMap<String, ServiceKeys>> = None;
-                let mut libp2p_keys_opt: Option<HashMap<String, ServiceKeys>> = None;
+                let mut bp_keys_opt: Option<HashMap<String, NodeKey>> = None;
+                let mut libp2p_keys_opt: Option<HashMap<String, NodeKey>> = None;
 
                 // generate genesis ledger
                 match &cmd.genesis_ledger {
@@ -210,7 +222,7 @@ fn main() {
                             let services =
                                 vec![seed, bp_1, bp_2, snark_coordinator, snark_worker_1];
 
-                            match docker_manager.compose_generate_file(services.clone()) {
+                            match docker.compose_generate_file(services.clone()) {
                                 Ok(()) => info!("Successfully generated docker-compose.yaml!"),
                                 Err(e) => error!("Error generating docker-compose.yaml: {}", e),
                             }
@@ -221,19 +233,37 @@ fn main() {
                         }
                     }
                 };
-
-                // generate command output
-                let result = output::generate_network_info(services.clone(), cmd.network_id());
-                println!("{}", result);
-                let json_data = format!("{}", result);
-                let json_path = network_path.join("network.json");
-                match std::fs::write(json_path, json_data) {
-                    Ok(()) => {}
-                    Err(e) => error!("Error generating network.json: {}", e),
+                //create network
+                match docker.compose_create() {
+                    Ok(_) => {
+                        info!("Successfully created network!");
+                        // generate command output
+                        let result =
+                            output::generate_network_info(services.clone(), cmd.network_id());
+                        println!("{}", result);
+                        let json_data = format!("{}", result);
+                        let json_path = network_path.join("network.json");
+                        match std::fs::write(json_path, json_data) {
+                            Ok(()) => {}
+                            Err(e) => error!("Error generating network.json: {}", e),
+                        }
+                    }
+                    Err(e) => {
+                        let error_message = format!(
+                            "Failed to register network with 'docker compose create' with network_id '{}' with error = {}",
+                            cmd.network_id(),
+                            e
+                        );
+                        error!("{}", error_message);
+                        println!("{}", output::Error { error_message })
+                    }
                 }
             }
 
             NetworkCommand::Info(cmd) => {
+                if network_not_exists(&cmd.network_id) {
+                    return;
+                };
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let json_path = network_path.join("network.json");
                 match std::fs::read_to_string(json_path) {
@@ -252,9 +282,12 @@ fn main() {
             }
 
             NetworkCommand::Status(cmd) => {
+                if network_not_exists(&cmd.network_id) {
+                    return;
+                };
                 let network_path = directory_manager.network_path(&cmd.network_id);
-                let docker_manager = DockerManager::new(&network_path);
-                let ls_out = match docker_manager.compose_ls() {
+                let docker = DockerManager::new(&network_path);
+                let ls_out = match docker.compose_ls() {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
@@ -272,7 +305,7 @@ fn main() {
                     }
                 };
 
-                let ps_out = match docker_manager.compose_ps() {
+                let ps_out = match docker.compose_ps() {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
@@ -290,31 +323,45 @@ fn main() {
                     }
                 };
 
-                let docker_compose_file_path = docker_manager.docker_compose_path.as_path();
+                let compose_file_path = docker.compose_path.as_path().to_str().unwrap();
                 let mut status = network::Status::new(&cmd.network_id);
-                status.update_from_compose_ls(ls_out, docker_compose_file_path.to_str().unwrap());
+                status.update_from_compose_ls(ls_out, compose_file_path);
                 status.update_from_compose_ps(ps_out);
 
                 println!("{}", status);
             }
 
             NetworkCommand::Delete(cmd) => {
-                match directory_manager.delete_network_directory(&cmd.network_id) {
-                    Ok(_) => {
-                        println!(
-                            "{}",
-                            network::Delete {
-                                network_id: cmd.network_id
-                            }
-                        )
-                    }
+                if network_not_exists(&cmd.network_id) {
+                    return;
+                };
+                let docker = DockerManager::new(&directory_manager.network_path(&cmd.network_id));
+                match docker.compose_down() {
+                    Ok(_) => match directory_manager.delete_network_directory(&cmd.network_id) {
+                        Ok(_) => {
+                            println!(
+                                "{}",
+                                network::Delete {
+                                    network_id: cmd.network_id
+                                }
+                            )
+                        }
+                        Err(e) => {
+                            let error_message = format!(
+                                    "Failed to delete network directory for network_id '{}' with error = {}",
+                                    cmd.network_id, e
+                                );
+                            error!("{}", error_message);
+                            println!("{}", output::Error { error_message });
+                        }
+                    },
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to delete network directory for network_id '{}' with error = {}",
+                            "Failed to delete network with network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!("{}", output::Error { error_message });
+                        println!("{}", output::Error { error_message })
                     }
                 }
             }
@@ -338,8 +385,8 @@ fn main() {
 
             NetworkCommand::Start(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
-                let docker_manager = DockerManager::new(&network_path);
-                match docker_manager.compose_up() {
+                let docker = DockerManager::new(&network_path);
+                match docker.compose_start() {
                     Ok(_) => {
                         println!(
                             "{}",
@@ -361,8 +408,8 @@ fn main() {
 
             NetworkCommand::Stop(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
-                let docker_manager = DockerManager::new(&network_path);
-                match docker_manager.compose_down() {
+                let docker = DockerManager::new(&network_path);
+                match docker.compose_stop() {
                     Ok(_) => {
                         println!(
                             "{}",

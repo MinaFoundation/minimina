@@ -1,3 +1,14 @@
+//! # DirectoryManager Module
+//!
+//! This module provides functionalities related to managing directories for the local network.
+//! The directory structure will be placed in the user's home directory under `~/.minimina/{network_id}`.
+//! The directory structure will contain the following subdirectories and files:
+//! - `network-keypairs`: Contains the key pairs for the block producer service.
+//! - `libp2p-keypairs`: Contains the key pairs for the libp2p service.
+//! - `genesis_ledger.json`: Contains the genesis ledger for the network.
+//! - `docker-compose.yml`: Contains the docker compose file for the network.
+//! - `network.json`: Contains the network topology representation in JSON format.
+
 use dirs::home_dir;
 use log::info;
 use std::os::unix::fs::PermissionsExt;
@@ -5,7 +16,7 @@ use std::path::PathBuf;
 
 pub struct DirectoryManager {
     pub base_path: PathBuf,
-    pub subdirectories: [&'static str; 3],
+    pub subdirectories: [&'static str; 2],
 }
 
 impl DirectoryManager {
@@ -38,8 +49,8 @@ impl DirectoryManager {
     }
 
     // list of all subdirectories that needs to be created for the network
-    fn subdirectories() -> [&'static str; 3] {
-        ["block_producer_keys", "libp2p_keys", "nodes"]
+    fn subdirectories() -> [&'static str; 2] {
+        ["network-keypairs", "libp2p-keypairs"]
     }
 
     pub fn generate_dir_structure(&self, network_id: &str) -> std::io::Result<PathBuf> {

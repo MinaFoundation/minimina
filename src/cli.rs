@@ -1,3 +1,5 @@
+//! # `minimina` Command-Line Interface (CLI)
+
 use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]

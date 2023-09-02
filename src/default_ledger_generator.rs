@@ -1,3 +1,9 @@
+//! # Default Ledger Generator Module
+//!
+//! This module provides functionalities to generate a default genesis ledger for a given network.
+//! The generated ledger contains basic account structures populated with information from provided service keys.
+//! It handles the serialization of the ledger to a formatted JSON structure and saves it as `genesis_ledger.json`.
+
 extern crate chrono;
 use chrono::prelude::*;
 
@@ -8,7 +14,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-use crate::keys::ServiceKeys;
+use crate::keys::NodeKey;
 
 #[derive(Serialize)]
 struct GenesisLedger {
@@ -46,7 +52,7 @@ impl DefaultLedgerGenerator {
 
     pub fn generate(
         network_path: &Path,
-        bp_keys: &HashMap<String, ServiceKeys>,
+        bp_keys: &HashMap<String, NodeKey>,
     ) -> std::io::Result<()> {
         info!("Generating default genesis ledger.");
         let accounts: Vec<Account> = bp_keys
@@ -95,8 +101,8 @@ mod tests {
     #[test]
     fn test_generate_default_ledger() {
         let network_path = PathBuf::from("/tmp");
-        let mut bp_keys_map: HashMap<String, ServiceKeys> = HashMap::new();
-        let service_key = ServiceKeys {
+        let mut bp_keys_map: HashMap<String, NodeKey> = HashMap::new();
+        let service_key = NodeKey {
             key_string: "test_key".to_string(),
             key_path_docker: "test_key_path".to_string(),
         };
