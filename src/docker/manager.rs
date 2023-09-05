@@ -36,7 +36,7 @@ pub struct ContainerInfo {
     #[serde(rename = "Created")]
     pub created: u64,
     #[serde(rename = "State")]
-    pub state: String,
+    pub state: ContainerState,
     #[serde(rename = "Status")]
     pub status: String,
     #[serde(rename = "Health")]
@@ -45,6 +45,26 @@ pub struct ContainerInfo {
     pub exit_code: u8,
     #[serde(rename = "Publishers")]
     pub publishers: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ContainerState {
+    #[serde(rename = "created")]
+    Created,
+    #[serde(rename = "exited")]
+    Exited,
+    #[serde(rename = "running")]
+    Running,
+    #[serde(rename = "paused")]
+    Paused,
+    #[serde(rename = "restarting")]
+    Restarting,
+    #[serde(rename = "removing")]
+    Removing,
+    #[serde(rename = "dead")]
+    Dead,
+    #[serde(rename = "unknown")]
+    Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -127,6 +147,67 @@ impl DockerManager {
         let stdout_str = String::from_utf8_lossy(&output.stdout);
         let containers: Vec<ContainerInfo> = serde_json::from_str(&stdout_str)?;
         Ok(containers)
+    }
+
+    /// Get docker info of all services in the network
+    pub fn compose_ps_all(
+        &self,
+        filter: Option<ContainerState>,
+    ) -> std::io::Result<Vec<ContainerInfo>> {
+        let mut cmd: Vec<String> = vec![
+            "ps".to_string(),
+            "-a".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ];
+
+        if let Some(state) = filter {
+            let state_str = match state {
+                ContainerState::Created => "created",
+                ContainerState::Exited => "exited",
+                ContainerState::Running => "running",
+                ContainerState::Paused => "paused",
+                ContainerState::Restarting => "restarting",
+                ContainerState::Removing => "removing",
+                ContainerState::Dead => "dead",
+                ContainerState::Unknown => "unknown",
+            };
+            cmd.push("--filter".to_string());
+            cmd.push(format!("status={}", state_str));
+        }
+
+        // Convert Vec<String> to Vec<&str> for compatibility with run_docker_compose
+        let cmd_str_slices: Vec<&str> = cmd.iter().map(AsRef::as_ref).collect();
+
+        let output = self.run_docker_compose(&cmd_str_slices)?;
+        let stdout_str = String::from_utf8_lossy(&output.stdout);
+        let containers: Vec<ContainerInfo> = serde_json::from_str(&stdout_str)?;
+        Ok(containers)
+    }
+
+    /// filter container by service name
+    /// returns Option<ContainerInfo>
+    pub fn filter_container_by_name(
+        &self,
+        containers: Vec<ContainerInfo>,
+        service_name: &str,
+    ) -> Option<ContainerInfo> {
+        let containers: Vec<ContainerInfo> = containers
+            .into_iter()
+            .filter(|container| container.service == service_name)
+            .collect();
+
+        if containers.is_empty() {
+            None
+        } else {
+            assert!(
+                containers.len() == 1,
+                "Expected 1 container for '{}', found {}",
+                service_name,
+                containers.len()
+            );
+            Some(containers.into_iter().next().unwrap())
+        }
     }
 
     fn run_docker_compose(&self, subcommands: &[&str]) -> std::io::Result<Output> {

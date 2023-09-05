@@ -134,6 +134,8 @@ pub mod network {
 }
 
 pub mod node {
+    use crate::docker::manager::ContainerState;
+
     // Import ServiceType from service module
     use super::ServiceType;
     use serde::Serialize;
@@ -148,7 +150,7 @@ pub mod node {
     #[derive(Debug, Serialize, PartialEq)]
     pub struct Status {
         pub node_id: String,
-        pub state: String,
+        pub state: ContainerState,
         pub status: String,
         pub command: String,
         pub docker_image: String,

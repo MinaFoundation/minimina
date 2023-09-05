@@ -21,7 +21,7 @@ use crate::{
 use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
 use directory_manager::DirectoryManager;
-use docker::manager::DockerManager;
+use docker::manager::{ContainerState, DockerManager};
 use env_logger::{Builder, Env};
 use log::{error, info, warn};
 
@@ -446,8 +446,36 @@ fn main() {
             NodeCommand::Start(cmd) => {
                 let network_path = directory_manager.network_path(cmd.network_id());
                 let docker = DockerManager::new(&network_path);
+
+                let nodes = docker.compose_ps_all(None).unwrap();
+                let node = docker.filter_container_by_name(nodes, cmd.node_id());
+                let mut fresh_state = false;
+                match node {
+                    Some(node) => match node.state {
+                        ContainerState::Running => {
+                            warn!("Node with node_id '{}' is already running.", cmd.node_id());
+                        }
+                        ContainerState::Created => {
+                            fresh_state = true;
+                        }
+                        _ => {}
+                    },
+                    None => {
+                        let error_message: String =
+                            format!("Failed to start node with node_id '{}'", cmd.node_id());
+                        let error = format!(
+                            "Node with node_id '{}' does not exist in the network '{}'",
+                            cmd.node_id(),
+                            cmd.network_id()
+                        );
+                        print_error(&error_message, error.to_string().as_str());
+                        return;
+                    }
+                }
+
                 fn handle_start_error(node_id: &str, error: impl ToString) {
-                    let error_message = format!("Failed to start node with node_id '{}'", node_id,);
+                    let error_message: String =
+                        format!("Failed to start node with node_id '{}'", node_id);
                     print_error(&error_message, error.to_string().as_str());
                 }
                 match docker.compose_start(vec![cmd.node_id()]) {
@@ -456,7 +484,7 @@ fn main() {
                             println!(
                                 "{}",
                                 node::Start {
-                                    fresh_state: false,
+                                    fresh_state,
                                     node_id: cmd.node_id().to_string(),
                                     network_id: cmd.network_id().to_string()
                                 }
