@@ -358,6 +358,9 @@ fn main() {
             }
 
             NetworkCommand::Stop(cmd) => {
+                if network_not_exists(&cmd.network_id) {
+                    return;
+                };
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker = DockerManager::new(&network_path);
                 match docker.compose_stop_all() {
