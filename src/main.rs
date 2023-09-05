@@ -13,7 +13,10 @@ use std::collections::HashMap;
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
     keys::{KeysManager, NodeKey},
-    output::network::{self},
+    output::{
+        network::{self},
+        node,
+    },
     service::{ServiceConfig, ServiceType},
 };
 use clap::Parser;
@@ -322,7 +325,7 @@ fn main() {
             NetworkCommand::Start(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker = DockerManager::new(&network_path);
-                match docker.compose_start() {
+                match docker.compose_start_all() {
                     Ok(_) => {
                         println!(
                             "{}",
@@ -345,7 +348,7 @@ fn main() {
             NetworkCommand::Stop(cmd) => {
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker = DockerManager::new(&network_path);
-                match docker.compose_stop() {
+                match docker.compose_stop_all() {
                     Ok(_) => {
                         println!(
                             "{}",
@@ -367,18 +370,63 @@ fn main() {
         },
         Command::Node(node_cmd) => match node_cmd {
             NodeCommand::Start(cmd) => {
-                info!(
-                    "Node start command with node_id {}, network_id {}.",
-                    cmd.node_id(),
-                    cmd.network_id()
-                );
+                let network_path = directory_manager.network_path(cmd.network_id());
+                let docker = DockerManager::new(&network_path);
+                fn handle_start_error(node_id: &str, error: impl ToString) {
+                    let error_message = format!(
+                        "Failed to start node with node_id '{}' with error = {}",
+                        node_id,
+                        error.to_string()
+                    );
+                    error!("{}", error_message);
+                    println!("{}", output::Error { error_message });
+                }
+                match docker.compose_start(vec![cmd.node_id()]) {
+                    Ok(out) => {
+                        if out.status.success() {
+                            println!(
+                                "{}",
+                                node::Start {
+                                    fresh_state: false,
+                                    node_id: cmd.node_id().to_string(),
+                                    network_id: cmd.network_id().to_string()
+                                }
+                            )
+                        } else {
+                            handle_start_error(cmd.node_id(), String::from_utf8_lossy(&out.stderr));
+                        }
+                    }
+                    Err(e) => handle_start_error(cmd.node_id(), e),
+                }
             }
             NodeCommand::Stop(cmd) => {
-                info!(
-                    "Node stop command with node_id {}, network_id {}.",
-                    cmd.node_id(),
-                    cmd.network_id()
-                );
+                let network_path = directory_manager.network_path(cmd.network_id());
+                let docker = DockerManager::new(&network_path);
+                fn handle_stop_error(node_id: &str, error: impl ToString) {
+                    let error_message = format!(
+                        "Failed to stop node with node_id '{}' with error = {}",
+                        node_id,
+                        error.to_string()
+                    );
+                    error!("{}", error_message);
+                    println!("{}", output::Error { error_message });
+                }
+                match docker.compose_stop(vec![cmd.node_id()]) {
+                    Ok(out) => {
+                        if out.status.success() {
+                            println!(
+                                "{}",
+                                node::Stop {
+                                    node_id: cmd.node_id().to_string(),
+                                    network_id: cmd.network_id().to_string()
+                                }
+                            )
+                        } else {
+                            handle_stop_error(cmd.node_id(), String::from_utf8_lossy(&out.stderr));
+                        }
+                    }
+                    Err(e) => handle_stop_error(cmd.node_id(), e),
+                }
             }
             NodeCommand::Logs(cmd) => {
                 info!(
