@@ -63,6 +63,8 @@ where
     s.serialize_str(merge)
 }
 
+const CONFIG_DIRECTORY: &str = "config-directory";
+
 impl DockerCompose {
     pub fn generate(configs: Vec<ServiceConfig>, network_path: &Path) -> String {
         let networt_path_string = network_path
@@ -70,7 +72,7 @@ impl DockerCompose {
             .expect("Failed to convert network path to str");
         let volumes = {
             let mut v = HashMap::new();
-            v.insert("config-directory".to_string(), None);
+            v.insert(CONFIG_DIRECTORY.to_string(), None);
             v
         };
         let services: HashMap<String, Service> = configs
@@ -101,7 +103,7 @@ impl DockerCompose {
                 entrypoint: vec!["mina".to_string()],
                 volumes: vec![
                     format!("{}:/local-network", networt_path_string),
-                    "/config-directory:/config-directory".to_string(),
+                    format!("{}:/{}", CONFIG_DIRECTORY, CONFIG_DIRECTORY),
                 ],
                 environment: Environment {
                     mina_privkey_pass: "naughty blue worm".to_string(),
