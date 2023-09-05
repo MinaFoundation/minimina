@@ -86,16 +86,33 @@ impl DockerManager {
         self.run_docker_compose(&["down", "--volumes", "--remove-orphans", "--rmi", "all"])
     }
 
+    /// Create the network
     pub fn compose_create(&self) -> std::io::Result<Output> {
         self.run_docker_compose(&["create"])
     }
 
-    pub fn compose_start(&self) -> std::io::Result<Output> {
+    /// Start all services in the network
+    pub fn compose_start_all(&self) -> std::io::Result<Output> {
         self.run_docker_compose(&["start"])
     }
 
-    pub fn compose_stop(&self) -> std::io::Result<Output> {
+    /// Stop all services in the network
+    pub fn compose_stop_all(&self) -> std::io::Result<Output> {
         self.run_docker_compose(&["stop"])
+    }
+
+    /// Start a subset of services in the network
+    pub fn compose_start(&self, services: Vec<&str>) -> std::io::Result<Output> {
+        let mut cmd = vec!["start"];
+        cmd.extend(services);
+        self.run_docker_compose(&cmd)
+    }
+
+    /// Stop a subset of services in the network
+    pub fn compose_stop(&self, services: Vec<&str>) -> std::io::Result<Output> {
+        let mut cmd = vec!["stop"];
+        cmd.extend(services);
+        self.run_docker_compose(&cmd)
     }
 
     pub fn compose_ls(&self) -> std::io::Result<Vec<ComposeInfo>> {
