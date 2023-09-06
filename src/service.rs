@@ -8,11 +8,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 pub enum ServiceType {
+    #[serde(rename = "Seed_node")]
     Seed,
     #[default]
+    #[serde(rename = "Block_producer")]
     BlockProducer,
+    #[serde(rename = "Snark_worker")]
     SnarkWorker,
+    #[serde(rename = "Snark_coordinator")]
     SnarkCoordinator,
+    #[serde(rename = "Archive_node")]
     ArchiveNode,
 }
 
@@ -24,6 +29,8 @@ pub struct ServiceConfig {
     pub client_port: Option<u16>,
     pub public_key: Option<String>,
     pub public_key_path: Option<String>,
+    pub private_key: Option<String>,
+    pub private_key_path: Option<String>,
     pub libp2p_keypair: Option<String>,
     pub peers: Option<Vec<String>>,
 

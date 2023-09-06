@@ -138,13 +138,10 @@ pub mod node {
     use super::ServiceType;
     use serde::Serialize;
 
-    #[derive(Debug, Serialize, PartialEq)]
+    #[derive(Debug, Clone, Serialize, PartialEq)]
     pub struct Info {
-        pub node_id: String,
-        pub client_port: Option<u16>,
         pub graphql_uri: Option<String>,
-        pub public_key: Option<String>,
-        pub libp2p_keypair: Option<String>,
+        pub private_key: Option<String>,
         pub node_type: ServiceType,
     }
 
@@ -207,13 +204,10 @@ pub struct Error {
 impl ServiceConfig {
     pub fn to_node_info(&self) -> node::Info {
         node::Info {
-            node_id: self.service_name.clone(),
-            client_port: self.client_port,
             graphql_uri: self
                 .client_port
                 .map(|port| format!("http://localhost:{}/graphql", port + 1)),
-            public_key: self.public_key.clone(),
-            libp2p_keypair: self.libp2p_keypair.clone(),
+            private_key: self.private_key.clone(),
             node_type: self.service_type.clone(),
         }
     }
@@ -270,8 +264,10 @@ mod tests {
             service_name: "BP".to_string(),
             docker_image: "bp-image".to_string(),
             client_port: Some(8080),
-            public_key: None,
+            public_key: Some("B62qjVQQTbzsoC8AJMPdJERChzy2y49JzykPVeNKpeXqfeZcwwK5SwF".to_string()),
             public_key_path: None,
+            private_key: Some("EKEQpDAjj7dP3j7fQy4qBU7Kxns85wwq5xMn4zxdyQm83pEWzQ62".to_string()),
+            private_key_path: None,
             libp2p_keypair: None,
             peers: None,
             snark_coordinator_port: None,
@@ -281,21 +277,25 @@ mod tests {
         let services = vec![bp_service.clone()];
 
         let bp_info = node::Info {
-            node_id: bp_service.service_name.clone(),
-            client_port: bp_service.client_port,
             graphql_uri: Some(format!(
                 "http://localhost:{}/graphql",
                 bp_service.client_port.unwrap() + 1
             )),
-            public_key: bp_service.public_key,
-            libp2p_keypair: bp_service.libp2p_keypair,
+            private_key: bp_service.private_key,
             node_type: bp_service.service_type,
         };
         let expect = network::Create {
             network_id: network_id.to_string(),
-            nodes: HashMap::from([(bp_service.service_name, bp_info)]),
+            nodes: HashMap::from([(bp_service.service_name.clone(), bp_info.clone())]),
         };
 
+        assert_eq!(
+            serde_json::to_value(bp_info)
+                .unwrap()
+                .get("node_type")
+                .unwrap(),
+            &serde_json::to_value("Block_producer").unwrap()
+        );
         assert_eq!(expect, generate_network_info(services, network_id));
     }
 }
