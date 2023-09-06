@@ -20,24 +20,24 @@ pub mod network {
 
     use crate::docker::manager::{ComposeInfo, ContainerInfo};
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct Create {
         pub network_id: String,
-        pub node_map: std::collections::HashMap<String, super::node::Info>,
+        pub nodes: std::collections::HashMap<String, super::node::Info>,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct Start {
         pub network_id: String,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct ListInfo {
         pub network_id: String,
         pub config_dir: String,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct List {
         pub networks: Vec<ListInfo>,
     }
@@ -62,12 +62,12 @@ pub mod network {
         }
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct Stop {
         pub network_id: String,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct Status {
         pub network_id: String,
         pub status: String,
@@ -127,7 +127,7 @@ pub mod network {
         }
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct Delete {
         pub network_id: String,
     }
@@ -138,7 +138,7 @@ pub mod node {
     use super::ServiceType;
     use serde::Serialize;
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct Info {
         pub node_id: String,
         pub client_port: Option<u16>,
@@ -148,7 +148,7 @@ pub mod node {
         pub node_type: ServiceType,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct Status {
         pub node_id: String,
         pub state: String,
@@ -157,41 +157,41 @@ pub mod node {
         pub docker_image: String,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct Start {
         pub fresh_state: bool,
         pub network_id: String,
         pub node_id: String,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct Stop {
         pub network_id: String,
         pub node_id: String,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct ArchiveData {
         pub data: String,
         pub network_id: String,
         pub node_id: String,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct MinaLogs {
         pub logs: String,
         pub network_id: String,
         pub node_id: String,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct PrecomputedBlocks {
         pub blocks: String,
         pub network_id: String,
         pub node_id: String,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, PartialEq)]
     pub struct ReplayerLogs {
         pub logs: String,
         pub network_id: String,
@@ -220,15 +220,15 @@ impl ServiceConfig {
 }
 
 pub fn generate_network_info(services: Vec<ServiceConfig>, network_id: &str) -> network::Create {
-    let mut node_map: HashMap<String, node::Info> = HashMap::new();
+    let mut nodes: HashMap<String, node::Info> = HashMap::new();
     for (i, service) in services.iter().enumerate() {
         let node_name = format!("node{}", i);
-        node_map.insert(node_name, service.to_node_info());
+        nodes.insert(node_name, service.to_node_info());
     }
 
     network::Create {
         network_id: network_id.to_string(),
-        node_map,
+        nodes,
     }
 }
 
@@ -258,3 +258,45 @@ impl_display!(node::PrecomputedBlocks);
 impl_display!(node::ReplayerLogs);
 impl_display!(node::Status);
 impl_display!(Error);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_network_info() {
+        let network_id = "generate_network_info_id";
+        let bp_service = ServiceConfig {
+            service_type: ServiceType::BlockProducer,
+            service_name: "BP".to_string(),
+            docker_image: "bp-image".to_string(),
+            client_port: Some(8080),
+            public_key: None,
+            public_key_path: None,
+            libp2p_keypair: None,
+            peers: None,
+            snark_coordinator_port: None,
+            snark_coordinator_fees: None,
+            snark_worker_proof_level: None,
+        };
+        let services = vec![bp_service.clone()];
+
+        let bp_info = node::Info {
+            node_id: bp_service.service_name,
+            client_port: bp_service.client_port,
+            graphql_uri: Some(format!(
+                "http://localhost:{}/graphql",
+                bp_service.client_port.unwrap() + 1
+            )),
+            public_key: bp_service.public_key,
+            libp2p_keypair: bp_service.libp2p_keypair,
+            node_type: bp_service.service_type,
+        };
+        let expect = network::Create {
+            network_id: network_id.to_string(),
+            nodes: HashMap::from([("node0".to_string(), bp_info)]),
+        };
+
+        assert_eq!(expect, generate_network_info(services, network_id));
+    }
+}
