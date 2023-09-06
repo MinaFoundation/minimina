@@ -221,9 +221,8 @@ impl ServiceConfig {
 
 pub fn generate_network_info(services: Vec<ServiceConfig>, network_id: &str) -> network::Create {
     let mut nodes: HashMap<String, node::Info> = HashMap::new();
-    for (i, service) in services.iter().enumerate() {
-        let node_name = format!("node{}", i);
-        nodes.insert(node_name, service.to_node_info());
+    for service in services.iter() {
+        nodes.insert(service.service_name.clone(), service.to_node_info());
     }
 
     network::Create {
@@ -282,7 +281,7 @@ mod tests {
         let services = vec![bp_service.clone()];
 
         let bp_info = node::Info {
-            node_id: bp_service.service_name,
+            node_id: bp_service.service_name.clone(),
             client_port: bp_service.client_port,
             graphql_uri: Some(format!(
                 "http://localhost:{}/graphql",
@@ -294,7 +293,7 @@ mod tests {
         };
         let expect = network::Create {
             network_id: network_id.to_string(),
-            nodes: HashMap::from([("node0".to_string(), bp_info)]),
+            nodes: HashMap::from([(bp_service.service_name, bp_info)]),
         };
 
         assert_eq!(expect, generate_network_info(services, network_id));
