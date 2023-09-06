@@ -195,7 +195,7 @@ fn main() {
                                 libp2p_keypair: Some(
                                     libp2p_keys[snark_coordinator_name].key_string.clone(),
                                 ),
-                                peers: Some(peers.clone()),
+                                peers: Some(peers),
                                 snark_coordinator_fees: Some("0.001".into()),
                                 snark_coordinator_port: None,
                                 snark_worker_proof_level: None,
@@ -238,8 +238,7 @@ fn main() {
                     Ok(_) => {
                         info!("Successfully created network!");
                         // generate command output
-                        let result =
-                            output::generate_network_info(services.clone(), cmd.network_id());
+                        let result = output::generate_network_info(services, cmd.network_id());
                         println!("{}", result);
                         let json_data = format!("{}", result);
                         let json_path = network_path.join("network.json");
@@ -295,12 +294,7 @@ fn main() {
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!(
-                            "{}",
-                            output::Error {
-                                error_message: error_message.clone()
-                            }
-                        );
+                        println!("{}", output::Error { error_message });
                         return;
                     }
                 };
@@ -313,12 +307,7 @@ fn main() {
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!(
-                            "{}",
-                            output::Error {
-                                error_message: error_message.clone()
-                            }
-                        );
+                        println!("{}", output::Error { error_message });
                         return;
                     }
                 };
