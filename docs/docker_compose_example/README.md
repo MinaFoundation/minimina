@@ -1,6 +1,10 @@
 # Mina Local Network Setup with Docker Compose
 
-This guide will help you set up a local Mina network with 1 seed node, 2 block producers, 1 snark coordinator and 1 snark worker.
+This guide will help you set up a local Mina network with 1 seed node, 2 block producers, 1 snark coordinator with 1 snark worker and archive service.
+
+Note that the guide is compatible with following docker images:
+ - Mina daemon: `gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley`
+ - Mina archive: `gcr.io/o1labs-192920/mina-archive:2.0.0rampup3-bfd1009-buster`
 
 ## Prerequisites
 
@@ -68,7 +72,31 @@ Copy [docker-compose-example.yaml](docker-compose-example.yaml) to `~/.minimina/
 cp docs/docker_compose_example/docker-compose-example.yaml ~/.minimina/default/docker-compose.yaml
 ```
 
-5. **Start the Network**
+5. **Configure Postres Database for Archive Node**
+
+In order to configure database for Archive Node we need to start postgres database first.
+
+```bash
+cd ~/.minimina/default
+docker compose create
+docker compose start postgres
+```
+
+Now, let's create database:
+
+```bash
+docker exec -it postgres createdb -U postgres archive
+```
+
+And load the mina archive and zkapps schemas into the archive database:
+
+```bash
+curl -Ls https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/create_schema.sql | docker exec -i postgres psql -U postgres -d archive
+
+curl -Ls https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/zkapp_tables.sql | docker exec -i postgres psql -U postgres -d archive
+```
+
+6. **Start the Network**
 
 Once everything is configured, spin up the local network.
 
@@ -81,7 +109,7 @@ And that's it! Your local Mina network should now be running. Monitor the logs t
 
 > ⚠️ Depending on your Docker version, you might need to use `docker-compose up` and `docker-compose down` instead.
 
-6. **Monitor and manage the network**
+7. **Monitor and manage the network**
 
 - To check running processes:
 
@@ -113,11 +141,11 @@ docker stop mina-bp-2
 docker start mina-bp-2
 ```
 
-7. **Stop the network**
+8. **Stop the network**
 
 If you wish to stop the network, simply run:
 
 ```bash
 cd ~/.minimina/default
-docker compose down
+docker compose down --volumes
 ```
