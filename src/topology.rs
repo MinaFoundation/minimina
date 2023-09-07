@@ -35,29 +35,19 @@ pub struct SnarkCoordinatorTopologyInfo {
     pub service_type: ServiceType,
     pub docker_image: String,
     pub worker_nodes: u16,
+    pub snark_worker_fee: String,
 }
 
-/// Topology info for a snark worker
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-pub struct SnarkWorkerTopologyInfo {
-    pub pk: String,
-    pub sk: String,
-    #[serde(rename(deserialize = "role"))]
-    pub service_type: ServiceType,
-    pub docker_image: String,
-}
-
+/// Each node variant's topology info
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum TopologyInfo {
     Archive(ArchiveTopologyInfo),
     Node(NodeTopologyInfo),
     SnarkCoordinator(SnarkCoordinatorTopologyInfo),
-    SnarkWorker(SnarkWorkerTopologyInfo),
-    #[serde(rename = "snark_worker_fee")]
-    SnarkWorkerFee(String),
 }
 
+/// Full network topology
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct Topology {
     #[serde(flatten)]
@@ -142,12 +132,14 @@ mod tests {
         let service_type = ServiceType::SnarkCoordinator;
         let docker_image = "snark-image".to_string();
         let worker_nodes = 42;
+        let snark_worker_fee = "0.01".to_string();
         let snark_node = SnarkCoordinatorTopologyInfo {
             pk,
             sk,
             service_type,
             docker_image,
             worker_nodes,
+            snark_worker_fee,
         };
 
         let expect: Topology = serde_json::from_str(
@@ -177,9 +169,9 @@ mod tests {
                     \"sk\": \"sk2\",
                     \"role\": \"Snark_coordinator\",
                     \"docker_image\": \"snark-image\",
-                    \"worker_nodes\": 42
-                },
-                \"snark_worker_fee\": \"0.01\"
+                    \"worker_nodes\": 42,
+                    \"snark_worker_fee\": \"0.01\"
+                }
             }",
         )
         .unwrap();
@@ -189,10 +181,6 @@ mod tests {
                 (bp_name, TopologyInfo::Node(bp_node)),
                 (seed_name, TopologyInfo::Node(seed_node)),
                 (snark_name, TopologyInfo::SnarkCoordinator(snark_node)),
-                (
-                    "snark_worker_fee".to_string(),
-                    TopologyInfo::SnarkWorkerFee("0.01".to_string()),
-                ),
             ]),
         };
 
@@ -201,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_topology_file() {
-        let path = PathBuf::from("./tests/example_topology.json");
+        let path = PathBuf::from("./tests/data/example_topology.json");
         let contents = std::fs::read_to_string(path).unwrap();
         let _: Topology = serde_json::from_str(&contents).unwrap();
     }
