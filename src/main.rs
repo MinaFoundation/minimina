@@ -137,6 +137,8 @@ fn main() {
                                 client_port: Some(3100),
                                 public_key: None,
                                 public_key_path: None,
+                                private_key: None,
+                                private_key_path: None,
                                 libp2p_keypair: Some(libp2p_keys[seed_name].key_string.clone()),
                                 peers: None,
                                 snark_coordinator_fees: None,
@@ -156,6 +158,8 @@ fn main() {
                                 client_port: Some(4000),
                                 public_key: Some(bp_keys[bp_1_name].key_string.clone()),
                                 public_key_path: Some(bp_keys[bp_1_name].key_path_docker.clone()),
+                                private_key: None,
+                                private_key_path: None,
                                 libp2p_keypair: Some(libp2p_keys[bp_1_name].key_string.clone()),
                                 peers: Some(peers.clone()),
                                 snark_coordinator_fees: None,
@@ -171,6 +175,8 @@ fn main() {
                                 client_port: Some(4005),
                                 public_key: Some(bp_keys[bp_2_name].key_string.clone()),
                                 public_key_path: Some(bp_keys[bp_2_name].key_path_docker.clone()),
+                                private_key: None,
+                                private_key_path: None,
                                 libp2p_keypair: Some(libp2p_keys[bp_2_name].key_string.clone()),
                                 peers: Some(peers.clone()),
                                 snark_coordinator_fees: None,
@@ -192,10 +198,12 @@ fn main() {
                                     bp_keys[snark_coordinator_name].key_string.clone(),
                                 ),
                                 public_key_path: None,
+                                private_key: None,
+                                private_key_path: None,
                                 libp2p_keypair: Some(
                                     libp2p_keys[snark_coordinator_name].key_string.clone(),
                                 ),
-                                peers: Some(peers.clone()),
+                                peers: Some(peers),
                                 snark_coordinator_fees: Some("0.001".into()),
                                 snark_coordinator_port: None,
                                 snark_worker_proof_level: None,
@@ -212,6 +220,8 @@ fn main() {
                                 client_port: None,
                                 public_key: None,
                                 public_key_path: None,
+                                private_key: None,
+                                private_key_path: None,
                                 libp2p_keypair: None,
                                 peers: None,
                                 snark_coordinator_fees: None,
@@ -238,8 +248,7 @@ fn main() {
                     Ok(_) => {
                         info!("Successfully created network!");
                         // generate command output
-                        let result =
-                            output::generate_network_info(services.clone(), cmd.network_id());
+                        let result = output::generate_network_info(services, cmd.network_id());
                         println!("{}", result);
                         let json_data = format!("{}", result);
                         let json_path = network_path.join("network.json");
@@ -295,12 +304,7 @@ fn main() {
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!(
-                            "{}",
-                            output::Error {
-                                error_message: error_message.clone()
-                            }
-                        );
+                        println!("{}", output::Error { error_message });
                         return;
                     }
                 };
@@ -313,12 +317,7 @@ fn main() {
                             cmd.network_id, e
                         );
                         error!("{}", error_message);
-                        println!(
-                            "{}",
-                            output::Error {
-                                error_message: error_message.clone()
-                            }
-                        );
+                        println!("{}", output::Error { error_message });
                         return;
                     }
                 };
