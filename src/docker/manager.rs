@@ -29,12 +29,8 @@ pub struct ContainerInfo {
     pub image: String,
     #[serde(rename = "Command")]
     pub command: String,
-    #[serde(rename = "Project")]
-    pub project: String,
-    #[serde(rename = "Service")]
-    pub service: String,
-    #[serde(rename = "Created")]
-    pub created: u64,
+    #[serde(rename = "CreatedAt")]
+    pub created_at: String,
     #[serde(rename = "State")]
     pub state: ContainerState,
     #[serde(rename = "Status")]
@@ -42,9 +38,13 @@ pub struct ContainerInfo {
     #[serde(rename = "Health")]
     pub health: String,
     #[serde(rename = "ExitCode")]
-    pub exit_code: u8,
+    pub exit_code: i32,
+    #[serde(rename = "Labels")]
+    pub labels: String,
     #[serde(rename = "Publishers")]
     pub publishers: Option<Vec<String>>,
+    #[serde(rename = "Service")]
+    pub service: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -142,15 +142,8 @@ impl DockerManager {
         Ok(compose_info)
     }
 
-    pub fn compose_ps(&self) -> std::io::Result<Vec<ContainerInfo>> {
-        let output = self.run_docker_compose(&["ps", "--format", "json"])?;
-        let stdout_str = String::from_utf8_lossy(&output.stdout);
-        let containers: Vec<ContainerInfo> = serde_json::from_str(&stdout_str)?;
-        Ok(containers)
-    }
-
     /// Get docker info of all services in the network
-    pub fn compose_ps_all(
+    pub fn compose_ps(
         &self,
         filter: Option<ContainerState>,
     ) -> std::io::Result<Vec<ContainerInfo>> {
@@ -181,7 +174,12 @@ impl DockerManager {
 
         let output = self.run_docker_compose(&cmd_str_slices)?;
         let stdout_str = String::from_utf8_lossy(&output.stdout);
-        let containers: Vec<ContainerInfo> = serde_json::from_str(&stdout_str)?;
+        let lines: Vec<&str> = stdout_str.trim().split('\n').collect();
+        let mut containers: Vec<ContainerInfo> = Vec::new();
+        for line in lines {
+            let container: ContainerInfo = serde_json::from_str(line)?;
+            containers.push(container);
+        }
         Ok(containers)
     }
 
