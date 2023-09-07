@@ -261,7 +261,7 @@ fn main() {
                     }
                 };
 
-                let ps_out = match docker.compose_ps() {
+                let ps_out = match docker.compose_ps(None) {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
@@ -387,7 +387,7 @@ fn main() {
                 let network_path = directory_manager.network_path(cmd.network_id());
                 let docker = DockerManager::new(&network_path);
 
-                let nodes = docker.compose_ps_all(None).unwrap();
+                let nodes = docker.compose_ps(None).unwrap();
                 let node = docker.filter_container_by_name(nodes, cmd.node_id());
                 let mut fresh_state = false;
                 match node {
