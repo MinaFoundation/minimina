@@ -5,6 +5,7 @@ mod docker;
 mod keys;
 mod output;
 mod service;
+mod topology;
 mod utils;
 
 use std::collections::HashMap;
