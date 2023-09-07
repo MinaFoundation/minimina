@@ -47,7 +47,7 @@ pub struct ContainerInfo {
     pub publishers: Option<Vec<String>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum ContainerState {
     #[serde(rename = "created")]
     Created,
