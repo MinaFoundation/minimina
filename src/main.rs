@@ -7,7 +7,7 @@ mod output;
 mod service;
 mod utils;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, process::exit};
 
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
@@ -52,10 +52,36 @@ fn print_error(error_message: &str, error: &str) {
     );
 }
 
+const LEAST_COMPOSE_VERSION: &str = "2.21.0";
+fn compose_version_ok() -> bool {
+    let compose_version = DockerManager::compose_version();
+    match compose_version {
+        Some(version) => {
+            if version.as_str() < LEAST_COMPOSE_VERSION {
+                error!(
+                    "Docker compose version '{}' is less than the least supported version '{}'.",
+                    version, LEAST_COMPOSE_VERSION
+                );
+                false
+            } else {
+                true
+            }
+        }
+        None => {
+            error!("It seems that docker not installed! Please install docker and try again.");
+            false
+        }
+    }
+}
+
 fn main() {
     Builder::from_env(Env::default().default_filter_or("warn")).init();
     let cli: Cli = Cli::parse();
     let directory_manager = DirectoryManager::new();
+
+    if !compose_version_ok() {
+        exit(1);
+    }
 
     match cli.command {
         Command::Network(net_cmd) => match net_cmd {
