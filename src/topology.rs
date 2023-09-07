@@ -54,6 +54,8 @@ pub enum TopologyInfo {
     Node(NodeTopologyInfo),
     SnarkCoordinator(SnarkCoordinatorTopologyInfo),
     SnarkWorker(SnarkWorkerTopologyInfo),
+    #[serde(rename = "snark_worker_fee")]
+    SnarkWorkerFee(String),
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -176,20 +178,31 @@ mod tests {
                     \"role\": \"Snark_coordinator\",
                     \"docker_image\": \"snark-image\",
                     \"worker_nodes\": 42
-                }
+                },
+                \"snark_worker_fee\": \"0.01\"
             }",
         )
         .unwrap();
 
-        assert_eq!(
-            expect,
-            Topology {
-                topology: HashMap::from([
-                    (bp_name, TopologyInfo::Node(bp_node)),
-                    (seed_name, TopologyInfo::Node(seed_node)),
-                    (snark_name, TopologyInfo::SnarkCoordinator(snark_node)),
-                ]),
-            }
-        );
+        let topology = Topology {
+            topology: HashMap::from([
+                (bp_name, TopologyInfo::Node(bp_node)),
+                (seed_name, TopologyInfo::Node(seed_node)),
+                (snark_name, TopologyInfo::SnarkCoordinator(snark_node)),
+                (
+                    "snark_worker_fee".to_string(),
+                    TopologyInfo::SnarkWorkerFee("0.01".to_string()),
+                ),
+            ]),
+        };
+
+        assert_eq!(expect, topology);
+    }
+
+    #[test]
+    fn test_deserialize_topology_file() {
+        let path = PathBuf::from("./tests/example_topology.json");
+        let contents = std::fs::read_to_string(path).unwrap();
+        let _: Topology = serde_json::from_str(&contents).unwrap();
     }
 }

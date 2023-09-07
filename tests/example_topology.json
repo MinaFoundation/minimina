@@ -1,0 +1,163 @@
+{
+    "snark-node": {
+      "pk": "B62qn6CfeTCWVjtcK12rknfUHk8SpkbffqTcMSz5TS62wgyJP7oebqK",
+      "sk": "EKDnYQHBJQqjK8KwQUu6bS8ej74dUG53Q3ixGpQ2BNYEzAsMjByR",
+      "role": "Snark_coordinator",
+      "docker_image": "mock",
+      "worker_nodes": 4
+    },
+    "archive-0": {
+      "pk": "B62qqkdL3smhEKr9PpsLcoQVdjQQT2iV7nH4ba2KoCAne2cvvzK2Ney",
+      "sk": "EKEsygxD5g6V3vKoiJbVBuemTjfHF1nwsNd8XRv8hWC2qiKLRNmu",
+      "role": "Archive_node",
+      "docker_image": "archive-docker-image",
+      "schema_file": "https://raw.githubusercontent.com/MinaProtocol/mina/784ce3ee22bfaf11510bdfa20fd17626a80c30a3/src/app/archive/create_schema.sql",
+      "zkapp_file": "https://raw.githubusercontent.com/MinaProtocol/mina/784ce3ee22bfaf11510bdfa20fd17626a80c30a3/src/app/archive/zkapp_tables.sql"
+    },
+    "receiver": {
+      "pk": "B62qoX1A8gMMeGR2jxpLnUdANCmHpTT5oB9xVnb961G92uDAciuTvtE",
+      "sk": "EKEcKafxSyaY2N7Jn7Qe8uu4NBqEEpkwBFnVJdi7YXwBTjg5B2ie",
+      "role": "Block_producer",
+      "docker_image": "another-docker-image",
+      "libp2p_pass": "naughty blue worm",
+      "libp2p_keyfile": "./automation/testnets/it-quant-784ce3ee-mock/libp2p_keys/receiver.json",
+      "libp2p_keypair": {
+        "box_primitive": "xsalsa20poly1305",
+        "pw_primitive": "argon2i",
+        "nonce": "8M14zAD2mvzCfVfi21chZsrKbXyjAvQCHfmn65q",
+        "pwsalt": "9GUE9krHqfXswUSeoigJciEVRTPA",
+        "pwdiff": [
+          134217728,
+          6
+        ],
+        "ciphertext": "7qLb6wtUyvsTmrVW7kESkVoHLt9vttXTKNeJ9oAYXQzzAEExFW7gGQXtZg4uqyfB2naLu8Xv4qiYMWR1cG7UATJnNYXHuzRiQVdUjuqQULV1D1ayVVbYhjuwiZe3jZKm2WLP27Utya3CLwyBNTtTAqgsDYFqFzsbUTQV78p9YHjiDq6MzJQiaCeUL31EBubqo2rQ6Zkg5EkFsM7nxjzxXwLXbBtErezEcpnbGroNgzoFyneFUWwfh4ncC7dpx168SN3gjvWzRQqB3JuDkBoTYeVNZBvYhUVKJLkzL"
+      },
+      "libp2p_peerid": "12D3KooWSSXYVY7DCUzBg84MdJjrcqCqUNpP4J9o69aiH93r5BjP"
+    },
+    "empty_node-1": {
+      "pk": "B62qjQfGAoJDdNa811XxHxi1RXg3d7VyDbNnWRGs1JX1UgQrpqkhfBs",
+      "sk": "EKEyZGDqZCiTLTYxbVCBoBAmY5e6bKWKz13QkydcsGsVF1JcLD4J",
+      "role": "Block_producer",
+      "docker_image": "mock",
+      "libp2p_pass": "naughty blue worm",
+      "libp2p_keyfile": "./automation/testnets/it-quant-784ce3ee-mock/libp2p_keys/empty_node-1.json",
+      "libp2p_keypair": {
+        "box_primitive": "xsalsa20poly1305",
+        "pw_primitive": "argon2i",
+        "nonce": "7N3k9G3oEkiDtPzE7v9DuxkbCUSB6CteAPoi6kF",
+        "pwsalt": "8GNof5v6weAUSRpz1Cgq4BGmgNAj",
+        "pwdiff": [
+          134217728,
+          6
+        ],
+        "ciphertext": "9AXcDCn5G1fTWMzKdQNe8udzCdjhcWzLu4Tk5VbU5g5urPf8gzRPb41zJ8VByBxPekVhA3XGnR5dqqB9X3FQ36uRtawC2BzPa7BKnnwxJiVmv7WEVyYbN35veuZmtHX6hmDsc3LPMaerb5bLD4FpNvzNxfdeD5d9N355by4f14MCAptgsXE37FZ6pDe9dRux3Ka5yuCoqJxPMntNcjqPyVqEfpFcz7Jg11hgZk3gJLgXwc8KKwtCMyrfKS9GWWMKSFB1eGRtDM9MDPL2N3kV15TZpc67o6D2q3ZNX"
+      },
+      "libp2p_peerid": "12D3KooWM81daEW9wF7nUPjgPRRoUqbX2dLJhwmdRVvUbFH3fVUS"
+    },
+    "empty_node-2": {
+      "pk": "B62qjQfGAoJDdNa811XxHxi1RXg3d7VyDbNnWRGs1JX1UgQrpqkhfBs",
+      "sk": "EKEyZGDqZCiTLTYxbVCBoBAmY5e6bKWKz13QkydcsGsVF1JcLD4J",
+      "role": "Block_producer",
+      "docker_image": "mock",
+      "libp2p_pass": "naughty blue worm",
+      "libp2p_keyfile": "./automation/testnets/it-quant-784ce3ee-mock/libp2p_keys/empty_node-2.json",
+      "libp2p_keypair": {
+        "box_primitive": "xsalsa20poly1305",
+        "pw_primitive": "argon2i",
+        "nonce": "6tt94shuyPeSvNUrKho7U7CSx4PqFue43SpuhDx",
+        "pwsalt": "99WVWbEU9fv5JJ6ukJhwfJhcRuwU",
+        "pwdiff": [
+          134217728,
+          6
+        ],
+        "ciphertext": "7zQnvbnNvhPvviLcLcJoBxuKLVxDFxXs1kiWsD9GDX1eVYpKWcGB19twEMNmKuJGwPX6i2s7YdF57Qpko96ssBVDsmT8ydCgJ5ajmd11DW2zqksPoJ3Tj4ad1htDbvMJBj1tHKrUmyPTqNbMeu22k9N3VGAG1KPh8vh1niy3fiwtRuN5ZSP11M3Hw1sbjGx77e3FMKFGEzK4PCsMr6PhZDGLEmC8UmegFBtjLXFfbDLEEv198Zx2zi85fKEXbct6kfj1mCn8sqqZgWmcna6Sh6DZsa8VQK3Rgqh48"
+      },
+      "libp2p_peerid": "12D3KooWMVqhJqSWTmGVnJ99PgrwqmtkHBrShTcEn1zxZ2NKXPD1"
+    },
+    "empty_node-3": {
+      "pk": "B62qjQfGAoJDdNa811XxHxi1RXg3d7VyDbNnWRGs1JX1UgQrpqkhfBs",
+      "sk": "EKEyZGDqZCiTLTYxbVCBoBAmY5e6bKWKz13QkydcsGsVF1JcLD4J",
+      "role": "Block_producer",
+      "docker_image": "mock",
+      "libp2p_pass": "naughty blue worm",
+      "libp2p_keyfile": "./automation/testnets/it-quant-784ce3ee-mock/libp2p_keys/empty_node-3.json",
+      "libp2p_keypair": {
+        "box_primitive": "xsalsa20poly1305",
+        "pw_primitive": "argon2i",
+        "nonce": "7oSz9mbZvCj4fxVnG3CNtwxvKK7zs6cJHy4rngB",
+        "pwsalt": "AatDU64NF9UjN5r98g6eiGPWyqMr",
+        "pwdiff": [
+          134217728,
+          6
+        ],
+        "ciphertext": "92rRG3Lre1tKE2eeofRLEvuqSs7ssRkPSpndhdmvGZjjDRb3JHSU32ad9Qif8wLA8ong4UjPQWmdcSt1HYFYnBpNVvUsNFpSYRfGk8DXwT2iR3DdXT43rvbawJ1rVF3aGoTFQdYt4jKDJ1PMLJsrgDEzGJweP3qyQF4JHmCQAEdpz8amQ3iH5zQWgDkbw8ru67t4Q3zx8MgrLPzT6nDQB5MWwttrHbSK5rkFrnjbdPWvSjU4gygz1Cg3EdAWjTSyyKSQWitaJLaKVh1qHAvoQnWdjN1aWTzJzbwcD"
+      },
+      "libp2p_peerid": "12D3KooWCzY6YuuGCVWPdpJxWqZqSFkonJXCLrm6E5Yayr2JverH"
+    },
+    "empty_node-4": {
+      "pk": "B62qjQfGAoJDdNa811XxHxi1RXg3d7VyDbNnWRGs1JX1UgQrpqkhfBs",
+      "sk": "EKEyZGDqZCiTLTYxbVCBoBAmY5e6bKWKz13QkydcsGsVF1JcLD4J",
+      "role": "Block_producer",
+      "docker_image": "mock",
+      "libp2p_pass": "naughty blue worm",
+      "libp2p_keyfile": "./automation/testnets/it-quant-784ce3ee-mock/libp2p_keys/empty_node-4.json",
+      "libp2p_keypair": {
+        "box_primitive": "xsalsa20poly1305",
+        "pw_primitive": "argon2i",
+        "nonce": "6ro2RPGP6Jsh2zrCsFTwWcdsaamWhh7GEErJvnE",
+        "pwsalt": "8imQKWSB1aKguQDMwPa3Cprp7z9a",
+        "pwdiff": [
+          134217728,
+          6
+        ],
+        "ciphertext": "8FbveR8BmCrGcEqwnH2hkeoHKGLt99B6vWF1pGcvqPd8hyaE6yHLkDK9YdDkv18RvgPr23hEhQTJBcK5Q1At5rW1e4kG2dVkF9qGwzYjXqDCCVJSBa9sHKFVfR55YLkrEsRQ6s77kFCakuDXBjSzygtT4TWQfdtTyMmBypJHut73bxbgvCCQFko1qb6k733j4Qoi3hVoi1rSXviwRcLKCQDvz8LSVwyjbt4R4ZLj2ihyaw1nfxKRbnLcNt5V25PpPYxFbJLxRmeRrttCvof1mKtApzU4dELZ5jyBj"
+      },
+      "libp2p_peerid": "12D3KooWRmnHdr4znELNQjfVbbYee8KdTSn6YnygVN4QKGR3L1KU"
+    },
+    "observer": {
+      "pk": "B62qjQfGAoJDdNa811XxHxi1RXg3d7VyDbNnWRGs1JX1UgQrpqkhfBs",
+      "sk": "EKEyZGDqZCiTLTYxbVCBoBAmY5e6bKWKz13QkydcsGsVF1JcLD4J",
+      "role": "Block_producer",
+      "docker_image": "mock",
+      "libp2p_pass": "naughty blue worm",
+      "libp2p_keyfile": "./automation/testnets/it-quant-784ce3ee-mock/libp2p_keys/observer.json",
+      "libp2p_keypair": {
+        "box_primitive": "xsalsa20poly1305",
+        "pw_primitive": "argon2i",
+        "nonce": "7PR6PZnByVquAd3s7K5XiGvYwCNa1LM3Q9t5DJD",
+        "pwsalt": "89pjRqvmAnJYAbPyVqfRdDT48RxS",
+        "pwdiff": [
+          134217728,
+          6
+        ],
+        "ciphertext": "71tDYuvJw6a1Wjukg9phvjEhDy7ZSkwTgew5RPpL4HJNMbQaRLiEVrFRssZmTrRNfjBnyKxNX7zWjceR4HzCzGLHDgmS9KrZcNiFeGb7n5pBaZA1mABendGx63Nog3zaKoeMCwC4tnKRoUzTZ84DM7MXCbt4dj9XtPRgTHeK92eRTma4Xb4rooAABmdpRHyQ8G4Cc44tNHjkmVaKfAkR5yfwYiopbevc2gynidCeKwGF3X1EdfEkK91TqJ1eiWrHp9zopFzCw5PnMfDpk1ZLPJ67ghHe2AyofL8Kh"
+      },
+      "libp2p_peerid": "12D3KooWSKa1oNNXSJH3EhBf2AsAbTB5isWSajzkfLeMmgcvfjo4"
+    },
+    "seed-0": {
+      "pk": "B62qjyDtNkNW3He9bdUeYhsJw7miVqjhb4zLtyKfxHNN6vfahneyzuT",
+      "sk": "EKFEkS5gixY3nF58x22sGXEPHHWJFNtHza3ZpnzJAM3e46xQaUoW",
+      "role": "Seed_node",
+      "docker_image": "seed-docker-image",
+      "libp2p_pass": "naughty blue worm",
+      "libp2p_keyfile": "./automation/testnets/it-quant-784ce3ee-mock/libp2p_keys/seed-0.json",
+      "libp2p_keypair": {
+        "box_primitive": "xsalsa20poly1305",
+        "pw_primitive": "argon2i",
+        "nonce": "7mvvLAhLGj3KTNejk7yriJjkNZzRJnqoAfEZwGc",
+        "pwsalt": "8PYEeAniYVWiyoFqarYwxFsQpxrE",
+        "pwdiff": [
+          134217728,
+          6
+        ],
+        "ciphertext": "7otKV1WUns7kyFK9MXQYpFv5SQ89N8DnmBSMreTAHc7A5AZKiEiJNBBkbrd8ZindTVvU25B5ACGYCNp8Uhx6DLcbmaiEYAbWZqBS7QfAfVkkbvCftFNzqhNuU5MxLL1ByJ3K76vy2fmcWBX4atVNEgQPXsF32RUWxMA9rUBsT3MAC1wYEKdJSrQTtpdPW6oEPu7p6uEDQ46uJpfhRpEomrWd7iCCMdmbBJMhcvJY3XfyCE8fhEDhueX8ZMyrozxZhonjc7wZ9LKSN4Bb5yuiUM7x3AtFVq6DoAjiq"
+      },
+      "libp2p_peerid": "12D3KooWR1eomEXoDgfqMLRvXN4g5mQAkB2BMVryHZg8hJJpXoGC"
+    },
+    "snark-0": {
+      "pk": "B62qqAg5WXxsTk56gnpWMxp5mD4zeyzyyW8H85JGadnZD8BNymCF4XX",
+      "sk": "EKFVigahg4bCGPQMHPAaGQL4LwTa4Nx3GMVNHfJbezfxGR1Dtwzt",
+      "role": "Snark_worker",
+      "docker_image": "snark-docker-image"
+    }
+}
