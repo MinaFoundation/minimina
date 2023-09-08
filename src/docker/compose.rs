@@ -45,64 +45,122 @@ struct Environment {
     mina_libp2p_pass: String,
 }
 
-#[derive(Serialize)]
+#[derive(Default, Serialize)]
 struct Service {
-    #[serde(rename = "<<", serialize_with = "no_quotes_merge")]
-    merge: &'static str,
+    #[serde(rename = "<<", skip_serializing_if = "Option::is_none")]
+    merge: Option<&'static str>,
     container_name: String,
-    network_mode: String,
-    entrypoint: Vec<String>,
     image: String,
-    command: String,
-}
-
-fn no_quotes_merge<S>(merge: &&'static str, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    s.serialize_str(merge)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    command: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    network_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    entrypoint: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    volumes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    environment: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ports: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    depends_on: Option<Vec<String>>,
 }
 
 const CONFIG_DIRECTORY: &str = "config-directory";
+const ARCHIVE_DATA: &str = "archive-data";
+const POSTGRES_DATA: &str = "postgres-data";
 
 impl DockerCompose {
     pub fn generate(configs: Vec<ServiceConfig>, network_path: &Path) -> String {
-        let networt_path_string = network_path
+        let network_path_string = network_path
             .to_str()
             .expect("Failed to convert network path to str");
-        let volumes = {
-            let mut v = HashMap::new();
-            v.insert(CONFIG_DIRECTORY.to_string(), None);
-            v
-        };
-        let services: HashMap<String, Service> = configs
+        let mut volumes = HashMap::new();
+        volumes.insert(CONFIG_DIRECTORY.to_string(), None);
+
+        let mut services: HashMap<String, Service> = configs
             .iter()
-            .map(|config| {
-                let service = Service {
-                    merge: "*default-attributes",
-                    container_name: config.service_name.clone(),
-                    network_mode: "host".to_string(),
-                    entrypoint: vec!["mina".to_string()],
-                    image: config.docker_image.to_string(),
-                    command: match config.service_type {
-                        ServiceType::Seed => config.generate_seed_command(),
-                        ServiceType::BlockProducer => config.generate_block_producer_command(),
-                        ServiceType::SnarkCoordinator => {
-                            config.generate_snark_coordinator_command()
-                        }
-                        ServiceType::SnarkWorker => config.generate_snark_worker_command(),
-                        _ => String::new(),
-                    },
-                };
-                (config.service_name.clone(), service)
+            .filter_map(|config| {
+                match config.service_type {
+                    // We'll handle ArchiveNode outside of this map operation
+                    // because it requires adding additional service: postgres
+                    ServiceType::ArchiveNode => None,
+                    _ => {
+                        let service = Service {
+                            merge: Some("*default-attributes"),
+                            container_name: config.service_name.clone(),
+                            network_mode: Some("host".to_string()),
+                            entrypoint: Some(vec!["mina".to_string()]),
+                            image: config.docker_image.to_string(),
+                            command: Some(match config.service_type {
+                                ServiceType::Seed => config.generate_seed_command(),
+                                ServiceType::BlockProducer => {
+                                    config.generate_block_producer_command()
+                                }
+                                ServiceType::SnarkCoordinator => {
+                                    config.generate_snark_coordinator_command()
+                                }
+                                ServiceType::SnarkWorker => config.generate_snark_worker_command(),
+                                _ => String::new(),
+                            }),
+                            ..Default::default()
+                        };
+                        Some((config.service_name.clone(), service))
+                    }
+                }
             })
             .collect();
+
+        if configs
+            .iter()
+            .any(|config| config.service_type == ServiceType::ArchiveNode)
+        {
+            let archive_config = configs
+                .iter()
+                .find(|config| config.service_type == ServiceType::ArchiveNode)
+                .expect("Failed to find archive config");
+
+            // Add archive and postres volumes
+            volumes.insert(POSTGRES_DATA.to_string(), None);
+            volumes.insert(ARCHIVE_DATA.to_string(), None);
+
+            let mut postgres_environment = HashMap::new();
+            postgres_environment.insert("POSTGRES_PASSWORD".to_string(), "postgres".to_string());
+
+            services.insert(
+                "postgres".to_string(),
+                Service {
+                    container_name: "postgres".to_string(),
+                    image: "postgres".to_string(),
+                    environment: Some(postgres_environment),
+                    volumes: Some(vec![format!("{}:/var/lib/postgresql/data", POSTGRES_DATA)]),
+                    ports: Some(vec!["6451:5432".to_string()]),
+                    ..Default::default()
+                },
+            );
+
+            services.insert(
+                    "mina-archive".to_string(),
+                    Service {
+                        container_name: archive_config.service_name.clone(),
+                        image: archive_config.docker_image.to_string(),
+                        command: Some(
+                            "mina-archive run --postgres-uri postgres://postgres:postgres@postgres:5432/archive --server-port 3086".to_string()
+                        ),
+                        volumes: Some(vec![format!("{}:/data", ARCHIVE_DATA)]),
+                        ports: Some(vec!["3086:3086".to_string()]),
+                        depends_on: Some(vec!["postgres".to_string()]),
+                        ..Default::default()
+                    },
+                );
+        }
 
         let compose = DockerCompose {
             version: "3.8".to_string(),
             x_defaults: Defaults {
                 volumes: vec![
-                    format!("{}:/local-network", networt_path_string),
+                    format!("{}:/local-network", network_path_string),
                     format!("{}:/{}", CONFIG_DIRECTORY, CONFIG_DIRECTORY),
                 ],
                 environment: Environment {
@@ -165,6 +223,12 @@ mod tests {
                 client_port: Some(8303),
                 ..Default::default()
             },
+            ServiceConfig {
+                service_name: "mina-archive555".to_string(),
+                service_type: ServiceType::ArchiveNode,
+                client_port: Some(8303),
+                ..Default::default()
+            },
         ];
         let network_path = Path::new("/tmp");
         let docker_compose = DockerCompose::generate(configs, network_path);
@@ -173,5 +237,36 @@ mod tests {
         assert!(docker_compose.contains("block-producer"));
         assert!(docker_compose.contains("snark-coordinator"));
         assert!(docker_compose.contains("snark-worker"));
+        assert!(docker_compose.contains("mina-archive555"));
+        assert!(docker_compose.contains("postgres"));
+        assert!(docker_compose.contains("postgres-data"));
+        assert!(docker_compose.contains("archive-data"));
+    }
+
+    #[test]
+    fn test_generate_without_archive_node() {
+        let configs = vec![
+            ServiceConfig {
+                service_name: "seed".to_string(),
+                service_type: ServiceType::Seed,
+                client_port: Some(8300),
+                ..Default::default()
+            },
+            ServiceConfig {
+                service_name: "block-producer".to_string(),
+                service_type: ServiceType::BlockProducer,
+                client_port: Some(8301),
+                ..Default::default()
+            },
+        ];
+        let network_path = Path::new("/tmp2");
+        let docker_compose = DockerCompose::generate(configs, network_path);
+        println!("{}", docker_compose);
+        assert!(docker_compose.contains("seed"));
+        assert!(docker_compose.contains("block-producer"));
+        assert!(!docker_compose.contains("mina-archive"));
+        assert!(!docker_compose.contains("postgres"));
+        assert!(!docker_compose.contains("postgres-data"));
+        assert!(!docker_compose.contains("archive-data"));
     }
 }
