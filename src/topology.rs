@@ -1,6 +1,9 @@
-use crate::service::ServiceType;
+use crate::service::{ServiceConfig, ServiceType};
 use serde::Deserialize;
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 /// Topology info for an archive node
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -24,6 +27,7 @@ pub struct NodeTopologyInfo {
     pub docker_image: String,
     pub libp2p_pass: String,
     pub libp2p_keyfile: PathBuf,
+    pub libp2p_peerid: String,
 }
 
 /// Topology info for a snark coordinator
@@ -52,6 +56,101 @@ pub enum TopologyInfo {
 pub struct Topology {
     #[serde(flatten)]
     pub topology: HashMap<String, TopologyInfo>,
+}
+
+impl TopologyInfo {
+    fn to_service_config(
+        &self,
+        service_name: String,
+        peer_list_file: &Path,
+        client_port: u16,
+    ) -> ServiceConfig {
+        match self {
+            TopologyInfo::Archive(archive_info) => ServiceConfig {
+                service_type: ServiceType::ArchiveNode,
+                service_name,
+                docker_image: archive_info.docker_image.clone(),
+                client_port: None,
+                public_key: Some(archive_info.pk.clone()),
+                public_key_path: None,
+                private_key: Some(archive_info.sk.clone()),
+                private_key_path: None,
+                libp2p_keypair: None,
+                libp2p_keypair_path: None,
+                peers: None,
+                peers_list_path: Some(peer_list_file.to_path_buf()),
+                snark_coordinator_port: None,
+                snark_coordinator_fees: None,
+                snark_worker_proof_level: None,
+            },
+            TopologyInfo::Node(node_info) => ServiceConfig {
+                service_type: node_info.service_type.clone(),
+                service_name,
+                docker_image: node_info.docker_image.clone(),
+                client_port: Some(client_port),
+                public_key: Some(node_info.pk.clone()),
+                public_key_path: None,
+                private_key: Some(node_info.sk.clone()),
+                private_key_path: None,
+                libp2p_keypair: None,
+                libp2p_keypair_path: Some(node_info.libp2p_keyfile.clone()),
+                peers: None,
+                peers_list_path: Some(peer_list_file.to_path_buf()),
+                snark_coordinator_port: None,
+                snark_coordinator_fees: None,
+                snark_worker_proof_level: None,
+            },
+            TopologyInfo::SnarkCoordinator(snark_info) => ServiceConfig {
+                service_type: snark_info.service_type.clone(),
+                service_name,
+                docker_image: snark_info.docker_image.clone(),
+                client_port: None,
+                public_key: Some(snark_info.pk.clone()),
+                public_key_path: None,
+                private_key: Some(snark_info.sk.clone()),
+                private_key_path: None,
+                libp2p_keypair: None,
+                libp2p_keypair_path: None,
+                peers: None,
+                peers_list_path: Some(peer_list_file.to_path_buf()),
+                snark_coordinator_port: Some(7000),
+                snark_coordinator_fees: Some(snark_info.snark_worker_fee.clone()),
+                snark_worker_proof_level: Some("full".to_string()),
+            },
+        }
+    }
+}
+
+impl Topology {
+    pub fn new(path: &Path) -> Result<Self, serde_json::Error> {
+        let contents = std::fs::read_to_string(path).unwrap();
+        serde_json::from_str(&contents)
+    }
+
+    pub fn services(&self, peer_list_file: &Path) -> Vec<ServiceConfig> {
+        let mut client_port = 7070;
+        self.topology
+            .iter()
+            .map(|(service_name, service_info)| {
+                client_port += 1;
+                service_info.to_service_config(service_name.clone(), peer_list_file, client_port)
+            })
+            .collect()
+    }
+
+    pub fn seeds(&self) -> Vec<NodeTopologyInfo> {
+        self.topology
+            .values()
+            .filter_map(|info| {
+                if let TopologyInfo::Node(node_info) = info.clone() {
+                    if let ServiceType::Seed = node_info.service_type.clone() {
+                        return Some(node_info);
+                    }
+                }
+                None
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -101,6 +200,7 @@ mod tests {
         let docker_image = "bp-image".to_string();
         let libp2p_pass = "pwd0".to_string();
         let libp2p_keyfile = PathBuf::from("path/to/bp_keyfile.json");
+        let libp2p_peerid = "bp_peerid".to_string();
         let bp_node = NodeTopologyInfo {
             pk,
             sk,
@@ -108,6 +208,7 @@ mod tests {
             docker_image,
             libp2p_pass,
             libp2p_keyfile,
+            libp2p_peerid,
         };
 
         let seed_name = "seed".to_string();
@@ -117,6 +218,7 @@ mod tests {
         let docker_image = "seed-image".to_string();
         let libp2p_pass = "pwd1".to_string();
         let libp2p_keyfile = PathBuf::from("path/to/seed_keyfile.json");
+        let libp2p_peerid = "seed_peerid".to_string();
         let seed_node = NodeTopologyInfo {
             pk,
             sk,
@@ -124,6 +226,7 @@ mod tests {
             docker_image,
             libp2p_pass,
             libp2p_keyfile,
+            libp2p_peerid,
         };
 
         let snark_name = "snark".to_string();
