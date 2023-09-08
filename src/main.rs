@@ -43,14 +43,9 @@ fn network_not_exists(network_id: &str) -> bool {
 }
 
 fn print_error(error_message: &str, error: &str) {
-    error!("{}: {}", error_message, error);
-    println!(
-        "{}",
-        output::Error {
-            error_message: error_message.to_string(),
-            error: error.trim().to_string()
-        }
-    );
+    let error_message = format!("{}: {}", error_message, error);
+    error!("{}", error_message);
+    println!("{}", output::Error { error_message });
 }
 
 const LEAST_COMPOSE_VERSION: &str = "2.21.0";
