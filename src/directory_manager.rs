@@ -9,10 +9,12 @@
 //! - `docker-compose.yml`: Contains the docker compose file for the network.
 //! - `network.json`: Contains the network topology representation in JSON format.
 
+use crate::service::ServiceConfig;
+use crate::topology::NodeTopologyInfo;
 use dirs::home_dir;
 use log::info;
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub struct DirectoryManager {
     pub base_path: PathBuf,
@@ -43,9 +45,8 @@ impl DirectoryManager {
 
     // return path to network directory
     pub fn network_path(&self, network_id: &str) -> PathBuf {
-        let mut network_path = self.base_path.clone();
-        network_path.push(network_id);
-        network_path
+        let network_path = self.base_path.clone();
+        network_path.join(network_id)
     }
 
     // list of all subdirectories that needs to be created for the network
@@ -118,6 +119,67 @@ impl DirectoryManager {
         }
         Ok(())
     }
+
+    /// Copies all network and libp2p keypairs from service paths to the network subdirectories
+    pub fn copy_all_network_keys(
+        &self,
+        network_id: &str,
+        services: &Vec<ServiceConfig>,
+    ) -> std::io::Result<()> {
+        let network_keys = self.network_path(network_id).join(self.subdirectories[0]);
+        let libp2p_keys = self.network_path(network_id).join(self.subdirectories[1]);
+
+        for service in services {
+            // copy network keypairs + permissions
+            if let Some(network_key_path) = &service.private_key_path {
+                let service_network_key = network_keys
+                    .clone()
+                    .join(format!("{}.json", &service.service_name));
+
+                std::fs::copy(network_key_path, &service_network_key)?;
+                set_key_file_permissions(&service_network_key)?;
+            }
+
+            // copy libp2p keypairs + permissions
+            if let Some(libp2p_key_path) = &service.libp2p_keypair_path {
+                let service_libp2p_key = libp2p_keys
+                    .clone()
+                    .join(format!("{}.json", &service.service_name));
+
+                std::fs::copy(libp2p_key_path, &service_libp2p_key)?;
+                set_key_file_permissions(&service_libp2p_key)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn create_peer_list_file(
+        &self,
+        network_id: &str,
+        peers: &Vec<NodeTopologyInfo>,
+        external_port: u16,
+    ) -> std::io::Result<PathBuf> {
+        use std::io::Write;
+
+        let peers_list_path = self.network_path(network_id).join("peer_list_file.txt");
+        let mut file = std::fs::File::create(peers_list_path.clone()).unwrap();
+
+        for peer in peers {
+            writeln!(
+                file,
+                "/ip4/127.0.0.1/tcp/{}/p2p/{}",
+                external_port, peer.libp2p_peerid
+            )?;
+        }
+
+        Ok(peers_list_path)
+    }
+}
+
+fn set_key_file_permissions(file: &Path) -> std::io::Result<()> {
+    std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o600))?;
+    Ok(())
 }
 
 #[cfg(test)]

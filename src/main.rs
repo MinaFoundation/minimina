@@ -133,7 +133,9 @@ fn main() {
                     }
                 };
 
-                directory_manager.copy_all_network_keys(&services).unwrap();
+                directory_manager
+                    .copy_all_network_keys(cmd.network_id(), &services)
+                    .unwrap();
 
                 //create network
                 match docker.compose_create() {
