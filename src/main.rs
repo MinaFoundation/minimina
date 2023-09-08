@@ -82,7 +82,8 @@ fn main() {
                             genesis_ledger.display()
                         );
 
-                        // TODO: use genesis ledger to get keys?
+                        let genesis_path = &network_path.join("genesis_ledger.json");
+                        std::fs::copy(genesis_ledger, genesis_path).unwrap();
                     }
                     None => generate_default_genesis_ledger(
                         &mut bp_keys_opt,
@@ -95,13 +96,27 @@ fn main() {
                 // generate docker-compose.yaml based on topology
                 let services = match &cmd.topology {
                     Some(topology_path) => {
+                        if cmd.genesis_ledger.is_none() {
+                            error!(
+                                "Must provide a genesis ledger with a topology file.\n\
+                                    The keys will be incompatible otherwise. Exiting."
+                            );
+                            std::process::exit(1);
+                        }
                         info!(
                             "Generating docker-compose based on provided topology '{}'.",
                             topology_path.display()
                         );
 
+                        // peers list is based on the network seeds for now
                         match topology::Topology::new(topology_path) {
-                            Ok(topology) => topology.services(),
+                            Ok(topology) => {
+                                let peers = topology.seeds();
+                                let peer_list_file = directory_manager
+                                    .create_peer_list_file(cmd.network_id(), &peers, 3102)
+                                    .unwrap();
+                                topology.services(&peer_list_file)
+                            }
                             Err(err) => {
                                 error!(
                                     "Error occured while parsing the topology file:\n\
