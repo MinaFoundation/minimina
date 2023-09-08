@@ -35,8 +35,6 @@ where
 
 #[derive(Serialize)]
 struct Defaults {
-    network_mode: String,
-    entrypoint: Vec<String>,
     volumes: Vec<String>,
     environment: Environment,
 }
@@ -52,6 +50,8 @@ struct Service {
     #[serde(rename = "<<", serialize_with = "no_quotes_merge")]
     merge: &'static str,
     container_name: String,
+    network_mode: String,
+    entrypoint: Vec<String>,
     image: String,
     command: String,
 }
@@ -81,6 +81,8 @@ impl DockerCompose {
                 let service = Service {
                     merge: "*default-attributes",
                     container_name: config.service_name.clone(),
+                    network_mode: "host".to_string(),
+                    entrypoint: vec!["mina".to_string()],
                     image: config.docker_image.to_string(),
                     command: match config.service_type {
                         ServiceType::Seed => config.generate_seed_command(),
@@ -99,8 +101,6 @@ impl DockerCompose {
         let compose = DockerCompose {
             version: "3.8".to_string(),
             x_defaults: Defaults {
-                network_mode: "host".to_string(),
-                entrypoint: vec!["mina".to_string()],
                 volumes: vec![
                     format!("{}:/local-network", networt_path_string),
                     format!("{}:/{}", CONFIG_DIRECTORY, CONFIG_DIRECTORY),
@@ -168,7 +168,7 @@ mod tests {
         ];
         let network_path = Path::new("/tmp");
         let docker_compose = DockerCompose::generate(configs, network_path);
-        println!("{:?}", docker_compose);
+        println!("{}", docker_compose);
         assert!(docker_compose.contains("seed"));
         assert!(docker_compose.contains("block-producer"));
         assert!(docker_compose.contains("snark-coordinator"));
