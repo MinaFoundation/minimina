@@ -5,6 +5,7 @@
 
 use log::warn;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 pub enum ServiceType {
@@ -30,9 +31,14 @@ pub struct ServiceConfig {
     pub public_key: Option<String>,
     pub public_key_path: Option<String>,
     pub private_key: Option<String>,
-    pub private_key_path: Option<String>,
+    /// Path to the privkey file used by `mina daemon --block-producer-key KEYFILE ...`
+    pub private_key_path: Option<PathBuf>,
     pub libp2p_keypair: Option<String>,
+    /// Path to the libp2p keyfile used by `mina daemon --libp2p-keypair KEYFILE ...`
+    pub libp2p_keypair_path: Option<PathBuf>,
     pub peers: Option<Vec<String>>,
+    /// Path to the file used by `mina daemon --peer-list-file PATH ...`
+    pub peers_list_path: Option<PathBuf>,
 
     //snark coordinator specific
     pub snark_coordinator_port: Option<u16>,
@@ -92,16 +98,7 @@ impl ServiceConfig {
         let mut base_command = self.generate_base_command();
         base_command.push("-seed".to_string());
 
-        if let Some(libp2p_keypair) = &self.libp2p_keypair {
-            base_command.push("-libp2p-keypair".to_string());
-            base_command.push(libp2p_keypair.clone());
-        } else {
-            warn!(
-                "No libp2p keypair provided for seed node '{}'. This is not recommended.",
-                self.service_name
-            );
-        }
-
+        self.add_libp2p_command(&mut base_command);
         base_command.join(" ")
     }
 
@@ -112,38 +109,22 @@ impl ServiceConfig {
         let mut base_command = self.generate_base_command();
 
         // Handling multiple peers
-        if let Some(ref peers) = self.peers {
-            for peer in peers.iter() {
-                base_command.push("-peer".to_string());
-                base_command.push(peer.clone());
-            }
-        } else {
-            warn!(
-                "No peers provided for block producer node '{}'. This is not recommended.",
-                self.service_name
-            );
-        }
+        self.add_peers_command(&mut base_command);
 
-        if let Some(public_key_path) = &self.public_key_path {
+        if let Some(private_key_path) = &self.private_key_path {
+            base_command.push("-block-producer-key".to_string());
+            base_command.push(private_key_path.to_str().unwrap().to_string());
+        } else if let Some(public_key_path) = &self.public_key_path {
             base_command.push("-block-producer-key".to_string());
             base_command.push(public_key_path.clone());
         } else {
             warn!(
-                "No public key path provided for block producer node '{}'. This is not recommended.",
+                "No public or private key path provided for block producer node '{}'. This is not recommended.",
                 self.service_name
             );
         }
 
-        if let Some(libp2p_keypair) = &self.libp2p_keypair {
-            base_command.push("-libp2p-keypair".to_string());
-            base_command.push(libp2p_keypair.clone());
-        } else {
-            warn!(
-                "No libp2p keypair provided for block producer node '{}'. This is not recommended.",
-                self.service_name
-            );
-        }
-
+        self.add_libp2p_command(&mut base_command);
         base_command.join(" ")
     }
 
@@ -156,17 +137,7 @@ impl ServiceConfig {
         base_command.push("-work-selection".to_string());
         base_command.push("seq".to_string());
 
-        if let Some(peers) = &self.peers {
-            for peer in peers.iter() {
-                base_command.push("-peer".to_string());
-                base_command.push(peer.clone());
-            }
-        } else {
-            warn!(
-                "No peers provided for snark coordinator node '{}'. This is not recommended.",
-                self.service_name
-            );
-        }
+        self.add_peers_command(&mut base_command);
 
         if let Some(snark_worker_fees) = &self.snark_coordinator_fees {
             base_command.push("-snark-worker-fee".to_string());
@@ -188,16 +159,7 @@ impl ServiceConfig {
             );
         }
 
-        if let Some(libp2p_keypair) = &self.libp2p_keypair {
-            base_command.push("-libp2p-keypair".to_string());
-            base_command.push(libp2p_keypair.clone());
-        } else {
-            warn!(
-                "No libp2p keypair provided for snark coordinator node '{}'. This is not recommended.",
-                self.service_name
-            );
-        }
-
+        self.add_libp2p_command(&mut base_command);
         base_command.join(" ")
     }
 
@@ -234,5 +196,37 @@ impl ServiceConfig {
         }
 
         base_command.join(" ")
+    }
+
+    fn add_peers_command(&self, base_command: &mut Vec<String>) {
+        if let Some(ref peers_list_path) = self.peers_list_path {
+            base_command.push("-peer-list-file".to_string());
+            base_command.push(peers_list_path.to_str().unwrap().to_string());
+        } else if let Some(ref peers) = self.peers {
+            for peer in peers.iter() {
+                base_command.push("-peer".to_string());
+                base_command.push(peer.clone());
+            }
+        } else {
+            warn!(
+                "No peers provided for block producer node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
+    }
+
+    fn add_libp2p_command(&self, base_command: &mut Vec<String>) {
+        if let Some(libp2p_keypair_path) = &self.libp2p_keypair_path {
+            base_command.push("-libp2p-keypair".to_string());
+            base_command.push(libp2p_keypair_path.to_str().unwrap().to_string());
+        } else if let Some(libp2p_keypair) = &self.libp2p_keypair {
+            base_command.push("-libp2p-keypair".to_string());
+            base_command.push(libp2p_keypair.clone());
+        } else {
+            warn!(
+                "No libp2p keypair provided for seed node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
     }
 }
