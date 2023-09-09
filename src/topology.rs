@@ -22,10 +22,10 @@ pub struct ArchiveTopologyInfo {
 pub struct NodeTopologyInfo {
     pub pk: String,
     pub sk: String,
-    pub privkey_path: Option<PathBuf>,
     #[serde(rename(deserialize = "role"))]
     pub service_type: ServiceType,
     pub docker_image: String,
+    pub privkey_path: Option<PathBuf>,
     pub libp2p_pass: String,
     pub libp2p_keyfile: PathBuf,
     pub libp2p_peerid: String,
@@ -41,6 +41,9 @@ pub struct SnarkCoordinatorTopologyInfo {
     pub docker_image: String,
     pub worker_nodes: u16,
     pub snark_worker_fee: String,
+    pub libp2p_pass: String,
+    pub libp2p_keyfile: PathBuf,
+    pub libp2p_peerid: String,
 }
 
 /// Each node variant's topology info
@@ -48,8 +51,8 @@ pub struct SnarkCoordinatorTopologyInfo {
 #[serde(untagged)]
 pub enum TopologyInfo {
     Archive(ArchiveTopologyInfo),
-    Node(NodeTopologyInfo),
     SnarkCoordinator(SnarkCoordinatorTopologyInfo),
+    Node(NodeTopologyInfo),
 }
 
 /// Full network topology
@@ -111,7 +114,7 @@ impl TopologyInfo {
                 private_key: Some(snark_info.sk.clone()),
                 private_key_path: None,
                 libp2p_keypair: None,
-                libp2p_keypair_path: None,
+                libp2p_keypair_path: Some(snark_info.libp2p_keyfile.clone()),
                 peers: None,
                 peers_list_path: Some(peer_list_file.to_path_buf()),
                 snark_coordinator_port: Some(7000),
@@ -143,12 +146,51 @@ impl Topology {
         self.topology
             .values()
             .filter_map(|info| {
-                if let TopologyInfo::Node(node_info) = info.clone() {
-                    if let ServiceType::Seed = node_info.service_type.clone() {
-                        return Some(node_info);
+                if let TopologyInfo::Node(node_info) = info {
+                    if let ServiceType::Seed = node_info.service_type {
+                        return Some(node_info.clone());
                     }
                 }
                 None
+            })
+            .collect()
+    }
+
+    #[allow(dead_code)]
+    fn archive_nodes(&self) -> Vec<ArchiveTopologyInfo> {
+        self.topology
+            .values()
+            .filter_map(|info| {
+                if let TopologyInfo::Archive(archive_info) = info {
+                    return Some(archive_info.clone());
+                }
+                None
+            })
+            .collect()
+    }
+
+    #[allow(dead_code)]
+    fn block_producers(&self) -> Vec<NodeTopologyInfo> {
+        self.topology
+            .values()
+            .filter_map(|info| {
+                if let TopologyInfo::Node(node_info) = info {
+                    if let ServiceType::BlockProducer = node_info.service_type {
+                        return Some(node_info.clone());
+                    }
+                }
+                None
+            })
+            .collect()
+    }
+
+    #[allow(dead_code)]
+    fn snark_coordinators(&self) -> Vec<SnarkCoordinatorTopologyInfo> {
+        self.topology
+            .values()
+            .filter_map(|info| match info {
+                TopologyInfo::SnarkCoordinator(snark_info) => Some(snark_info.clone()),
+                _ => None,
             })
             .collect()
     }
@@ -194,14 +236,14 @@ mod tests {
 
     #[test]
     fn test_deserialize_topology() {
-        let bp_name = "bp".to_string();
-        let pk = "pk0".to_string();
-        let sk = "sk0".to_string();
+        let bp_name = "bp".into();
+        let pk = "pk0".into();
+        let sk = "sk0".into();
         let service_type = ServiceType::BlockProducer;
-        let docker_image = "bp-image".to_string();
-        let libp2p_pass = "pwd0".to_string();
-        let libp2p_keyfile = PathBuf::from("path/to/bp_keyfile.json");
-        let libp2p_peerid = "bp_peerid".to_string();
+        let docker_image = "bp-image".into();
+        let libp2p_pass = "pwd0".into();
+        let libp2p_keyfile = "path/to/bp_keyfile.json".into();
+        let libp2p_peerid = "bp_peerid".into();
         let bp_node = NodeTopologyInfo {
             pk,
             sk,
@@ -213,14 +255,14 @@ mod tests {
             libp2p_peerid,
         };
 
-        let seed_name = "seed".to_string();
-        let pk = "pk1".to_string();
-        let sk = "sk1".to_string();
+        let seed_name = "seed".into();
+        let pk = "pk1".into();
+        let sk = "sk1".into();
         let service_type = ServiceType::Seed;
-        let docker_image = "seed-image".to_string();
-        let libp2p_pass = "pwd1".to_string();
-        let libp2p_keyfile = PathBuf::from("path/to/seed_keyfile.json");
-        let libp2p_peerid = "seed_peerid".to_string();
+        let docker_image = "seed-image".into();
+        let libp2p_pass = "pwd1".into();
+        let libp2p_keyfile = "path/to/seed_keyfile.json".into();
+        let libp2p_peerid = "seed_peerid".into();
         let seed_node = NodeTopologyInfo {
             pk,
             sk,
@@ -232,11 +274,14 @@ mod tests {
             libp2p_peerid,
         };
 
-        let snark_name = "snark".to_string();
-        let pk = "pk2".to_string();
-        let sk = "sk2".to_string();
+        let snark_name = "snark".into();
+        let pk = "pk2".into();
+        let sk = "sk2".into();
         let service_type = ServiceType::SnarkCoordinator;
-        let docker_image = "snark-image".to_string();
+        let docker_image = "snark-image".into();
+        let libp2p_pass = "snark_pwd".into();
+        let libp2p_keyfile = "path/to/snark_keyfile.json".into();
+        let libp2p_peerid = "snark_peerid".into();
         let worker_nodes = 42;
         let snark_worker_fee = "0.01".to_string();
         let snark_node = SnarkCoordinatorTopologyInfo {
@@ -246,6 +291,9 @@ mod tests {
             docker_image,
             worker_nodes,
             snark_worker_fee,
+            libp2p_pass,
+            libp2p_keyfile,
+            libp2p_peerid,
         };
 
         let expect: Topology = serde_json::from_str(
@@ -253,9 +301,9 @@ mod tests {
                 \"bp\": {
                     \"pk\": \"pk0\",
                     \"sk\": \"sk0\",
-                    \"privkey_path\": \"path/to/privkey/file.json\",
                     \"role\": \"Block_producer\",
                     \"docker_image\": \"bp-image\",
+                    \"privkey_path\": \"path/to/privkey/file.json\",
                     \"libp2p_pass\": \"pwd0\",
                     \"libp2p_keyfile\": \"path/to/bp_keyfile.json\",
                     \"libp2p_keypair\": \"bp_keypair\",
@@ -264,9 +312,9 @@ mod tests {
                 \"seed\": {
                     \"pk\": \"pk1\",
                     \"sk\": \"sk1\",
-                    \"privkey_path\": null,
                     \"role\": \"Seed_node\",
                     \"docker_image\": \"seed-image\",
+                    \"privkey_path\": null,
                     \"libp2p_pass\": \"pwd1\",
                     \"libp2p_keyfile\": \"path/to/seed_keyfile.json\",
                     \"libp2p_keypair\": \"seed_keypair\",
@@ -278,7 +326,11 @@ mod tests {
                     \"role\": \"Snark_coordinator\",
                     \"docker_image\": \"snark-image\",
                     \"worker_nodes\": 42,
-                    \"snark_worker_fee\": \"0.01\"
+                    \"snark_worker_fee\": \"0.01\",
+                    \"libp2p_pass\": \"snark_pwd\",
+                    \"libp2p_keyfile\": \"path/to/snark_keyfile.json\",
+                    \"libp2p_peerid\": \"snark_peerid\",
+                    \"libp2p_keypair\": \"snark_keypair\"
                 }
             }",
         )
@@ -297,8 +349,18 @@ mod tests {
 
     #[test]
     fn test_deserialize_topology_file() {
-        let path = PathBuf::from("./tests/data/example_topology.json");
+        let path = PathBuf::from("./tests/data/topology.json");
         let contents = std::fs::read_to_string(path).unwrap();
-        let _: Topology = serde_json::from_str(&contents).unwrap();
+        let topology: Topology = serde_json::from_str(&contents).unwrap();
+
+        let num_archives = topology.archive_nodes().len();
+        let num_bps = topology.block_producers().len();
+        let num_seeds = topology.seeds().len();
+        let num_scs = topology.snark_coordinators().len();
+
+        assert_eq!(num_archives, 1);
+        assert_eq!(num_bps, 4);
+        assert_eq!(num_seeds, 2);
+        assert_eq!(num_scs, 1);
     }
 }

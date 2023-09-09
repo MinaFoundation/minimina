@@ -224,7 +224,7 @@ impl ServiceConfig {
             base_command.push(libp2p_keypair.clone());
         } else {
             warn!(
-                "No libp2p keypair provided for seed node '{}'. This is not recommended.",
+                "No libp2p keypair provided for node '{}'. This is not recommended.",
                 self.service_name
             );
         }
