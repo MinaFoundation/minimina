@@ -8,6 +8,7 @@
 //! - `genesis_ledger.json`: Contains the genesis ledger for the network.
 //! - `docker-compose.yml`: Contains the docker compose file for the network.
 //! - `network.json`: Contains the network topology representation in JSON format.
+//! - `peer_list_file.txt`: Contains the list of libp2p peers for the network.
 
 use crate::service::ServiceConfig;
 use crate::topology::NodeTopologyInfo;
@@ -120,7 +121,8 @@ impl DirectoryManager {
         Ok(())
     }
 
-    /// Copies all network and libp2p keypairs from service paths to the network subdirectories
+    /// Copies all network and libp2p keypairs from service paths to the appropriate
+    /// network subdirectories and sets permissions
     pub fn copy_all_network_keys(
         &self,
         network_id: &str,

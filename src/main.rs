@@ -148,9 +148,18 @@ fn main() {
                     }
                 };
 
-                directory_manager
-                    .copy_all_network_keys(cmd.network_id(), &services)
-                    .unwrap();
+                // copy libp2p + network keys
+                if let Err(e) = directory_manager.copy_all_network_keys(cmd.network_id(), &services)
+                {
+                    error!("Failed to copy keys with error: {e}");
+                    std::process::exit(1);
+                }
+
+                // generate docker compose
+                if let Err(e) = docker.compose_generate_file(&services) {
+                    error!("Failed to generate docker-compose.yaml with error: {e}");
+                    std::process::exit(1);
+                }
 
                 //create network
                 match docker.compose_create() {
@@ -506,7 +515,7 @@ fn generate_default_topology(
     };
 
     let services = vec![seed, bp_1, bp_2, snark_coordinator, snark_worker_1];
-    match docker.compose_generate_file(services.clone()) {
+    match docker.compose_generate_file(&services) {
         Ok(()) => info!("Successfully generated docker-compose.yaml!"),
         Err(e) => error!("Error generating docker-compose.yaml: {}", e),
     }

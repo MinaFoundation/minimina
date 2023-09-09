@@ -72,7 +72,7 @@ const ARCHIVE_DATA: &str = "archive-data";
 const POSTGRES_DATA: &str = "postgres-data";
 
 impl DockerCompose {
-    pub fn generate(configs: Vec<ServiceConfig>, network_path: &Path) -> String {
+    pub fn generate(configs: &[ServiceConfig], network_path: &Path) -> String {
         let network_path_string = network_path
             .to_str()
             .expect("Failed to convert network path to str");
@@ -231,8 +231,8 @@ mod tests {
             },
         ];
         let network_path = Path::new("/tmp");
-        let docker_compose = DockerCompose::generate(configs, network_path);
-        println!("{}", docker_compose);
+        let docker_compose = DockerCompose::generate(&configs, network_path);
+        println!("{:?}", docker_compose);
         assert!(docker_compose.contains("seed"));
         assert!(docker_compose.contains("block-producer"));
         assert!(docker_compose.contains("snark-coordinator"));
@@ -260,7 +260,7 @@ mod tests {
             },
         ];
         let network_path = Path::new("/tmp2");
-        let docker_compose = DockerCompose::generate(configs, network_path);
+        let docker_compose = DockerCompose::generate(&configs, network_path);
         println!("{}", docker_compose);
         assert!(docker_compose.contains("seed"));
         assert!(docker_compose.contains("block-producer"));

@@ -111,9 +111,12 @@ impl ServiceConfig {
         // Handling multiple peers
         self.add_peers_command(&mut base_command);
 
-        if let Some(private_key_path) = &self.private_key_path {
+        if self.private_key_path.is_some() {
             base_command.push("-block-producer-key".to_string());
-            base_command.push(private_key_path.to_str().unwrap().to_string());
+            base_command.push(format!(
+                "/local-network/network-keypairs/{}.json",
+                self.service_name
+            ));
         } else if let Some(public_key_path) = &self.public_key_path {
             base_command.push("-block-producer-key".to_string());
             base_command.push(public_key_path.clone());
@@ -199,9 +202,9 @@ impl ServiceConfig {
     }
 
     fn add_peers_command(&self, base_command: &mut Vec<String>) {
-        if let Some(ref peers_list_path) = self.peers_list_path {
+        if self.peers_list_path.is_some() {
             base_command.push("-peer-list-file".to_string());
-            base_command.push(peers_list_path.to_str().unwrap().to_string());
+            base_command.push("/local-network/peer_list_file.txt".into());
         } else if let Some(ref peers) = self.peers {
             for peer in peers.iter() {
                 base_command.push("-peer".to_string());
@@ -216,9 +219,12 @@ impl ServiceConfig {
     }
 
     fn add_libp2p_command(&self, base_command: &mut Vec<String>) {
-        if let Some(libp2p_keypair_path) = &self.libp2p_keypair_path {
+        if self.libp2p_keypair_path.is_some() {
             base_command.push("-libp2p-keypair".to_string());
-            base_command.push(libp2p_keypair_path.to_str().unwrap().to_string());
+            base_command.push(format!(
+                "/local-network/libp2p-keypairs/{}.json",
+                self.service_name
+            ));
         } else if let Some(libp2p_keypair) = &self.libp2p_keypair {
             base_command.push("-libp2p-keypair".to_string());
             base_command.push(libp2p_keypair.clone());
