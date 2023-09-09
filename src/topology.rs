@@ -22,6 +22,7 @@ pub struct ArchiveTopologyInfo {
 pub struct NodeTopologyInfo {
     pub pk: String,
     pub sk: String,
+    pub privkey_path: Option<PathBuf>,
     #[serde(rename(deserialize = "role"))]
     pub service_type: ServiceType,
     pub docker_image: String,
@@ -91,7 +92,7 @@ impl TopologyInfo {
                 public_key: Some(node_info.pk.clone()),
                 public_key_path: None,
                 private_key: Some(node_info.sk.clone()),
-                private_key_path: None,
+                private_key_path: node_info.privkey_path.clone(),
                 libp2p_keypair: None,
                 libp2p_keypair_path: Some(node_info.libp2p_keyfile.clone()),
                 peers: None,
@@ -204,6 +205,7 @@ mod tests {
         let bp_node = NodeTopologyInfo {
             pk,
             sk,
+            privkey_path: Some("path/to/privkey/file.json".into()),
             service_type,
             docker_image,
             libp2p_pass,
@@ -222,6 +224,7 @@ mod tests {
         let seed_node = NodeTopologyInfo {
             pk,
             sk,
+            privkey_path: None,
             service_type,
             docker_image,
             libp2p_pass,
@@ -250,6 +253,7 @@ mod tests {
                 \"bp\": {
                     \"pk\": \"pk0\",
                     \"sk\": \"sk0\",
+                    \"privkey_path\": \"path/to/privkey/file.json\",
                     \"role\": \"Block_producer\",
                     \"docker_image\": \"bp-image\",
                     \"libp2p_pass\": \"pwd0\",
@@ -260,6 +264,7 @@ mod tests {
                 \"seed\": {
                     \"pk\": \"pk1\",
                     \"sk\": \"sk1\",
+                    \"privkey_path\": null,
                     \"role\": \"Seed_node\",
                     \"docker_image\": \"seed-image\",
                     \"libp2p_pass\": \"pwd1\",
