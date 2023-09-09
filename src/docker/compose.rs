@@ -269,4 +269,36 @@ mod tests {
         assert!(!docker_compose.contains("postgres-data"));
         assert!(!docker_compose.contains("archive-data"));
     }
+
+    #[test]
+    fn test_generate_compose_from_topology() -> std::io::Result<()> {
+        use crate::{topology::Topology, DirectoryManager};
+
+        let dir_manager = DirectoryManager::_new_with_base_path(
+            "/tmp/test_generate_compose_from_topology".into(),
+        );
+        let network_id = "test_network";
+        let network_path = dir_manager.network_path(network_id);
+        dir_manager.generate_dir_structure(network_id)?;
+
+        let file = std::path::PathBuf::from("./tests/data/topology.json");
+        let contents = std::fs::read_to_string(file)?;
+        let topology: Topology = serde_json::from_str(&contents)?;
+        let peers_file = dir_manager.create_peer_list_file(network_id, &topology.seeds(), 7070)?;
+        let services = topology.services(&peers_file);
+        let compose_contents = DockerCompose::generate(&services, &network_path);
+
+        assert!(compose_contents.contains("snark-node"));
+        assert!(compose_contents.contains("archive-node"));
+        assert!(compose_contents.contains("receiver"));
+        assert!(compose_contents.contains("empty_node-1"));
+        assert!(compose_contents.contains("empty_node-2"));
+        assert!(compose_contents.contains("observer"));
+        assert!(compose_contents.contains("seed-0"));
+        assert!(compose_contents.contains("seed-1"));
+
+        dir_manager.delete_network_directory(network_id)?;
+
+        Ok(())
+    }
 }
