@@ -281,7 +281,7 @@ mod tests {
         let network_path = dir_manager.network_path(network_id);
         dir_manager.generate_dir_structure(network_id)?;
 
-        let file = std::path::PathBuf::from("./tests/data/topology.json");
+        let file = std::path::PathBuf::from("./tests/data/large_network/topology.json");
         let contents = std::fs::read_to_string(file)?;
         let topology: Topology = serde_json::from_str(&contents)?;
         let peers_file = dir_manager.create_peer_list_file(network_id, &topology.seeds(), 7070)?;

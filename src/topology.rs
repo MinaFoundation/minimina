@@ -506,7 +506,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_topology_file() {
-        let path = PathBuf::from("./tests/data/topology.json");
+        let path = PathBuf::from("./tests/data/large_network/topology.json");
         let contents = std::fs::read_to_string(path).unwrap();
         let topology: Topology = serde_json::from_str(&contents).unwrap();
 
