@@ -213,11 +213,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_deserialize_info() {
-        let pk = "pub_key".to_string();
-        let sk = "priv_key".to_string();
+    fn test_deserialize_archive() {
+        let pk = "pub_key".into();
+        let sk = "priv_key".into();
         let role = "Archive_node".to_string();
-        let commit = "abcd0123".to_string();
+        let commit = "abcd0123".into();
         let schema_file = "path/to/create_schame.sql".to_string();
         let zkapp_table = "path/to/zkapp_table.sql".to_string();
 
@@ -244,8 +244,142 @@ mod tests {
                 docker_image: None,
                 git_build: Some(GitBuild::Commit(commit)),
                 service_type: ServiceType::ArchiveNode,
-                schema_file: PathBuf::from(schema_file),
-                zkapp_table: PathBuf::from(zkapp_table),
+                schema_file: schema_file.into(),
+                zkapp_table: zkapp_table.into(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_deserialize_block_producer() {
+        let pk = "pub_key".into();
+        let sk = "priv_key".into();
+        let role = "Block_producer".to_string();
+        let docker_image = "bp-docker-image".into();
+        let privkey_path = "privkey_path".to_string();
+        let libp2p_pass = "bp_p2p_pass".into();
+        let libp2p_keyfile = "path/to/bp_keyfile.json".to_string();
+        let libp2p_peerid = "bp_peerid".into();
+
+        let expect: NodeTopologyInfo = serde_json::from_str(&format!(
+            "{{
+                \"pk\": \"{pk}\",
+                \"sk\": \"{sk}\",
+                \"role\": \"{role}\",
+                \"docker_image\": \"{docker_image}\",
+                \"git_build\": null,
+                \"privkey_path\": \"{privkey_path}\",
+                \"libp2p_pass\": \"{libp2p_pass}\",
+                \"libp2p_keyfile\": \"{libp2p_keyfile}\",
+                \"libp2p_keypair\": \"bp_libp2p_keypair\",
+                \"libp2p_peerid\": \"{libp2p_peerid}\"
+            }}"
+        ))
+        .unwrap();
+
+        assert_eq!(
+            expect,
+            NodeTopologyInfo {
+                pk,
+                sk,
+                docker_image: Some(docker_image),
+                git_build: None,
+                service_type: ServiceType::BlockProducer,
+                privkey_path: Some(privkey_path.into()),
+                libp2p_pass,
+                libp2p_keyfile: libp2p_keyfile.into(),
+                libp2p_peerid,
+            }
+        );
+    }
+
+    #[test]
+    fn test_deserialize_seed() {
+        let pk = "seed_pubkey".to_string();
+        let sk = "seed_privkey".to_string();
+        let role = "Seed_node".to_string();
+        let docker_image = "seed-docker-image".to_string();
+        let privkey_path = "path/to/seed_privkey.json".to_string();
+        let libp2p_pass = "seed_libp2p_pass".into();
+        let libp2p_keyfile = "path/to/seed_keyfile.json".to_string();
+        let libp2p_peerid = "seed_peerid".into();
+
+        let expect: NodeTopologyInfo = serde_json::from_str(&format!(
+            "{{
+                \"pk\": \"{pk}\",
+                \"sk\": \"{sk}\",
+                \"role\": \"{role}\",
+                \"docker_image\": \"{docker_image}\",
+                \"git_build\": null,
+                \"privkey_path\": \"{privkey_path}\",
+                \"libp2p_pass\": \"{libp2p_pass}\",
+                \"libp2p_keyfile\": \"{libp2p_keyfile}\",
+                \"libp2p_keypair\": \"seed_keypair\",
+                \"libp2p_peerid\": \"{libp2p_peerid}\"
+            }}"
+        ))
+        .unwrap();
+
+        assert_eq!(
+            expect,
+            NodeTopologyInfo {
+                pk,
+                sk,
+                docker_image: Some(docker_image),
+                git_build: None,
+                service_type: ServiceType::Seed,
+                privkey_path: Some(privkey_path.into()),
+                libp2p_pass,
+                libp2p_keyfile: libp2p_keyfile.into(),
+                libp2p_peerid,
+            }
+        );
+    }
+
+    #[test]
+    fn test_deserialize_snark_coordinator() {
+        let pk = "snark_pubkey".to_string();
+        let sk = "snark_privkey".to_string();
+        let role = "Snark_coordinator".to_string();
+        let commit = "snark_commit".into();
+        let worker_nodes = 42;
+        let snark_worker_fee = "".into();
+        let libp2p_pass = "snark_libp2p_pass".into();
+        let libp2p_keyfile = "path/to/snark_keyfile.json".to_string();
+        let libp2p_peerid = "snark_peerid".into();
+
+        let expect: SnarkCoordinatorTopologyInfo = serde_json::from_str(&format!(
+            "{{
+                \"pk\": \"{pk}\",
+                \"sk\": \"{sk}\",
+                \"role\": \"{role}\",
+                \"docker_image\": null,
+                \"git_build\": {{
+                    \"commit\": \"{commit}\"
+                }},
+                \"worker_nodes\": {worker_nodes},
+                \"snark_worker_fee\": \"{snark_worker_fee}\",
+                \"libp2p_pass\": \"{libp2p_pass}\",
+                \"libp2p_keyfile\": \"{libp2p_keyfile}\",
+                \"libp2p_keypair\": \"snark_keypair\",
+                \"libp2p_peerid\": \"{libp2p_peerid}\"
+            }}"
+        ))
+        .unwrap();
+
+        assert_eq!(
+            expect,
+            SnarkCoordinatorTopologyInfo {
+                pk,
+                sk,
+                docker_image: None,
+                git_build: Some(GitBuild::Commit(commit)),
+                service_type: ServiceType::SnarkCoordinator,
+                worker_nodes,
+                snark_worker_fee,
+                libp2p_pass,
+                libp2p_keyfile: libp2p_keyfile.into(),
+                libp2p_peerid,
             }
         );
     }
