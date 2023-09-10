@@ -76,6 +76,7 @@ impl DockerCompose {
         let network_path_string = network_path
             .to_str()
             .expect("Failed to convert network path to str");
+        let network_name = network_path.file_name().unwrap().to_str().unwrap();
         let mut volumes = HashMap::new();
         volumes.insert(CONFIG_DIRECTORY.to_string(), None);
 
@@ -89,7 +90,10 @@ impl DockerCompose {
                     _ => {
                         let service = Service {
                             merge: Some("*default-attributes"),
-                            container_name: config.service_name.clone(),
+                            container_name: format!(
+                                "{}-{network_name}",
+                                config.service_name.clone()
+                            ),
                             network_mode: Some("host".to_string()),
                             entrypoint: Some(vec!["mina".to_string()]),
                             image: config.docker_image.to_string(),
@@ -106,7 +110,10 @@ impl DockerCompose {
                             }),
                             ..Default::default()
                         };
-                        Some((config.service_name.clone(), service))
+                        Some((
+                            format!("{}-{network_name}", config.service_name.clone()),
+                            service,
+                        ))
                     }
                 }
             })
@@ -128,10 +135,11 @@ impl DockerCompose {
             let mut postgres_environment = HashMap::new();
             postgres_environment.insert("POSTGRES_PASSWORD".to_string(), "postgres".to_string());
 
+            let postgres_name = format!("postgres-{network_name}");
             services.insert(
-                "postgres".to_string(),
+                postgres_name.clone(),
                 Service {
-                    container_name: "postgres".to_string(),
+                    container_name: postgres_name,
                     image: "postgres".to_string(),
                     environment: Some(postgres_environment),
                     volumes: Some(vec![format!("{}:/var/lib/postgresql/data", POSTGRES_DATA)]),
@@ -140,10 +148,11 @@ impl DockerCompose {
                 },
             );
 
+            let archive_name = format!("{}-{network_name}", archive_config.service_name.clone(),);
             services.insert(
-                    "mina-archive".to_string(),
+                    archive_name.clone(),
                     Service {
-                        container_name: archive_config.service_name.clone(),
+                        container_name: archive_name,
                         image: archive_config.docker_image.to_string(),
                         command: Some(
                             "mina-archive run --postgres-uri postgres://postgres:postgres@postgres:5432/archive --server-port 3086".to_string()
