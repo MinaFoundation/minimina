@@ -5,6 +5,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Type of git build
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub enum GitBuild {
+    #[serde(rename = "commit")]
+    Commit(String),
+    #[serde(rename = "tag")]
+    Tag(String),
+}
+
 /// Topology info for an archive node
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct ArchiveTopologyInfo {
@@ -12,7 +21,8 @@ pub struct ArchiveTopologyInfo {
     pub sk: String,
     #[serde(rename(deserialize = "role"))]
     pub service_type: ServiceType,
-    pub docker_image: String,
+    pub docker_image: Option<String>,
+    pub git_build: Option<GitBuild>,
     pub schema_file: PathBuf,
     pub zkapp_table: PathBuf,
 }
@@ -24,7 +34,8 @@ pub struct NodeTopologyInfo {
     pub sk: String,
     #[serde(rename(deserialize = "role"))]
     pub service_type: ServiceType,
-    pub docker_image: String,
+    pub docker_image: Option<String>,
+    pub git_build: Option<GitBuild>,
     pub privkey_path: Option<PathBuf>,
     pub libp2p_pass: String,
     pub libp2p_keyfile: PathBuf,
@@ -38,7 +49,8 @@ pub struct SnarkCoordinatorTopologyInfo {
     pub sk: String,
     #[serde(rename(deserialize = "role"))]
     pub service_type: ServiceType,
-    pub docker_image: String,
+    pub docker_image: Option<String>,
+    pub git_build: Option<GitBuild>,
     pub worker_nodes: u16,
     pub snark_worker_fee: String,
     pub libp2p_pass: String,
@@ -73,7 +85,7 @@ impl TopologyInfo {
             TopologyInfo::Archive(archive_info) => ServiceConfig {
                 service_type: ServiceType::ArchiveNode,
                 service_name,
-                docker_image: archive_info.docker_image.clone(),
+                docker_image: archive_info.docker_image.clone().unwrap(),
                 client_port: None,
                 public_key: Some(archive_info.pk.clone()),
                 public_key_path: None,
@@ -90,7 +102,7 @@ impl TopologyInfo {
             TopologyInfo::Node(node_info) => ServiceConfig {
                 service_type: node_info.service_type.clone(),
                 service_name,
-                docker_image: node_info.docker_image.clone(),
+                docker_image: node_info.docker_image.clone().unwrap(),
                 client_port: Some(client_port),
                 public_key: Some(node_info.pk.clone()),
                 public_key_path: None,
@@ -107,7 +119,7 @@ impl TopologyInfo {
             TopologyInfo::SnarkCoordinator(snark_info) => ServiceConfig {
                 service_type: snark_info.service_type.clone(),
                 service_name,
-                docker_image: snark_info.docker_image.clone(),
+                docker_image: snark_info.docker_image.clone().unwrap(),
                 client_port: None,
                 public_key: Some(snark_info.pk.clone()),
                 public_key_path: None,
@@ -126,7 +138,7 @@ impl TopologyInfo {
 }
 
 impl Topology {
-    pub fn new(path: &Path) -> Result<Self, serde_json::Error> {
+    pub fn new(path: &Path) -> serde_json::Result<Self> {
         let contents = std::fs::read_to_string(path).unwrap();
         serde_json::from_str(&contents)
     }
@@ -205,7 +217,7 @@ mod tests {
         let pk = "pub_key".to_string();
         let sk = "priv_key".to_string();
         let role = "Archive_node".to_string();
-        let docker_image = "archive-image".to_string();
+        let commit = "abcd0123".to_string();
         let schema_file = "path/to/create_schame.sql".to_string();
         let zkapp_table = "path/to/zkapp_table.sql".to_string();
 
@@ -214,7 +226,10 @@ mod tests {
                 \"pk\": \"{pk}\",
                 \"sk\": \"{sk}\",
                 \"role\": \"{role}\",
-                \"docker_image\": \"{docker_image}\",
+                \"docker_image\": null,
+                \"git_build\": {{
+                    \"commit\": \"{commit}\"
+                }},
                 \"schema_file\": \"{schema_file}\",
                 \"zkapp_table\": \"{zkapp_table}\"
             }}"
@@ -226,7 +241,8 @@ mod tests {
             ArchiveTopologyInfo {
                 pk,
                 sk,
-                docker_image,
+                docker_image: None,
+                git_build: Some(GitBuild::Commit(commit)),
                 service_type: ServiceType::ArchiveNode,
                 schema_file: PathBuf::from(schema_file),
                 zkapp_table: PathBuf::from(zkapp_table),
@@ -240,7 +256,6 @@ mod tests {
         let pk = "pk0".into();
         let sk = "sk0".into();
         let service_type = ServiceType::BlockProducer;
-        let docker_image = "bp-image".into();
         let libp2p_pass = "pwd0".into();
         let libp2p_keyfile = "path/to/bp_keyfile.json".into();
         let libp2p_peerid = "bp_peerid".into();
@@ -249,7 +264,8 @@ mod tests {
             sk,
             privkey_path: Some("path/to/privkey/file.json".into()),
             service_type,
-            docker_image,
+            docker_image: None,
+            git_build: Some(GitBuild::Tag("bp_git_tag".to_string())),
             libp2p_pass,
             libp2p_keyfile,
             libp2p_peerid,
@@ -259,7 +275,7 @@ mod tests {
         let pk = "pk1".into();
         let sk = "sk1".into();
         let service_type = ServiceType::Seed;
-        let docker_image = "seed-image".into();
+        let docker_image = Some("seed-image".into());
         let libp2p_pass = "pwd1".into();
         let libp2p_keyfile = "path/to/seed_keyfile.json".into();
         let libp2p_peerid = "seed_peerid".into();
@@ -269,6 +285,7 @@ mod tests {
             privkey_path: None,
             service_type,
             docker_image,
+            git_build: None,
             libp2p_pass,
             libp2p_keyfile,
             libp2p_peerid,
@@ -278,7 +295,7 @@ mod tests {
         let pk = "pk2".into();
         let sk = "sk2".into();
         let service_type = ServiceType::SnarkCoordinator;
-        let docker_image = "snark-image".into();
+        let docker_image = Some("snark-image".into());
         let libp2p_pass = "snark_pwd".into();
         let libp2p_keyfile = "path/to/snark_keyfile.json".into();
         let libp2p_peerid = "snark_peerid".into();
@@ -289,6 +306,7 @@ mod tests {
             sk,
             service_type,
             docker_image,
+            git_build: None,
             worker_nodes,
             snark_worker_fee,
             libp2p_pass,
@@ -302,7 +320,10 @@ mod tests {
                     \"pk\": \"pk0\",
                     \"sk\": \"sk0\",
                     \"role\": \"Block_producer\",
-                    \"docker_image\": \"bp-image\",
+                    \"docker_image\": null,
+                    \"git_build\": {
+                        \"tag\": \"bp_git_tag\"
+                    },
                     \"privkey_path\": \"path/to/privkey/file.json\",
                     \"libp2p_pass\": \"pwd0\",
                     \"libp2p_keyfile\": \"path/to/bp_keyfile.json\",
@@ -314,6 +335,7 @@ mod tests {
                     \"sk\": \"sk1\",
                     \"role\": \"Seed_node\",
                     \"docker_image\": \"seed-image\",
+                    \"git_build\": null,
                     \"privkey_path\": null,
                     \"libp2p_pass\": \"pwd1\",
                     \"libp2p_keyfile\": \"path/to/seed_keyfile.json\",
@@ -325,6 +347,7 @@ mod tests {
                     \"sk\": \"sk2\",
                     \"role\": \"Snark_coordinator\",
                     \"docker_image\": \"snark-image\",
+                    \"git_build\": null,
                     \"worker_nodes\": 42,
                     \"snark_worker_fee\": \"0.01\",
                     \"libp2p_pass\": \"snark_pwd\",

@@ -4,6 +4,7 @@
     "sk": "EKFEwGasdsxGEaD2QkSbew1ZviTpExY3JWPGwSh3YZdEQbJvNoTg",
     "role": "Snark_coordinator",
     "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+    "git_build": null,
     "worker_nodes": 4,
     "snark_worker_fee": "0.0001",
     "libp2p_pass": "naughty blue worm",
@@ -26,6 +27,7 @@
     "sk": "EKEvCQFSmWwvyxvwMzTmNAR8BkNPbWJ5TN8EmkZvmm3cpaFsf34N",
     "role": "Archive_node",
     "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+    "git_build": null,
     "schema_file": "https://raw.githubusercontent.com/MinaProtocol/mina/8523468218469028db9982240392d89a5bf0cc38/src/app/archive/create_schema.sql",
     "zkapp_table": "https://raw.githubusercontent.com/MinaProtocol/mina/8523468218469028db9982240392d89a5bf0cc38/src/app/archive/zkapp_tables.sql"
   },
@@ -35,6 +37,7 @@
     "privkey_path": "./tests/data/block_producer_keys/receiver.json",
     "role": "Block_producer",
     "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+    "git_build": null,
     "libp2p_pass": "naughty blue worm",
     "libp2p_keyfile": "./tests/data/libp2p_keys/receiver.json",
     "libp2p_keypair": {
@@ -56,6 +59,7 @@
     "privkey_path": "./tests/data/block_producer_keys/empty_node-1.json",
     "role": "Block_producer",
     "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+    "git_build": null,
     "libp2p_pass": "naughty blue worm",
     "libp2p_keyfile": "./tests/data/libp2p_keys/empty_node-1.json",
     "libp2p_keypair": {
@@ -77,6 +81,7 @@
     "privkey_path": "./tests/data/block_producer_keys/empty_node-2.json",
     "role": "Block_producer",
     "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+    "git_build": null,
     "libp2p_pass": "naughty blue worm",
     "libp2p_keyfile": "./tests/data/libp2p_keys/empty_node-2.json",
     "libp2p_keypair": {
@@ -98,6 +103,7 @@
     "privkey_path": "./tests/data/block_producer_keys/observer.json",
     "role": "Block_producer",
     "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+    "git_build": null,
     "libp2p_pass": "naughty blue worm",
     "libp2p_keyfile": "./tests/data/libp2p_keys/observer.json",
     "libp2p_keypair": {
@@ -119,6 +125,7 @@
     "privkey_path": null,
     "role": "Seed_node",
     "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+    "git_build": null,
     "libp2p_pass": "naughty blue worm",
     "libp2p_keyfile": "./tests/data/libp2p_keys/seed-0.json",
     "libp2p_keypair": {
@@ -140,6 +147,7 @@
     "privkey_path": null,
     "role": "Seed_node",
     "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+    "git_build": null,
     "libp2p_pass": "naughty blue worm",
     "libp2p_keyfile": "./tests/data/libp2p_keys/seed-1.json",
     "libp2p_keypair": {
