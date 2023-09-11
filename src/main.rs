@@ -197,7 +197,7 @@ fn main() {
                             "Failed to register network with 'docker compose create' with network_id '{}'",
                             cmd.network_id()
                         );
-                        print_error(&error_message, e.to_string().as_str());
+                        print_error(&error_message, &e.to_string());
                     }
                 }
             }
@@ -217,7 +217,7 @@ fn main() {
                             "Failed to get info for network with network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
-                        print_error(&error_message, e.to_string().as_str());
+                        print_error(&error_message, &e.to_string());
                     }
                 }
             }
@@ -235,7 +235,7 @@ fn main() {
                             "Failed to get status from docker compose ls for network with network_id '{}'",
                             cmd.network_id
                         );
-                        print_error(&error_message, e.to_string().as_str());
+                        print_error(&error_message, &e.to_string());
 
                         return;
                     }
@@ -248,7 +248,7 @@ fn main() {
                             "Failed to get status from docker compose ps for network with network_id '{}'",
                             cmd.network_id
                         );
-                        print_error(&error_message, e.to_string().as_str());
+                        print_error(&error_message, &e.to_string());
 
                         return;
                     }
@@ -282,7 +282,7 @@ fn main() {
                                 "Failed to delete network directory for network_id '{}'",
                                 cmd.network_id
                             );
-                            print_error(&error_message, e.to_string().as_str());
+                            print_error(&error_message, &e.to_string());
                         }
                     },
                     Err(e) => {
@@ -290,7 +290,7 @@ fn main() {
                             "Failed to delete network with network_id '{}'",
                             cmd.network_id
                         );
-                        print_error(&error_message, e.to_string().as_str());
+                        print_error(&error_message, &e.to_string());
                     }
                 }
             }
@@ -332,7 +332,7 @@ fn main() {
                             "Failed to start network with network_id '{}'",
                             cmd.network_id
                         );
-                        print_error(&error_message, e.to_string().as_str());
+                        print_error(&error_message, &e.to_string());
                     }
                 }
             }
@@ -357,7 +357,7 @@ fn main() {
                             "Failed to stop network with network_id '{}'",
                             cmd.network_id
                         );
-                        print_error(&error_message, e.to_string().as_str());
+                        print_error(&error_message, &e.to_string());
                     }
                 }
             }
