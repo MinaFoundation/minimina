@@ -77,177 +77,113 @@ fn main() {
                 // generate genesis ledger
                 match &cmd.genesis_ledger {
                     Some(genesis_ledger) => {
+                        if cmd.topology.is_none() {
+                            error!(
+                                "Must provide a topology file with a genesis ledger, \
+                                 keys will be incompatible otherwise."
+                            );
+
+                            directory_manager
+                                .delete_network_directory(cmd.network_id())
+                                .unwrap();
+                            std::process::exit(1);
+                        }
+
                         info!(
                             "Copying genesis ledger from '{}' to network directory.",
                             genesis_ledger.display()
                         );
-                    }
-                    None => {
-                        info!("Genesis ledger not provided. Generating default genesis ledger.");
-                        // set default services to generate keys for
-                        let seeds = vec!["mina-seed-1"];
-                        let block_producers = vec!["mina-bp-1", "mina-bp-2"];
-                        let snark_coordinators = vec!["mina-snark-coordinator"];
-                        let snark_workers = vec!["mina-snark-worker-1"];
-                        let all_services =
-                            [seeds, block_producers, snark_coordinators, snark_workers].concat();
 
-                        //generate key-pairs for default services
-                        let keys_manager = KeysManager::new(&network_path, docker_image);
-                        bp_keys_opt = Some(
-                            keys_manager
-                                .generate_bp_key_pairs(&all_services)
-                                .expect("Failed to generate key pairs for mina services."),
-                        );
-                        libp2p_keys_opt = Some(
-                            keys_manager
-                                .generate_libp2p_key_pairs(&all_services)
-                                .expect("Failed to generate libp2p key pairs for mina services."),
-                        );
-
-                        //generate default genesis ledger
-                        match DefaultLedgerGenerator::generate(
-                            &network_path,
-                            bp_keys_opt.as_ref().unwrap(),
-                        ) {
-                            Ok(()) => {}
-                            Err(e) => error!("Error generating default ledger: {}", e),
-                        }
+                        let genesis_path = &network_path.join("genesis_ledger.json");
+                        std::fs::copy(genesis_ledger, genesis_path).unwrap();
                     }
+                    None => generate_default_genesis_ledger(
+                        &mut bp_keys_opt,
+                        &mut libp2p_keys_opt,
+                        &network_path,
+                        docker_image,
+                    ),
                 }
 
                 // generate docker-compose.yaml based on topology
                 let services = match &cmd.topology {
-                    Some(topology) => {
+                    Some(topology_path) => {
+                        if cmd.genesis_ledger.is_none() {
+                            error!(
+                                "Must provide a genesis ledger with a topology file, \
+                                 keys will be incompatible otherwise."
+                            );
+
+                            directory_manager
+                                .delete_network_directory(cmd.network_id())
+                                .unwrap();
+                            std::process::exit(1);
+                        }
                         info!(
                             "Generating docker-compose based on provided topology '{}'.",
-                            topology.display()
+                            topology_path.display()
                         );
-                        vec![]
+
+                        // peers list is based on the network seeds for now
+                        match topology::Topology::new(topology_path) {
+                            Ok(topology) => {
+                                let peers = topology.seeds();
+                                let peer_list_file = directory_manager
+                                    .create_peer_list_file(cmd.network_id(), &peers, 3102)
+                                    .unwrap();
+                                topology.services(&peer_list_file)
+                            }
+                            Err(err) => {
+                                error!(
+                                    "Error occured while parsing the topology file:\n\
+                                     path: {}\n\
+                                     error: {err}",
+                                    topology_path.display()
+                                );
+                                std::process::exit(1)
+                            }
+                        }
                     }
                     None => {
                         info!("Topology not provided. Generating docker-compose based on default topology.");
+
                         if let (Some(bp_keys), Some(libp2p_keys)) =
                             (&bp_keys_opt.as_ref(), &libp2p_keys_opt.as_ref())
                         {
-                            let seed_name = "mina-seed-1";
-                            let seed = ServiceConfig {
-                                service_type: ServiceType::Seed,
-                                service_name: format!["{}-{}", &cmd.network_id(), seed_name],
-                                docker_image: docker_image.into(),
-                                client_port: Some(3100),
-                                public_key: None,
-                                public_key_path: None,
-                                private_key: None,
-                                private_key_path: None,
-                                libp2p_keypair: Some(libp2p_keys[seed_name].key_string.clone()),
-                                peers: None,
-                                snark_coordinator_fees: None,
-                                snark_coordinator_port: None,
-                                snark_worker_proof_level: None,
-                            };
-                            let peers = ServiceConfig::generate_peers(
-                                [libp2p_keys[seed_name].key_string.clone()].to_vec(),
-                                3102,
-                            );
-
-                            let bp_1_name = "mina-bp-1";
-                            let bp_1 = ServiceConfig {
-                                service_type: ServiceType::BlockProducer,
-                                service_name: format!["{}-{}", &cmd.network_id(), bp_1_name],
-                                docker_image: docker_image.into(),
-                                client_port: Some(4000),
-                                public_key: Some(bp_keys[bp_1_name].key_string.clone()),
-                                public_key_path: Some(bp_keys[bp_1_name].key_path_docker.clone()),
-                                private_key: None,
-                                private_key_path: None,
-                                libp2p_keypair: Some(libp2p_keys[bp_1_name].key_string.clone()),
-                                peers: Some(peers.clone()),
-                                snark_coordinator_fees: None,
-                                snark_coordinator_port: None,
-                                snark_worker_proof_level: None,
-                            };
-
-                            let bp_2_name = "mina-bp-2";
-                            let bp_2 = ServiceConfig {
-                                service_type: ServiceType::BlockProducer,
-                                service_name: format!["{}-{}", &cmd.network_id(), bp_2_name],
-                                docker_image: docker_image.into(),
-                                client_port: Some(4005),
-                                public_key: Some(bp_keys[bp_2_name].key_string.clone()),
-                                public_key_path: Some(bp_keys[bp_2_name].key_path_docker.clone()),
-                                private_key: None,
-                                private_key_path: None,
-                                libp2p_keypair: Some(libp2p_keys[bp_2_name].key_string.clone()),
-                                peers: Some(peers.clone()),
-                                snark_coordinator_fees: None,
-                                snark_coordinator_port: None,
-                                snark_worker_proof_level: None,
-                            };
-
-                            let snark_coordinator_name = "mina-snark-coordinator";
-                            let snark_coordinator = ServiceConfig {
-                                service_type: ServiceType::SnarkCoordinator,
-                                service_name: format![
-                                    "{}-{}",
-                                    &cmd.network_id(),
-                                    snark_coordinator_name
-                                ],
-                                docker_image: docker_image.into(),
-                                client_port: Some(7000),
-                                public_key: Some(
-                                    bp_keys[snark_coordinator_name].key_string.clone(),
-                                ),
-                                public_key_path: None,
-                                private_key: None,
-                                private_key_path: None,
-                                libp2p_keypair: Some(
-                                    libp2p_keys[snark_coordinator_name].key_string.clone(),
-                                ),
-                                peers: Some(peers),
-                                snark_coordinator_fees: Some("0.001".into()),
-                                snark_coordinator_port: None,
-                                snark_worker_proof_level: None,
-                            };
-                            let snark_worker_1_name = "mina-snark-worker-1";
-                            let snark_worker_1 = ServiceConfig {
-                                service_type: ServiceType::SnarkWorker,
-                                service_name: format![
-                                    "{}-{}",
-                                    &cmd.network_id(),
-                                    snark_worker_1_name
-                                ],
-                                docker_image: docker_image.into(),
-                                client_port: None,
-                                public_key: None,
-                                public_key_path: None,
-                                private_key: None,
-                                private_key_path: None,
-                                libp2p_keypair: None,
-                                peers: None,
-                                snark_coordinator_fees: None,
-                                snark_coordinator_port: Some(7000),
-                                snark_worker_proof_level: Some("none".into()),
-                            };
-
-                            let services =
-                                vec![seed, bp_1, bp_2, snark_coordinator, snark_worker_1];
-
-                            match docker.compose_generate_file(services.clone()) {
-                                Ok(()) => info!("Successfully generated docker-compose.yaml!"),
-                                Err(e) => error!("Error generating docker-compose.yaml: {}", e),
-                            }
-                            services
+                            generate_default_topology(
+                                bp_keys,
+                                libp2p_keys,
+                                &cmd,
+                                &docker,
+                                docker_image,
+                            )
                         } else {
                             error!("Failed to generate docker-compose.yaml. Keys not generated.");
                             return;
                         }
                     }
                 };
+
+                // copy libp2p + network keys
+                if let Err(e) = directory_manager.copy_all_network_keys(cmd.network_id(), &services)
+                {
+                    error!("Failed to copy keys with error: {e}");
+                    std::process::exit(1);
+                }
+
+                // generate docker compose
+                if let Err(e) = docker.compose_generate_file(&services) {
+                    error!("Failed to generate docker-compose.yaml with error: {e}");
+                    std::process::exit(1);
+                }
+
                 //create network
                 match docker.compose_create() {
                     Ok(_) => {
-                        info!("Successfully created network!");
+                        info!(
+                            "Successfully created network with id: '{}'!",
+                            cmd.network_id()
+                        );
                         // generate command output
                         let result = output::generate_network_info(services, cmd.network_id());
                         println!("{}", result);
@@ -453,4 +389,157 @@ fn main() {
             }
         },
     }
+}
+
+fn generate_default_genesis_ledger(
+    bp_keys_opt: &mut Option<HashMap<String, NodeKey>>,
+    libp2p_keys_opt: &mut Option<HashMap<String, NodeKey>>,
+    network_path: &std::path::Path,
+    docker_image: &str,
+) {
+    info!("Genesis ledger not provided. Generating default genesis ledger.");
+
+    // set default services to generate keys for
+    let seeds = vec!["mina-seed-1"];
+    let block_producers = vec!["mina-bp-1", "mina-bp-2"];
+    let snark_coordinators = vec!["mina-snark-coordinator"];
+    let snark_workers = vec!["mina-snark-worker-1"];
+    let all_services = [seeds, block_producers, snark_coordinators, snark_workers].concat();
+
+    //generate key-pairs for default services
+    let keys_manager = KeysManager::new(network_path, docker_image);
+    *bp_keys_opt = Some(
+        keys_manager
+            .generate_bp_key_pairs(&all_services)
+            .expect("Failed to generate key pairs for mina services."),
+    );
+    *libp2p_keys_opt = Some(
+        keys_manager
+            .generate_libp2p_key_pairs(&all_services)
+            .expect("Failed to generate libp2p key pairs for mina services."),
+    );
+
+    //generate default genesis ledger
+    match DefaultLedgerGenerator::generate(network_path, bp_keys_opt.as_ref().unwrap()) {
+        Ok(()) => {}
+        Err(e) => error!("Error generating default ledger: {}", e),
+    }
+}
+
+fn generate_default_topology(
+    bp_keys: &HashMap<String, NodeKey>,
+    libp2p_keys: &HashMap<String, NodeKey>,
+    cmd: &cli::CreateNetworkArgs,
+    docker: &DockerManager,
+    docker_image: &str,
+) -> Vec<service::ServiceConfig> {
+    let seed_name = "mina-seed-1";
+    let peers =
+        ServiceConfig::generate_peers([libp2p_keys[seed_name].key_string.clone()].to_vec(), 3102);
+    let seed = ServiceConfig {
+        service_type: ServiceType::Seed,
+        service_name: format!["{}-{}", &cmd.network_id(), seed_name],
+        docker_image: Some(docker_image.into()),
+        git_build: None,
+        client_port: Some(3100),
+        public_key: None,
+        public_key_path: None,
+        private_key: None,
+        private_key_path: None,
+        libp2p_keypair: Some(libp2p_keys[seed_name].key_string.clone()),
+        libp2p_keypair_path: None,
+        peers: None,
+        peers_list_path: None,
+        snark_coordinator_fees: None,
+        snark_coordinator_port: None,
+        snark_worker_proof_level: None,
+    };
+
+    let bp_1_name = "mina-bp-1";
+    let bp_1 = ServiceConfig {
+        service_type: ServiceType::BlockProducer,
+        service_name: format!["{}-{}", &cmd.network_id(), bp_1_name],
+        docker_image: Some(docker_image.into()),
+        git_build: None,
+        client_port: Some(4000),
+        public_key: Some(bp_keys[bp_1_name].key_string.clone()),
+        public_key_path: Some(bp_keys[bp_1_name].key_path_docker.clone()),
+        private_key: None,
+        private_key_path: None,
+        libp2p_keypair: Some(libp2p_keys[bp_1_name].key_string.clone()),
+        libp2p_keypair_path: None,
+        peers: Some(peers.clone()),
+        peers_list_path: None,
+        snark_coordinator_fees: None,
+        snark_coordinator_port: None,
+        snark_worker_proof_level: None,
+    };
+
+    let bp_2_name = "mina-bp-2";
+    let bp_2 = ServiceConfig {
+        service_type: ServiceType::BlockProducer,
+        service_name: format!["{}-{}", &cmd.network_id(), bp_2_name],
+        docker_image: Some(docker_image.into()),
+        git_build: None,
+        client_port: Some(4005),
+        public_key: Some(bp_keys[bp_2_name].key_string.clone()),
+        public_key_path: Some(bp_keys[bp_2_name].key_path_docker.clone()),
+        private_key: None,
+        private_key_path: None,
+        libp2p_keypair: Some(libp2p_keys[bp_2_name].key_string.clone()),
+        libp2p_keypair_path: None,
+        peers: Some(peers.clone()),
+        peers_list_path: None,
+        snark_coordinator_fees: None,
+        snark_coordinator_port: None,
+        snark_worker_proof_level: None,
+    };
+
+    let snark_coordinator_name = "mina-snark-coordinator";
+    let snark_coordinator = ServiceConfig {
+        service_type: ServiceType::SnarkCoordinator,
+        service_name: format!["{}-{}", &cmd.network_id(), snark_coordinator_name],
+        docker_image: Some(docker_image.into()),
+        git_build: None,
+        client_port: Some(7000),
+        public_key: Some(bp_keys[snark_coordinator_name].key_string.clone()),
+        public_key_path: None,
+        private_key: None,
+        private_key_path: None,
+        libp2p_keypair: Some(libp2p_keys[snark_coordinator_name].key_string.clone()),
+        libp2p_keypair_path: None,
+        peers: Some(peers),
+        peers_list_path: None,
+        snark_coordinator_fees: Some("0.001".into()),
+        snark_coordinator_port: None,
+        snark_worker_proof_level: None,
+    };
+
+    let snark_worker_1_name = "mina-snark-worker-1";
+    let snark_worker_1 = ServiceConfig {
+        service_type: ServiceType::SnarkWorker,
+        service_name: format!["{}-{}", &cmd.network_id(), snark_worker_1_name],
+        docker_image: Some(docker_image.into()),
+        git_build: None,
+        client_port: None,
+        public_key: None,
+        public_key_path: None,
+        private_key: None,
+        private_key_path: None,
+        libp2p_keypair: None,
+        libp2p_keypair_path: None,
+        peers: None,
+        peers_list_path: None,
+        snark_coordinator_fees: None,
+        snark_coordinator_port: Some(7000),
+        snark_worker_proof_level: Some("none".into()),
+    };
+
+    let services = vec![seed, bp_1, bp_2, snark_coordinator, snark_worker_1];
+    match docker.compose_generate_file(&services) {
+        Ok(()) => info!("Successfully generated docker-compose.yaml!"),
+        Err(e) => error!("Error generating docker-compose.yaml: {}", e),
+    }
+
+    services
 }

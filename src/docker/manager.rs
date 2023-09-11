@@ -71,7 +71,7 @@ impl DockerManager {
         }
     }
 
-    pub fn compose_generate_file(&self, configs: Vec<ServiceConfig>) -> std::io::Result<()> {
+    pub fn compose_generate_file(&self, configs: &[ServiceConfig]) -> std::io::Result<()> {
         let mut file = File::create(&self.compose_path)?;
         let contents = DockerCompose::generate(configs, &self.network_path);
         file.write_all(contents.as_bytes())?;

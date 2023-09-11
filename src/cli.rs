@@ -51,12 +51,15 @@ pub struct NetworkId {
 
 #[derive(Args)]
 pub struct CreateNetworkArgs {
+    /// Path to the (JSON) topology file
     #[clap(short = 't', long)]
     pub topology: Option<std::path::PathBuf>,
 
+    /// Path to the (JSON) genesis ledger/runtime config
     #[clap(short = 'g', long)]
     pub genesis_ledger: Option<std::path::PathBuf>,
 
+    /// Network identifier
     #[clap(flatten)]
     pub network_id: NetworkId,
 }

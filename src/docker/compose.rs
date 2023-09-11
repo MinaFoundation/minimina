@@ -72,10 +72,11 @@ const ARCHIVE_DATA: &str = "archive-data";
 const POSTGRES_DATA: &str = "postgres-data";
 
 impl DockerCompose {
-    pub fn generate(configs: Vec<ServiceConfig>, network_path: &Path) -> String {
+    pub fn generate(configs: &[ServiceConfig], network_path: &Path) -> String {
         let network_path_string = network_path
             .to_str()
             .expect("Failed to convert network path to str");
+        let network_name = network_path.file_name().unwrap().to_str().unwrap();
         let mut volumes = HashMap::new();
         volumes.insert(CONFIG_DIRECTORY.to_string(), None);
 
@@ -89,10 +90,13 @@ impl DockerCompose {
                     _ => {
                         let service = Service {
                             merge: Some("*default-attributes"),
-                            container_name: config.service_name.clone(),
+                            container_name: format!(
+                                "{}-{network_name}",
+                                config.service_name.clone()
+                            ),
                             network_mode: Some("host".to_string()),
                             entrypoint: Some(vec!["mina".to_string()]),
-                            image: config.docker_image.to_string(),
+                            image: config.docker_image.clone().unwrap(),
                             command: Some(match config.service_type {
                                 ServiceType::Seed => config.generate_seed_command(),
                                 ServiceType::BlockProducer => {
@@ -106,7 +110,10 @@ impl DockerCompose {
                             }),
                             ..Default::default()
                         };
-                        Some((config.service_name.clone(), service))
+                        Some((
+                            format!("{}-{network_name}", config.service_name.clone()),
+                            service,
+                        ))
                     }
                 }
             })
@@ -128,10 +135,11 @@ impl DockerCompose {
             let mut postgres_environment = HashMap::new();
             postgres_environment.insert("POSTGRES_PASSWORD".to_string(), "postgres".to_string());
 
+            let postgres_name = format!("postgres-{network_name}");
             services.insert(
-                "postgres".to_string(),
+                postgres_name.clone(),
                 Service {
-                    container_name: "postgres".to_string(),
+                    container_name: postgres_name,
                     image: "postgres".to_string(),
                     environment: Some(postgres_environment),
                     volumes: Some(vec![format!("{}:/var/lib/postgresql/data", POSTGRES_DATA)]),
@@ -140,11 +148,12 @@ impl DockerCompose {
                 },
             );
 
+            let archive_name = format!("{}-{network_name}", archive_config.service_name.clone(),);
             services.insert(
-                    "mina-archive".to_string(),
+                    archive_name.clone(),
                     Service {
-                        container_name: archive_config.service_name.clone(),
-                        image: archive_config.docker_image.to_string(),
+                        container_name: archive_name,
+                        image: archive_config.docker_image.clone().unwrap(),
                         command: Some(
                             "mina-archive run --postgres-uri postgres://postgres:postgres@postgres:5432/archive --server-port 3086".to_string()
                         ),
@@ -202,37 +211,42 @@ mod tests {
             ServiceConfig {
                 service_name: "seed".to_string(),
                 service_type: ServiceType::Seed,
+                docker_image: Some("seed-image".into()),
                 client_port: Some(8300),
                 ..Default::default()
             },
             ServiceConfig {
                 service_name: "block-producer".to_string(),
                 service_type: ServiceType::BlockProducer,
+                docker_image: Some("bp-image".into()),
                 client_port: Some(8301),
                 ..Default::default()
             },
             ServiceConfig {
                 service_name: "snark-coordinator".to_string(),
                 service_type: ServiceType::SnarkCoordinator,
+                docker_image: Some("snark-image".into()),
                 client_port: Some(8302),
                 ..Default::default()
             },
             ServiceConfig {
                 service_name: "snark-worker".to_string(),
                 service_type: ServiceType::SnarkWorker,
+                docker_image: Some("worker-image".into()),
                 client_port: Some(8303),
                 ..Default::default()
             },
             ServiceConfig {
                 service_name: "mina-archive555".to_string(),
                 service_type: ServiceType::ArchiveNode,
+                docker_image: Some("archive-image".into()),
                 client_port: Some(8303),
                 ..Default::default()
             },
         ];
         let network_path = Path::new("/tmp");
-        let docker_compose = DockerCompose::generate(configs, network_path);
-        println!("{}", docker_compose);
+        let docker_compose = DockerCompose::generate(&configs, network_path);
+        println!("{:?}", docker_compose);
         assert!(docker_compose.contains("seed"));
         assert!(docker_compose.contains("block-producer"));
         assert!(docker_compose.contains("snark-coordinator"));
@@ -249,18 +263,20 @@ mod tests {
             ServiceConfig {
                 service_name: "seed".to_string(),
                 service_type: ServiceType::Seed,
+                docker_image: Some("seed-image".into()),
                 client_port: Some(8300),
                 ..Default::default()
             },
             ServiceConfig {
                 service_name: "block-producer".to_string(),
                 service_type: ServiceType::BlockProducer,
+                docker_image: Some("bp-image".into()),
                 client_port: Some(8301),
                 ..Default::default()
             },
         ];
         let network_path = Path::new("/tmp2");
-        let docker_compose = DockerCompose::generate(configs, network_path);
+        let docker_compose = DockerCompose::generate(&configs, network_path);
         println!("{}", docker_compose);
         assert!(docker_compose.contains("seed"));
         assert!(docker_compose.contains("block-producer"));
@@ -268,5 +284,37 @@ mod tests {
         assert!(!docker_compose.contains("postgres"));
         assert!(!docker_compose.contains("postgres-data"));
         assert!(!docker_compose.contains("archive-data"));
+    }
+
+    #[test]
+    fn test_generate_compose_from_topology() -> std::io::Result<()> {
+        use crate::{topology::Topology, DirectoryManager};
+
+        let dir_manager = DirectoryManager::_new_with_base_path(
+            "/tmp/test_generate_compose_from_topology".into(),
+        );
+        let network_id = "test_network";
+        let network_path = dir_manager.network_path(network_id);
+        dir_manager.generate_dir_structure(network_id)?;
+
+        let file = std::path::PathBuf::from("./tests/data/large_network/topology.json");
+        let contents = std::fs::read_to_string(file)?;
+        let topology: Topology = serde_json::from_str(&contents)?;
+        let peers_file = dir_manager.create_peer_list_file(network_id, &topology.seeds(), 7070)?;
+        let services = topology.services(&peers_file);
+        let compose_contents = DockerCompose::generate(&services, &network_path);
+
+        assert!(compose_contents.contains("snark-node"));
+        assert!(compose_contents.contains("archive-node"));
+        assert!(compose_contents.contains("receiver"));
+        assert!(compose_contents.contains("empty_node-1"));
+        assert!(compose_contents.contains("empty_node-2"));
+        assert!(compose_contents.contains("observer"));
+        assert!(compose_contents.contains("seed-0"));
+        assert!(compose_contents.contains("seed-1"));
+
+        dir_manager.delete_network_directory(network_id)?;
+
+        Ok(())
     }
 }
