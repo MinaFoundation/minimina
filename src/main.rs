@@ -439,7 +439,8 @@ fn generate_default_topology(
     let seed = ServiceConfig {
         service_type: ServiceType::Seed,
         service_name: format!["{}-{}", &cmd.network_id(), seed_name],
-        docker_image: docker_image.into(),
+        docker_image: Some(docker_image.into()),
+        git_build: None,
         client_port: Some(3100),
         public_key: None,
         public_key_path: None,
@@ -458,7 +459,8 @@ fn generate_default_topology(
     let bp_1 = ServiceConfig {
         service_type: ServiceType::BlockProducer,
         service_name: format!["{}-{}", &cmd.network_id(), bp_1_name],
-        docker_image: docker_image.into(),
+        docker_image: Some(docker_image.into()),
+        git_build: None,
         client_port: Some(4000),
         public_key: Some(bp_keys[bp_1_name].key_string.clone()),
         public_key_path: Some(bp_keys[bp_1_name].key_path_docker.clone()),
@@ -477,7 +479,8 @@ fn generate_default_topology(
     let bp_2 = ServiceConfig {
         service_type: ServiceType::BlockProducer,
         service_name: format!["{}-{}", &cmd.network_id(), bp_2_name],
-        docker_image: docker_image.into(),
+        docker_image: Some(docker_image.into()),
+        git_build: None,
         client_port: Some(4005),
         public_key: Some(bp_keys[bp_2_name].key_string.clone()),
         public_key_path: Some(bp_keys[bp_2_name].key_path_docker.clone()),
@@ -496,7 +499,8 @@ fn generate_default_topology(
     let snark_coordinator = ServiceConfig {
         service_type: ServiceType::SnarkCoordinator,
         service_name: format!["{}-{}", &cmd.network_id(), snark_coordinator_name],
-        docker_image: docker_image.into(),
+        docker_image: Some(docker_image.into()),
+        git_build: None,
         client_port: Some(7000),
         public_key: Some(bp_keys[snark_coordinator_name].key_string.clone()),
         public_key_path: None,
@@ -515,7 +519,8 @@ fn generate_default_topology(
     let snark_worker_1 = ServiceConfig {
         service_type: ServiceType::SnarkWorker,
         service_name: format!["{}-{}", &cmd.network_id(), snark_worker_1_name],
-        docker_image: docker_image.into(),
+        docker_image: Some(docker_image.into()),
+        git_build: None,
         client_port: None,
         public_key: None,
         public_key_path: None,

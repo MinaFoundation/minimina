@@ -85,7 +85,8 @@ impl TopologyInfo {
             TopologyInfo::Archive(archive_info) => ServiceConfig {
                 service_type: ServiceType::ArchiveNode,
                 service_name,
-                docker_image: archive_info.docker_image.clone().unwrap(),
+                docker_image: archive_info.docker_image.clone(),
+                git_build: archive_info.git_build.clone(),
                 client_port: None,
                 public_key: Some(archive_info.pk.clone()),
                 public_key_path: None,
@@ -102,7 +103,8 @@ impl TopologyInfo {
             TopologyInfo::Node(node_info) => ServiceConfig {
                 service_type: node_info.service_type.clone(),
                 service_name,
-                docker_image: node_info.docker_image.clone().unwrap(),
+                docker_image: node_info.docker_image.clone(),
+                git_build: node_info.git_build.clone(),
                 client_port: Some(client_port),
                 public_key: Some(node_info.pk.clone()),
                 public_key_path: None,
@@ -119,7 +121,8 @@ impl TopologyInfo {
             TopologyInfo::SnarkCoordinator(snark_info) => ServiceConfig {
                 service_type: snark_info.service_type.clone(),
                 service_name,
-                docker_image: snark_info.docker_image.clone().unwrap(),
+                docker_image: snark_info.docker_image.clone(),
+                git_build: snark_info.git_build.clone(),
                 client_port: None,
                 public_key: Some(snark_info.pk.clone()),
                 public_key_path: None,

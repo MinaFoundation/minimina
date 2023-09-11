@@ -96,7 +96,7 @@ impl DockerCompose {
                             ),
                             network_mode: Some("host".to_string()),
                             entrypoint: Some(vec!["mina".to_string()]),
-                            image: config.docker_image.to_string(),
+                            image: config.docker_image.clone().unwrap(),
                             command: Some(match config.service_type {
                                 ServiceType::Seed => config.generate_seed_command(),
                                 ServiceType::BlockProducer => {
@@ -153,7 +153,7 @@ impl DockerCompose {
                     archive_name.clone(),
                     Service {
                         container_name: archive_name,
-                        image: archive_config.docker_image.to_string(),
+                        image: archive_config.docker_image.clone().unwrap(),
                         command: Some(
                             "mina-archive run --postgres-uri postgres://postgres:postgres@postgres:5432/archive --server-port 3086".to_string()
                         ),
@@ -211,30 +211,35 @@ mod tests {
             ServiceConfig {
                 service_name: "seed".to_string(),
                 service_type: ServiceType::Seed,
+                docker_image: Some("seed-image".into()),
                 client_port: Some(8300),
                 ..Default::default()
             },
             ServiceConfig {
                 service_name: "block-producer".to_string(),
                 service_type: ServiceType::BlockProducer,
+                docker_image: Some("bp-image".into()),
                 client_port: Some(8301),
                 ..Default::default()
             },
             ServiceConfig {
                 service_name: "snark-coordinator".to_string(),
                 service_type: ServiceType::SnarkCoordinator,
+                docker_image: Some("snark-image".into()),
                 client_port: Some(8302),
                 ..Default::default()
             },
             ServiceConfig {
                 service_name: "snark-worker".to_string(),
                 service_type: ServiceType::SnarkWorker,
+                docker_image: Some("worker-image".into()),
                 client_port: Some(8303),
                 ..Default::default()
             },
             ServiceConfig {
                 service_name: "mina-archive555".to_string(),
                 service_type: ServiceType::ArchiveNode,
+                docker_image: Some("archive-image".into()),
                 client_port: Some(8303),
                 ..Default::default()
             },
@@ -258,12 +263,14 @@ mod tests {
             ServiceConfig {
                 service_name: "seed".to_string(),
                 service_type: ServiceType::Seed,
+                docker_image: Some("seed-image".into()),
                 client_port: Some(8300),
                 ..Default::default()
             },
             ServiceConfig {
                 service_name: "block-producer".to_string(),
                 service_type: ServiceType::BlockProducer,
+                docker_image: Some("bp-image".into()),
                 client_port: Some(8301),
                 ..Default::default()
             },

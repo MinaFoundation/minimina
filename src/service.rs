@@ -7,6 +7,8 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::topology::GitBuild;
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 pub enum ServiceType {
     #[serde(rename = "Seed_node")]
@@ -26,7 +28,8 @@ pub enum ServiceType {
 pub struct ServiceConfig {
     pub service_type: ServiceType,
     pub service_name: String,
-    pub docker_image: String,
+    pub docker_image: Option<String>,
+    pub git_build: Option<GitBuild>,
     pub client_port: Option<u16>,
     pub public_key: Option<String>,
     pub public_key_path: Option<String>,
