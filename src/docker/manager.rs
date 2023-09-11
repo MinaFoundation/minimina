@@ -175,11 +175,12 @@ impl DockerManager {
         let output = self.run_docker_compose(&cmd_str_slices)?;
         let stdout_str = String::from_utf8_lossy(&output.stdout);
         let lines: Vec<&str> = stdout_str.trim().split('\n').collect();
-        let mut containers: Vec<ContainerInfo> = Vec::new();
-        for line in lines {
-            let container: ContainerInfo = serde_json::from_str(line)?;
-            containers.push(container);
-        }
+
+        let containers: Vec<ContainerInfo> = lines
+            .iter()
+            .filter_map(|&line| serde_json::from_str::<ContainerInfo>(line).ok())
+            .collect();
+
         Ok(containers)
     }
 
