@@ -148,7 +148,7 @@ impl Topology {
         self.topology
             .iter()
             .map(|(service_name, service_info)| {
-                client_port += 1;
+                client_port += 5;
                 service_info.to_service_config(service_name.clone(), peer_list_file, client_port)
             })
             .collect()
