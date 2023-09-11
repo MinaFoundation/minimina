@@ -26,49 +26,8 @@ use docker::manager::{ContainerState, DockerManager};
 use env_logger::{Builder, Env};
 use log::{error, info, warn};
 
-fn network_not_exists(network_id: &str) -> bool {
-    let directory_manager = DirectoryManager::new();
-    if directory_manager.network_path_exists(network_id) {
-        false
-    } else {
-        let error_message = format!("Network with network_id '{}' does not exist.", network_id);
-        let network_path = directory_manager.network_path(network_id);
-        let error = format!(
-            "Network directory '{}' does not exist.",
-            network_path.display()
-        );
-        print_error(&error_message, &error);
-        true
-    }
-}
-
-fn print_error(error_message: &str, error: &str) {
-    let error_message = format!("{}: {}", error_message, error);
-    error!("{}", error_message);
-    println!("{}", output::Error { error_message });
-}
-
+// The least supported version of docker compose
 const LEAST_COMPOSE_VERSION: &str = "2.21.0";
-fn compose_version_ok() -> bool {
-    let compose_version = DockerManager::compose_version();
-    match compose_version {
-        Some(version) => {
-            if version.as_str() < LEAST_COMPOSE_VERSION {
-                error!(
-                    "Docker compose version '{}' is less than the least supported version '{}'.",
-                    version, LEAST_COMPOSE_VERSION
-                );
-                false
-            } else {
-                true
-            }
-        }
-        None => {
-            error!("It seems that docker not installed! Please install docker and try again.");
-            false
-        }
-    }
-}
 
 fn main() {
     Builder::from_env(Env::default().default_filter_or("warn")).init();
@@ -643,4 +602,47 @@ fn generate_default_topology(
     }
 
     services
+}
+
+fn network_not_exists(network_id: &str) -> bool {
+    let directory_manager = DirectoryManager::new();
+    if directory_manager.network_path_exists(network_id) {
+        false
+    } else {
+        let error_message = format!("Network with network_id '{}' does not exist.", network_id);
+        let network_path = directory_manager.network_path(network_id);
+        let error = format!(
+            "Network directory '{}' does not exist.",
+            network_path.display()
+        );
+        print_error(&error_message, &error);
+        true
+    }
+}
+
+fn print_error(error_message: &str, error: &str) {
+    let error_message = format!("{}: {}", error_message, error);
+    error!("{}", error_message);
+    println!("{}", output::Error { error_message });
+}
+
+fn compose_version_ok() -> bool {
+    let compose_version = DockerManager::compose_version();
+    match compose_version {
+        Some(version) => {
+            if version.as_str() < LEAST_COMPOSE_VERSION {
+                error!(
+                    "Docker compose version '{}' is less than the least supported version '{}'.",
+                    version, LEAST_COMPOSE_VERSION
+                );
+                false
+            } else {
+                true
+            }
+        }
+        None => {
+            error!("It seems that docker not installed! Please install docker and try again.");
+            false
+        }
+    }
 }
