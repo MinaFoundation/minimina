@@ -77,6 +77,18 @@ fn main() {
                 // generate genesis ledger
                 match &cmd.genesis_ledger {
                     Some(genesis_ledger) => {
+                        if cmd.topology.is_none() {
+                            error!(
+                                "Must provide a topology file with a genesis ledger, \
+                                 keys will be incompatible otherwise."
+                            );
+
+                            directory_manager
+                                .delete_network_directory(cmd.network_id())
+                                .unwrap();
+                            std::process::exit(1);
+                        }
+
                         info!(
                             "Copying genesis ledger from '{}' to network directory.",
                             genesis_ledger.display()
@@ -98,9 +110,13 @@ fn main() {
                     Some(topology_path) => {
                         if cmd.genesis_ledger.is_none() {
                             error!(
-                                "Must provide a genesis ledger with a topology file.\n\
-                                    The keys will be incompatible otherwise. Exiting."
+                                "Must provide a genesis ledger with a topology file, \
+                                 keys will be incompatible otherwise."
                             );
+
+                            directory_manager
+                                .delete_network_directory(cmd.network_id())
+                                .unwrap();
                             std::process::exit(1);
                         }
                         info!(
