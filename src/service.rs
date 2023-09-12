@@ -133,6 +133,11 @@ impl ServiceConfig {
             );
         }
 
+        if let Some(archive_port) = archive_port {
+            base_command.push("-archive-address".to_string());
+            base_command.push(archive_port.to_string());
+        }
+
         self.add_libp2p_command(&mut base_command);
         base_command.join(" ")
     }

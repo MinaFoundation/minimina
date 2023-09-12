@@ -86,7 +86,7 @@ impl TopologyInfo {
                 service_name,
                 docker_image: archive_info.docker_image.clone(),
                 git_build: archive_info.git_build.clone(),
-                client_port: None,
+                client_port: Some(client_port),
                 public_key: Some(archive_info.pk.clone()),
                 public_key_path: None,
                 private_key: Some(archive_info.sk.clone()),

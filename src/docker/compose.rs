@@ -87,7 +87,6 @@ impl DockerCompose {
                 None
             }
         });
-
         let mut services: HashMap<String, Service> = configs
             .iter()
             .filter_map(|config| {
@@ -258,6 +257,7 @@ mod tests {
         assert!(docker_compose.contains("postgres"));
         assert!(docker_compose.contains("postgres-data"));
         assert!(docker_compose.contains("archive-data"));
+        assert!(docker_compose.contains("-archive-address"));
     }
 
     #[test]
@@ -287,6 +287,7 @@ mod tests {
         assert!(!docker_compose.contains("postgres"));
         assert!(!docker_compose.contains("postgres-data"));
         assert!(!docker_compose.contains("archive-data"));
+        assert!(!docker_compose.contains("-archive-address"));
     }
 
     #[test]
@@ -315,6 +316,7 @@ mod tests {
         assert!(compose_contents.contains("observer"));
         assert!(compose_contents.contains("seed-0"));
         assert!(compose_contents.contains("seed-1"));
+        assert!(compose_contents.contains("-archive-address"));
 
         dir_manager.delete_network_directory(network_id)?;
 
