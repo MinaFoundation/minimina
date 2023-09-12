@@ -176,6 +176,7 @@ fn main() {
                             "Successfully created network with id: '{}'!",
                             cmd.network_id()
                         );
+
                         // generate command output
                         let result = output::generate_network_info(services, cmd.network_id());
                         println!("{}", result);
@@ -528,6 +529,7 @@ fn generate_default_topology(
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
+        archive_schema_files: None,
     };
 
     let bp_1_name = "mina-bp-1";
@@ -548,6 +550,7 @@ fn generate_default_topology(
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
+        archive_schema_files: None,
     };
 
     let bp_2_name = "mina-bp-2";
@@ -568,6 +571,7 @@ fn generate_default_topology(
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
+        archive_schema_files: None,
     };
 
     let snark_coordinator_name = "mina-snark-coordinator";
@@ -588,6 +592,7 @@ fn generate_default_topology(
         snark_coordinator_fees: Some("0.001".into()),
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
+        archive_schema_files: None,
     };
 
     let snark_worker_1_name = "mina-snark-worker-1";
@@ -608,6 +613,7 @@ fn generate_default_topology(
         snark_coordinator_fees: None,
         snark_coordinator_port: Some(7000),
         snark_worker_proof_level: Some("none".into()),
+        archive_schema_files: None,
     };
 
     let services = vec![seed, bp_1, bp_2, snark_coordinator, snark_worker_1];

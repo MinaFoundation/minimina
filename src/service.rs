@@ -49,6 +49,9 @@ pub struct ServiceConfig {
 
     //snark worker specific
     pub snark_worker_proof_level: Option<String>,
+
+    //archive node specific
+    pub archive_schema_files: Option<Vec<String>>,
 }
 
 impl ServiceConfig {

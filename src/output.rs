@@ -278,6 +278,7 @@ mod tests {
             snark_coordinator_port: None,
             snark_coordinator_fees: None,
             snark_worker_proof_level: None,
+            archive_schema_files: None,
         };
         let services = vec![bp_service.clone()];
 
