@@ -145,26 +145,27 @@ impl DockerCompose {
                     image: "postgres".to_string(),
                     environment: Some(postgres_environment),
                     volumes: Some(vec![format!("{}:/var/lib/postgresql/data", POSTGRES_DATA)]),
-                    ports: Some(vec!["6451:5432".to_string()]),
+                    ports: Some(vec!["5432".to_string()]),
                     ..Default::default()
                 },
             );
 
-            let archive_name = format!("{}-{network_name}", archive_config.service_name.clone(),);
+            let archive_name = format!("{}-{network_name}", archive_config.service_name.clone());
+            let archive_port = archive_port.unwrap();
+            let archive_command = format!("mina-archive run --postgres-uri postgres://postgres:postgres@postgres:5432/archive --server-port {}", archive_port);
+
             services.insert(
-                    archive_name.clone(),
-                    Service {
-                        container_name: archive_name,
-                        image: archive_config.docker_image.clone().unwrap(),
-                        command: Some(
-                            "mina-archive run --postgres-uri postgres://postgres:postgres@postgres:5432/archive --server-port 3086".to_string()
-                        ),
-                        volumes: Some(vec![format!("{}:/data", ARCHIVE_DATA)]),
-                        ports: Some(vec!["3086:3086".to_string()]),
-                        depends_on: Some(vec![postgres_name]),
-                        ..Default::default()
-                    },
-                );
+                archive_name.clone(),
+                Service {
+                    container_name: archive_name,
+                    image: archive_config.docker_image.clone().unwrap(),
+                    command: Some(archive_command),
+                    volumes: Some(vec![format!("{}:/data", ARCHIVE_DATA)]),
+                    ports: Some(vec![archive_port.to_string()]),
+                    depends_on: Some(vec![postgres_name]),
+                    ..Default::default()
+                },
+            );
         }
 
         let compose = DockerCompose {
