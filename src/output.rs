@@ -112,15 +112,15 @@ pub mod network {
         pub fn update_from_compose_ps(&mut self, ps_out: Vec<ContainerInfo>) {
             ps_out.iter().for_each(|container| {
                 let node_id = container.name.clone();
-                let status = container.status.clone();
-                let command = container.command.clone();
+                // let status = container.status.clone();
+                // let command = container.command.clone();
                 let docker_image = container.image.clone();
                 let state = container.state.clone();
                 self.nodes.push(super::node::Status {
                     node_id,
                     state,
-                    status,
-                    command,
+                    // status,
+                    // command,
                     docker_image,
                 });
             });
@@ -151,8 +151,8 @@ pub mod node {
     pub struct Status {
         pub node_id: String,
         pub state: ContainerState,
-        pub status: String,
-        pub command: String,
+        // pub status: String,
+        // pub command: String,
         pub docker_image: String,
     }
 
