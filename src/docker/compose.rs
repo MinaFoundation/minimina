@@ -119,15 +119,10 @@ impl DockerCompose {
             })
             .collect();
 
-        if configs
+        if let Some(archive_config) = configs
             .iter()
-            .any(|config| config.service_type == ServiceType::ArchiveNode)
+            .find(|config| config.service_type == ServiceType::ArchiveNode)
         {
-            let archive_config = configs
-                .iter()
-                .find(|config| config.service_type == ServiceType::ArchiveNode)
-                .expect("Failed to find archive config");
-
             // Add archive and postres volumes
             volumes.insert(POSTGRES_DATA.to_string(), None);
             volumes.insert(ARCHIVE_DATA.to_string(), None);
