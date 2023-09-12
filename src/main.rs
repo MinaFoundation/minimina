@@ -8,37 +8,35 @@ mod service;
 mod topology;
 mod utils;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, process::exit};
 
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
     keys::{KeysManager, NodeKey},
-    output::network::{self},
+    output::{
+        network::{self},
+        node,
+    },
     service::{ServiceConfig, ServiceType},
 };
 use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
 use directory_manager::DirectoryManager;
-use docker::manager::DockerManager;
+use docker::manager::{ContainerState, DockerManager};
 use env_logger::{Builder, Env};
 use log::{error, info, warn};
 
-fn network_not_exists(network_id: &str) -> bool {
-    let directory_manager = DirectoryManager::new();
-    if directory_manager.network_path_exists(network_id) {
-        false
-    } else {
-        let error_message = format!("Network with network_id '{}' does not exist.", network_id);
-        error!("{}", error_message);
-        println!("{}", output::Error { error_message });
-        true
-    }
-}
+// The least supported version of docker compose
+const LEAST_COMPOSE_VERSION: &str = "2.21.0";
 
 fn main() {
     Builder::from_env(Env::default().default_filter_or("warn")).init();
     let cli: Cli = Cli::parse();
     let directory_manager = DirectoryManager::new();
+
+    if !compose_version_ok() {
+        exit(1);
+    }
 
     match cli.command {
         Command::Network(net_cmd) => match net_cmd {
@@ -196,12 +194,10 @@ fn main() {
                     }
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to register network with 'docker compose create' with network_id '{}' with error = {}",
-                            cmd.network_id(),
-                            e
+                            "Failed to register network with 'docker compose create' with network_id '{}'",
+                            cmd.network_id()
                         );
-                        error!("{}", error_message);
-                        println!("{}", output::Error { error_message })
+                        print_error(&error_message, &e.to_string());
                     }
                 }
             }
@@ -221,8 +217,7 @@ fn main() {
                             "Failed to get info for network with network_id '{}' with error = {}",
                             cmd.network_id, e
                         );
-                        error!("{}", error_message);
-                        println!("{}", output::Error { error_message })
+                        print_error(&error_message, &e.to_string());
                     }
                 }
             }
@@ -237,24 +232,24 @@ fn main() {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get status from docker compose ls for network with network_id '{}' with error = {}",
-                            cmd.network_id, e
+                            "Failed to get status from docker compose ls for network with network_id '{}'",
+                            cmd.network_id
                         );
-                        error!("{}", error_message);
-                        println!("{}", output::Error { error_message });
+                        print_error(&error_message, &e.to_string());
+
                         return;
                     }
                 };
 
-                let ps_out = match docker.compose_ps() {
+                let ps_out = match docker.compose_ps(None) {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get status from docker compose ps for network with network_id '{}' with error = {}",
-                            cmd.network_id, e
+                            "Failed to get status from docker compose ps for network with network_id '{}'",
+                            cmd.network_id
                         );
-                        error!("{}", error_message);
-                        println!("{}", output::Error { error_message });
+                        print_error(&error_message, &e.to_string());
+
                         return;
                     }
                 };
@@ -284,20 +279,18 @@ fn main() {
                         }
                         Err(e) => {
                             let error_message = format!(
-                                    "Failed to delete network directory for network_id '{}' with error = {}",
-                                    cmd.network_id, e
-                                );
-                            error!("{}", error_message);
-                            println!("{}", output::Error { error_message });
+                                "Failed to delete network directory for network_id '{}'",
+                                cmd.network_id
+                            );
+                            print_error(&error_message, &e.to_string());
                         }
                     },
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to delete network with network_id '{}' with error = {}",
-                            cmd.network_id, e
+                            "Failed to delete network with network_id '{}'",
+                            cmd.network_id
                         );
-                        error!("{}", error_message);
-                        println!("{}", output::Error { error_message })
+                        print_error(&error_message, &e.to_string());
                     }
                 }
             }
@@ -320,9 +313,12 @@ fn main() {
             }
 
             NetworkCommand::Start(cmd) => {
+                if network_not_exists(&cmd.network_id) {
+                    return;
+                };
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker = DockerManager::new(&network_path);
-                match docker.compose_start() {
+                match docker.compose_start_all() {
                     Ok(_) => {
                         println!(
                             "{}",
@@ -333,19 +329,21 @@ fn main() {
                     }
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to start network with network_id '{}' with error = {}",
-                            cmd.network_id, e
+                            "Failed to start network with network_id '{}'",
+                            cmd.network_id
                         );
-                        error!("{}", error_message);
-                        println!("{}", output::Error { error_message })
+                        print_error(&error_message, &e.to_string());
                     }
                 }
             }
 
             NetworkCommand::Stop(cmd) => {
+                if network_not_exists(&cmd.network_id) {
+                    return;
+                };
                 let network_path = directory_manager.network_path(&cmd.network_id);
                 let docker = DockerManager::new(&network_path);
-                match docker.compose_stop() {
+                match docker.compose_stop_all() {
                     Ok(_) => {
                         println!(
                             "{}",
@@ -356,29 +354,91 @@ fn main() {
                     }
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to stop network with network_id '{}' with error = {}",
-                            cmd.network_id, e
+                            "Failed to stop network with network_id '{}'",
+                            cmd.network_id
                         );
-                        error!("{}", error_message);
-                        println!("{}", output::Error { error_message })
+                        print_error(&error_message, &e.to_string());
                     }
                 }
             }
         },
         Command::Node(node_cmd) => match node_cmd {
             NodeCommand::Start(cmd) => {
-                info!(
-                    "Node start command with node_id {}, network_id {}.",
-                    cmd.node_id(),
-                    cmd.network_id()
-                );
+                let network_path = directory_manager.network_path(cmd.network_id());
+                let docker = DockerManager::new(&network_path);
+
+                let nodes = docker.compose_ps(None).unwrap();
+                let node = docker.filter_container_by_name(nodes, cmd.node_id());
+                let mut fresh_state = false;
+                match node {
+                    Some(node) => match node.state {
+                        ContainerState::Running => {
+                            warn!("Node with node_id '{}' is already running.", cmd.node_id());
+                        }
+                        ContainerState::Created => {
+                            fresh_state = true;
+                        }
+                        _ => {}
+                    },
+                    None => {
+                        let error_message: String =
+                            format!("Failed to start node with node_id '{}'", cmd.node_id());
+                        let error = format!(
+                            "Node with node_id '{}' does not exist in the network '{}'",
+                            cmd.node_id(),
+                            cmd.network_id()
+                        );
+                        print_error(&error_message, error.to_string().as_str());
+                        return;
+                    }
+                }
+
+                fn handle_start_error(node_id: &str, error: impl ToString) {
+                    let error_message: String =
+                        format!("Failed to start node with node_id '{}'", node_id);
+                    print_error(&error_message, error.to_string().as_str());
+                }
+                match docker.compose_start(vec![cmd.node_id()]) {
+                    Ok(out) => {
+                        if out.status.success() {
+                            println!(
+                                "{}",
+                                node::Start {
+                                    fresh_state,
+                                    node_id: cmd.node_id().to_string(),
+                                    network_id: cmd.network_id().to_string()
+                                }
+                            )
+                        } else {
+                            handle_start_error(cmd.node_id(), String::from_utf8_lossy(&out.stderr));
+                        }
+                    }
+                    Err(e) => handle_start_error(cmd.node_id(), e),
+                }
             }
             NodeCommand::Stop(cmd) => {
-                info!(
-                    "Node stop command with node_id {}, network_id {}.",
-                    cmd.node_id(),
-                    cmd.network_id()
-                );
+                let network_path = directory_manager.network_path(cmd.network_id());
+                let docker = DockerManager::new(&network_path);
+                fn handle_stop_error(node_id: &str, error: impl ToString) {
+                    let error_message = format!("Failed to stop node with node_id '{}'", node_id,);
+                    print_error(&error_message, error.to_string().as_str());
+                }
+                match docker.compose_stop(vec![cmd.node_id()]) {
+                    Ok(out) => {
+                        if out.status.success() {
+                            println!(
+                                "{}",
+                                node::Stop {
+                                    node_id: cmd.node_id().to_string(),
+                                    network_id: cmd.network_id().to_string()
+                                }
+                            )
+                        } else {
+                            handle_stop_error(cmd.node_id(), String::from_utf8_lossy(&out.stderr));
+                        }
+                    }
+                    Err(e) => handle_stop_error(cmd.node_id(), e),
+                }
             }
             NodeCommand::Logs(cmd) => {
                 info!(
@@ -542,4 +602,47 @@ fn generate_default_topology(
     }
 
     services
+}
+
+fn network_not_exists(network_id: &str) -> bool {
+    let directory_manager = DirectoryManager::new();
+    if directory_manager.network_path_exists(network_id) {
+        false
+    } else {
+        let error_message = format!("Network with network_id '{}' does not exist.", network_id);
+        let network_path = directory_manager.network_path(network_id);
+        let error = format!(
+            "Network directory '{}' does not exist.",
+            network_path.display()
+        );
+        print_error(&error_message, &error);
+        true
+    }
+}
+
+fn print_error(error_message: &str, error: &str) {
+    let error_message = format!("{}: {}", error_message, error);
+    error!("{}", error_message);
+    println!("{}", output::Error { error_message });
+}
+
+fn compose_version_ok() -> bool {
+    let compose_version = DockerManager::compose_version();
+    match compose_version {
+        Some(version) => {
+            if version.as_str() < LEAST_COMPOSE_VERSION {
+                error!(
+                    "Docker compose version '{}' is less than the least supported version '{}'.",
+                    version, LEAST_COMPOSE_VERSION
+                );
+                false
+            } else {
+                true
+            }
+        }
+        None => {
+            error!("It seems that docker not installed! Please install docker and try again.");
+            false
+        }
+    }
 }
