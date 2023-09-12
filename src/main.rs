@@ -447,6 +447,28 @@ fn main() {
                     cmd.network_id()
                 );
             }
+            NodeCommand::DumpArchiveData(cmd) => {
+                info!(
+                    "Node dump archive data command with node_id {}, network_id {}.",
+                    cmd.node_id(),
+                    cmd.network_id()
+                );
+            }
+            NodeCommand::DumpPrecomputedBlocks(cmd) => {
+                info!(
+                    "Node dump precomputed blocks command with node_id {}, network_id {}.",
+                    cmd.node_id(),
+                    cmd.network_id()
+                );
+            }
+            NodeCommand::RunReplayer(cmd) => {
+                info!(
+                    "Node logs command with node_id {}, network_id {}, start_slot_since_genesis {}.",
+                    cmd.node_id(),
+                    cmd.network_id(),
+                    cmd.start_slot_since_genesis(),
+                );
+            }
         },
     }
 }
