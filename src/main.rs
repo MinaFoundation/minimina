@@ -148,13 +148,7 @@ fn main() {
                         if let (Some(bp_keys), Some(libp2p_keys)) =
                             (&bp_keys_opt.as_ref(), &libp2p_keys_opt.as_ref())
                         {
-                            generate_default_topology(
-                                bp_keys,
-                                libp2p_keys,
-                                &cmd,
-                                &docker,
-                                docker_image,
-                            )
+                            generate_default_topology(bp_keys, libp2p_keys, &docker, docker_image)
                         } else {
                             error!("Failed to generate docker-compose.yaml. Keys not generated.");
                             return;
@@ -511,7 +505,6 @@ fn generate_default_genesis_ledger(
 fn generate_default_topology(
     bp_keys: &HashMap<String, NodeKey>,
     libp2p_keys: &HashMap<String, NodeKey>,
-    cmd: &cli::CreateNetworkArgs,
     docker: &DockerManager,
     docker_image: &str,
 ) -> Vec<service::ServiceConfig> {
@@ -520,7 +513,7 @@ fn generate_default_topology(
         ServiceConfig::generate_peers([libp2p_keys[seed_name].key_string.clone()].to_vec(), 3102);
     let seed = ServiceConfig {
         service_type: ServiceType::Seed,
-        service_name: format!["{}-{}", &cmd.network_id(), seed_name],
+        service_name: seed_name.to_string(),
         docker_image: Some(docker_image.into()),
         git_build: None,
         client_port: Some(3100),
@@ -540,7 +533,7 @@ fn generate_default_topology(
     let bp_1_name = "mina-bp-1";
     let bp_1 = ServiceConfig {
         service_type: ServiceType::BlockProducer,
-        service_name: format!["{}-{}", &cmd.network_id(), bp_1_name],
+        service_name: bp_1_name.to_string(),
         docker_image: Some(docker_image.into()),
         git_build: None,
         client_port: Some(4000),
@@ -560,7 +553,7 @@ fn generate_default_topology(
     let bp_2_name = "mina-bp-2";
     let bp_2 = ServiceConfig {
         service_type: ServiceType::BlockProducer,
-        service_name: format!["{}-{}", &cmd.network_id(), bp_2_name],
+        service_name: bp_2_name.to_string(),
         docker_image: Some(docker_image.into()),
         git_build: None,
         client_port: Some(4005),
@@ -580,7 +573,7 @@ fn generate_default_topology(
     let snark_coordinator_name = "mina-snark-coordinator";
     let snark_coordinator = ServiceConfig {
         service_type: ServiceType::SnarkCoordinator,
-        service_name: format!["{}-{}", &cmd.network_id(), snark_coordinator_name],
+        service_name: snark_coordinator_name.to_string(),
         docker_image: Some(docker_image.into()),
         git_build: None,
         client_port: Some(7000),
@@ -600,7 +593,7 @@ fn generate_default_topology(
     let snark_worker_1_name = "mina-snark-worker-1";
     let snark_worker_1 = ServiceConfig {
         service_type: ServiceType::SnarkWorker,
-        service_name: format!["{}-{}", &cmd.network_id(), snark_worker_1_name],
+        service_name: snark_worker_1_name.to_string(),
         docker_image: Some(docker_image.into()),
         git_build: None,
         client_port: None,
