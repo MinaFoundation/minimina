@@ -72,7 +72,7 @@ pub mod network {
         pub network_id: String,
         pub status: String,
         pub docker_compose_file: String,
-        pub nodes: Vec<super::node::Status>,
+        pub services: Vec<super::node::Status>,
     }
 
     impl Status {
@@ -81,7 +81,7 @@ pub mod network {
                 network_id: network_id.to_string(),
                 status: "unknown".to_string(),
                 docker_compose_file: "unknown".to_string(),
-                nodes: vec![],
+                services: vec![],
             }
         }
 
@@ -112,14 +112,14 @@ pub mod network {
         pub fn update_from_compose_ps(&mut self, ps_out: Vec<ContainerInfo>) {
             ps_out.iter().for_each(|container| {
                 let node_id = container.name.clone();
-                // let status = container.status.clone();
+                let status = container.status.clone();
                 // let command = container.command.clone();
                 let docker_image = container.image.clone();
                 let state = container.state.clone();
-                self.nodes.push(super::node::Status {
-                    node_id,
+                self.services.push(super::node::Status {
+                    id: node_id,
                     state,
-                    // status,
+                    status,
                     // command,
                     docker_image,
                 });
@@ -149,9 +149,9 @@ pub mod node {
 
     #[derive(Debug, Serialize, PartialEq)]
     pub struct Status {
-        pub node_id: String,
+        pub id: String,
         pub state: ContainerState,
-        // pub status: String,
+        pub status: String,
         // pub command: String,
         pub docker_image: String,
     }

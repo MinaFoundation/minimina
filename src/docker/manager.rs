@@ -41,8 +41,6 @@ pub struct ContainerInfo {
     pub exit_code: i32,
     #[serde(rename = "Labels")]
     pub labels: String,
-    #[serde(rename = "Publishers")]
-    pub publishers: Option<Vec<String>>,
     #[serde(rename = "Service")]
     pub service: String,
 }
