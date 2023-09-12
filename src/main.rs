@@ -8,7 +8,7 @@ mod service;
 mod topology;
 mod utils;
 
-use std::{collections::HashMap, process::exit};
+use std::{collections::HashMap, path::Path, process::exit};
 
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
@@ -178,7 +178,7 @@ fn main() {
                             cmd.network_id()
                         );
 
-                        // if we have archive node we need to create database and apply migrations
+                        // if we have archive node we need to create database and apply schema scripts
                         if let Some(archive_node) = services
                             .iter()
                             .find(|s| s.service_type == ServiceType::ArchiveNode)
@@ -206,30 +206,47 @@ fn main() {
                                 }
                             };
 
+                            // make sure postgres is running
+                            let mut postgres_running = false;
+                            let mut retries = 0;
+                            while !postgres_running && retries < 10 {
+                                let containers = docker.compose_ps(None).unwrap();
+                                let postgres_container =
+                                    docker.filter_container_by_name(containers, &postgres_name);
+                                if let Some(container) = postgres_container {
+                                    if container.state == ContainerState::Running {
+                                        postgres_running = true;
+                                    }
+                                }
+                                retries += 1;
+                                std::thread::sleep(std::time::Duration::from_secs(1));
+                            }
+
                             // create database
                             let cmd = ["createdb", "-U", "postgres", "archive"];
-                            let _ = docker.exec_it(&postgres_name, &cmd);
+                            let _ = docker.exec(&postgres_name, &cmd);
 
                             // apply schema scripts
                             let scripts = archive_node.archive_schema_files.as_ref().unwrap();
                             for script in scripts {
                                 let file_path = fetch_schema(script, network_path.clone()).unwrap();
-                                let volume = format!(
-                                    "{}:/schema.sql",
-                                    file_path.as_path().to_str().unwrap()
-                                );
+                                let file_name = file_path.file_name().unwrap().to_str().unwrap();
+                                let docker_file_path =
+                                    Path::new("/tmp").join(file_path.file_name().unwrap());
+                                info!("Applying schema script: {}", file_name);
+
+                                let _ = docker.cp(&postgres_name, &file_path, &docker_file_path);
+
                                 let cmd = [
-                                    "-v",
-                                    volume.as_str(),
                                     "psql",
                                     "-U",
                                     "postgres",
                                     "-d",
                                     "archive",
                                     "-f",
-                                    "/schema.sql",
+                                    docker_file_path.to_str().unwrap(),
                                 ];
-                                let _ = docker.exec_it(&postgres_name, &cmd);
+                                let _ = docker.exec(&postgres_name, &cmd);
                             }
 
                             // stop postgres
