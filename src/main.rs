@@ -388,7 +388,7 @@ fn main() {
                             cmd.node_id(),
                             cmd.network_id()
                         );
-                        print_error(&error_message, error.to_string().as_str());
+                        print_error(&error_message, error.as_str());
                         return;
                     }
                 }

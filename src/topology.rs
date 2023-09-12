@@ -23,8 +23,7 @@ pub struct ArchiveTopologyInfo {
     pub service_type: ServiceType,
     pub docker_image: Option<String>,
     pub git_build: Option<GitBuild>,
-    pub schema_file: PathBuf,
-    pub zkapp_table: PathBuf,
+    pub schema_files: Vec<PathBuf>,
 }
 
 /// Topology info for a block producer or seed node
@@ -233,8 +232,10 @@ mod tests {
                 \"git_build\": {{
                     \"commit\": \"{commit}\"
                 }},
-                \"schema_file\": \"{schema_file}\",
-                \"zkapp_table\": \"{zkapp_table}\"
+                \"schema_files\": [
+                    \"{schema_file}\",
+                    \"{zkapp_table}\"
+                ]
             }}"
         ))
         .unwrap();
@@ -247,8 +248,7 @@ mod tests {
                 docker_image: None,
                 git_build: Some(GitBuild::Commit(commit)),
                 service_type: ServiceType::ArchiveNode,
-                schema_file: schema_file.into(),
-                zkapp_table: zkapp_table.into(),
+                schema_files: vec![schema_file.into(), zkapp_table.into()],
             }
         );
     }

@@ -28,8 +28,10 @@
     "role": "Archive_node",
     "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
     "git_build": null,
-    "schema_file": "https://raw.githubusercontent.com/MinaProtocol/mina/a067b1303a9211ca796a2ae3b18a97f1979396ef/src/app/archive/create_schema.sql",
-    "zkapp_table": "https://raw.githubusercontent.com/MinaProtocol/mina/a067b1303a9211ca796a2ae3b18a97f1979396ef/src/app/archive/zkapp_tables.sql"
+    "schema_files": [
+      "https://raw.githubusercontent.com/MinaProtocol/mina/026634caa96e7d76cc2570ab89ff5709162acd41/src/app/archive/create_schema.sql",
+      "https://raw.githubusercontent.com/MinaProtocol/mina/026634caa96e7d76cc2570ab89ff5709162acd41/src/app/archive/zkapp_tables.sql"
+    ]
   },
   "receiver": {
     "pk": "B62qqeMgtLhKkmZNDvAGsw9pqGw51uXpTf5ar8JDMzvSekmuF5zUtDe",
