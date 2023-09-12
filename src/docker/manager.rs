@@ -96,6 +96,13 @@ impl DockerManager {
         Ok(())
     }
 
+    pub fn exec_it(&self, service: &str, cmd: &[&str]) -> std::io::Result<Output> {
+        let mut args = vec!["exec", "-it", service];
+        args.extend_from_slice(cmd);
+        let out = run_command("docker", &args)?;
+        Ok(out)
+    }
+
     pub fn _compose_up(&self) -> std::io::Result<Output> {
         self.run_docker_compose(&["up", "-d"])
     }

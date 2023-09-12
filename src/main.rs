@@ -18,6 +18,7 @@ use crate::{
         node,
     },
     service::{ServiceConfig, ServiceType},
+    utils::fetch_schema,
 };
 use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
@@ -176,6 +177,64 @@ fn main() {
                             "Successfully created network with id: '{}'!",
                             cmd.network_id()
                         );
+
+                        // if we have archive node we need to create database and apply migrations
+                        if let Some(archive_node) = services
+                            .iter()
+                            .find(|s| s.service_type == ServiceType::ArchiveNode)
+                        {
+                            // start postgres container
+                            let postgres_name = format!("postgres-{}", &cmd.network_id());
+                            match docker.compose_start(vec![&postgres_name]) {
+                                Ok(out) => {
+                                    if out.status.success() {
+                                        info!("Successfully started postgres container for network with id: '{}'!", cmd.network_id());
+                                    } else {
+                                        let error_message = format!(
+                                            "Failed to start postgres container for network with id: '{}'",
+                                            cmd.network_id()
+                                        );
+                                        print_error(&error_message, "");
+                                    }
+                                }
+                                Err(e) => {
+                                    let error_message = format!(
+                                        "Failed to start postgres container for network with id: '{}'",
+                                        cmd.network_id()
+                                    );
+                                    print_error(&error_message, &e.to_string());
+                                }
+                            };
+
+                            // create database
+                            let cmd = ["createdb", "-U", "postgres", "archive"];
+                            let _ = docker.exec_it(&postgres_name, &cmd);
+
+                            // apply schema scripts
+                            let scripts = archive_node.archive_schema_files.as_ref().unwrap();
+                            for script in scripts {
+                                let file_path = fetch_schema(script, network_path.clone()).unwrap();
+                                let volume = format!(
+                                    "{}:/schema.sql",
+                                    file_path.as_path().to_str().unwrap()
+                                );
+                                let cmd = [
+                                    "-v",
+                                    volume.as_str(),
+                                    "psql",
+                                    "-U",
+                                    "postgres",
+                                    "-d",
+                                    "archive",
+                                    "-f",
+                                    "/schema.sql",
+                                ];
+                                let _ = docker.exec_it(&postgres_name, &cmd);
+                            }
+
+                            // stop postgres
+                            let _ = docker.compose_stop(vec![&postgres_name]);
+                        }
 
                         // generate command output
                         let result = output::generate_network_info(services, cmd.network_id());

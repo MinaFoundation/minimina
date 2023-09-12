@@ -5,9 +5,12 @@
 
 use log::{debug, error};
 use std::{
+    fs::File,
     io::{self, ErrorKind},
+    path::PathBuf,
     process::{Command, Output},
 };
+use url::Url;
 
 /// Run an external command and capture its output.
 /// Logs the command, its output, and any potential errors.
@@ -50,6 +53,31 @@ pub fn get_current_user_uid_gid() -> Option<String> {
     Some(format!("{}:{}", current_user, current_group))
 }
 
+/// Fetch the schema from a given URL and save it to a file.
+/// The file is saved in the given network path.
+pub fn fetch_schema(url: &str, network_path: PathBuf) -> Result<PathBuf, reqwest::Error> {
+    let parsed_url = Url::parse(url).expect("Invalid URL");
+    let filename = parsed_url
+        .path_segments()
+        .and_then(|segments| segments.last())
+        .unwrap_or("schema.sql");
+    let mut file_path = network_path;
+    file_path.push(filename);
+    let response = reqwest::blocking::get(url)?;
+    let mut file = File::create(&file_path).expect("Failed to create file");
+
+    std::io::copy(
+        &mut response
+            .bytes()
+            .expect("Failed to read bytes from response")
+            .as_ref(),
+        &mut file,
+    )
+    .expect("Failed to write to file");
+
+    Ok(file_path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -65,5 +93,14 @@ mod tests {
     fn test_get_current_user_uid_gid() {
         let uid_gid = get_current_user_uid_gid().unwrap();
         assert!(uid_gid.contains(':'));
+    }
+
+    #[test]
+    fn test_fetch_schema() {
+        let url = "https://raw.githubusercontent.com/MinaProtocol/mina/master/src/app/archive/create_schema.sql";
+        let network_path = PathBuf::from("/tmp");
+        let file_path = fetch_schema(url, network_path).unwrap();
+        assert!(file_path.exists());
+        assert_eq!(file_path.file_name().unwrap(), "create_schema.sql");
     }
 }
