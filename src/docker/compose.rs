@@ -139,7 +139,7 @@ impl DockerCompose {
             services.insert(
                 postgres_name.clone(),
                 Service {
-                    container_name: postgres_name,
+                    container_name: postgres_name.clone(),
                     image: "postgres".to_string(),
                     environment: Some(postgres_environment),
                     volumes: Some(vec![format!("{}:/var/lib/postgresql/data", POSTGRES_DATA)]),
@@ -159,7 +159,7 @@ impl DockerCompose {
                         ),
                         volumes: Some(vec![format!("{}:/data", ARCHIVE_DATA)]),
                         ports: Some(vec!["3086:3086".to_string()]),
-                        depends_on: Some(vec!["postgres".to_string()]),
+                        depends_on: Some(vec![postgres_name]),
                         ..Default::default()
                     },
                 );
