@@ -70,14 +70,26 @@ pub enum NodeCommand {
     Start(NodeCommandArgs),
     /// Stop a node
     Stop(NodeCommandArgs),
-    /// Get logs from a node
+    /// Dump the node's logs to stdout
     Logs(NodeCommandArgs),
+    /// Dump the node's precomputed blocks to stdout
+    DumpPrecomputedBlocks(NodeCommandArgs),
+    /// Dump an archive node's data
+    DumpArchiveData(NodeCommandArgs),
+    /// Run the replayer on an archive node's db
+    RunReplayer(ReplayerArgs),
 }
 
 #[derive(Args, Debug)]
 pub struct NodeId {
     #[clap(short = 'i', long)]
     pub node_id: String,
+}
+
+#[derive(Args, Debug)]
+pub struct GlobalSlot {
+    #[clap(short = 's', long)]
+    pub global_slot: u32,
 }
 
 #[derive(Args, Debug)]
@@ -89,6 +101,18 @@ pub struct NodeCommandArgs {
     pub network_id: NetworkId,
 }
 
+#[derive(Args, Debug)]
+pub struct ReplayerArgs {
+    #[clap(flatten)]
+    pub node_id: NodeId,
+
+    #[clap(flatten)]
+    pub network_id: NetworkId,
+
+    #[clap(flatten)]
+    pub start_slot_since_genesis: GlobalSlot,
+}
+
 impl NodeCommandArgs {
     // helper functions to get node_id and network_id
     pub fn node_id(&self) -> &str {
@@ -97,6 +121,20 @@ impl NodeCommandArgs {
 
     pub fn network_id(&self) -> &str {
         &self.network_id.network_id
+    }
+}
+
+impl ReplayerArgs {
+    pub fn node_id(&self) -> &str {
+        &self.node_id.node_id
+    }
+
+    pub fn network_id(&self) -> &str {
+        &self.network_id.network_id
+    }
+
+    pub fn start_slot_since_genesis(&self) -> u32 {
+        self.start_slot_since_genesis.global_slot
     }
 }
 
