@@ -106,7 +106,7 @@ impl ServiceConfig {
     }
 
     // generate command for block producer node
-    pub fn generate_block_producer_command(&self) -> String {
+    pub fn generate_block_producer_command(&self, archive_port: Option<u16>) -> String {
         assert_eq!(self.service_type, ServiceType::BlockProducer);
 
         let mut base_command = self.generate_base_command();
@@ -123,11 +123,19 @@ impl ServiceConfig {
         } else if let Some(public_key_path) = &self.public_key_path {
             base_command.push("-block-producer-key".to_string());
             base_command.push(public_key_path.clone());
+        } else if let Some(archive_port) = archive_port {
+            base_command.push("-archive-address".to_string());
+            base_command.push(archive_port.to_string());
         } else {
             warn!(
                 "No public or private key path provided for block producer node '{}'. This is not recommended.",
                 self.service_name
             );
+        }
+
+        if let Some(archive_port) = archive_port {
+            base_command.push("-archive-address".to_string());
+            base_command.push(archive_port.to_string());
         }
 
         self.add_libp2p_command(&mut base_command);

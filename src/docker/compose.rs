@@ -80,6 +80,13 @@ impl DockerCompose {
         let mut volumes = HashMap::new();
         volumes.insert(CONFIG_DIRECTORY.to_string(), None);
 
+        let archive_port = configs.iter().find_map(|config| {
+            if config.service_type == ServiceType::ArchiveNode {
+                config.client_port
+            } else {
+                None
+            }
+        });
         let mut services: HashMap<String, Service> = configs
             .iter()
             .filter_map(|config| {
@@ -100,7 +107,7 @@ impl DockerCompose {
                             command: Some(match config.service_type {
                                 ServiceType::Seed => config.generate_seed_command(),
                                 ServiceType::BlockProducer => {
-                                    config.generate_block_producer_command()
+                                    config.generate_block_producer_command(archive_port)
                                 }
                                 ServiceType::SnarkCoordinator => {
                                     config.generate_snark_coordinator_command()
@@ -250,6 +257,7 @@ mod tests {
         assert!(docker_compose.contains("postgres"));
         assert!(docker_compose.contains("postgres-data"));
         assert!(docker_compose.contains("archive-data"));
+        assert!(docker_compose.contains("-archive-address"));
     }
 
     #[test]
@@ -279,6 +287,7 @@ mod tests {
         assert!(!docker_compose.contains("postgres"));
         assert!(!docker_compose.contains("postgres-data"));
         assert!(!docker_compose.contains("archive-data"));
+        assert!(!docker_compose.contains("-archive-address"));
     }
 
     #[test]
@@ -307,6 +316,7 @@ mod tests {
         assert!(compose_contents.contains("observer"));
         assert!(compose_contents.contains("seed-0"));
         assert!(compose_contents.contains("seed-1"));
+        assert!(compose_contents.contains("-archive-address"));
 
         dir_manager.delete_network_directory(network_id)?;
 
