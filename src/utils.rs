@@ -63,7 +63,7 @@ pub fn fetch_schema(url: &str, network_path: PathBuf) -> Result<PathBuf, reqwest
         .unwrap_or("schema.sql");
     let mut file_path = network_path;
     file_path.push(filename);
-    let response = reqwest::blocking::get(url)?;
+    let response = reqwest::blocking::get(parsed_url)?;
     let mut file = File::create(&file_path).expect("Failed to create file");
 
     std::io::copy(
