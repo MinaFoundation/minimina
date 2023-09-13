@@ -101,7 +101,6 @@ impl DockerCompose {
                                 "{}-{network_name}",
                                 config.service_name.clone()
                             ),
-                            network_mode: Some("host".to_string()),
                             entrypoint: Some(vec!["mina".to_string()]),
                             image: config.docker_image.clone().unwrap(),
                             command: Some(match config.service_type {
@@ -115,6 +114,13 @@ impl DockerCompose {
                                 ServiceType::SnarkWorker => config.generate_snark_worker_command(),
                                 _ => String::new(),
                             }),
+                            ports: match config.client_port {
+                                Some(port) => {
+                                    let gql_port = port + 1;
+                                    Some(vec![format!("{}:{}", gql_port, gql_port)])
+                                }
+                                None => None,
+                            },
                             ..Default::default()
                         };
                         Some((
