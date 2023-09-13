@@ -8,7 +8,11 @@ mod service;
 mod topology;
 mod utils;
 
-use std::{collections::HashMap, path::Path, process::exit};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    process::exit,
+};
 
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
@@ -214,20 +218,7 @@ fn main() {
                             };
 
                             // make sure postgres is running
-                            let mut postgres_running = false;
-                            let mut retries = 0;
-                            while !postgres_running && retries < 10 {
-                                let containers = docker.compose_ps(None).unwrap();
-                                let postgres_container =
-                                    docker.filter_container_by_name(containers, &postgres_name);
-                                if let Some(container) = postgres_container {
-                                    if container.state == ContainerState::Running {
-                                        postgres_running = true;
-                                    }
-                                }
-                                retries += 1;
-                                std::thread::sleep(std::time::Duration::from_secs(1));
-                            }
+                            container_is_running(docker.clone(), &postgres_name);
 
                             // create database
                             let cmd = ["createdb", "-U", "postgres", "archive"];
@@ -235,26 +226,12 @@ fn main() {
 
                             // apply schema scripts
                             let scripts = archive_node.archive_schema_files.as_ref().unwrap();
-                            for script in scripts {
-                                let file_path = fetch_schema(script, network_path.clone()).unwrap();
-                                let file_name = file_path.file_name().unwrap().to_str().unwrap();
-                                let docker_file_path =
-                                    Path::new("/tmp").join(file_path.file_name().unwrap());
-                                info!("Applying schema script: {}", file_name);
-
-                                let _ = docker.cp(&postgres_name, &file_path, &docker_file_path);
-
-                                let cmd = [
-                                    "psql",
-                                    "-U",
-                                    "postgres",
-                                    "-d",
-                                    "archive",
-                                    "-f",
-                                    docker_file_path.to_str().unwrap(),
-                                ];
-                                let _ = docker.exec(&postgres_name, &cmd);
-                            }
+                            apply_schema_scripts(
+                                docker.clone(),
+                                &postgres_name,
+                                scripts,
+                                network_path.clone(),
+                            );
 
                             // stop postgres
                             let _ = docker.compose_stop(vec![&postgres_name]);
@@ -548,6 +525,49 @@ fn main() {
                 );
             }
         },
+    }
+}
+
+fn container_is_running(docker: DockerManager, container_name: &str) {
+    let mut container_running = false;
+    let mut retries = 0;
+    while !container_running && retries < 10 {
+        let containers = docker.compose_ps(None).unwrap();
+        let container = docker.filter_container_by_name(containers, container_name);
+        if let Some(container) = container {
+            if container.state == ContainerState::Running {
+                container_running = true;
+            }
+        }
+        retries += 1;
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+}
+
+fn apply_schema_scripts(
+    docker: DockerManager,
+    postgres_name: &str,
+    scripts: &Vec<String>,
+    network_path: PathBuf,
+) {
+    for script in scripts {
+        let file_path = fetch_schema(script, network_path.clone()).unwrap();
+        let file_name = file_path.file_name().unwrap().to_str().unwrap();
+        let docker_file_path = Path::new("/tmp").join(file_path.file_name().unwrap());
+        info!("Applying schema script: {}", file_name);
+
+        let _ = docker.cp(postgres_name, &file_path, &docker_file_path);
+
+        let cmd = [
+            "psql",
+            "-U",
+            "postgres",
+            "-d",
+            "archive",
+            "-f",
+            docker_file_path.to_str().unwrap(),
+        ];
+        let _ = docker.exec(postgres_name, &cmd);
     }
 }
 

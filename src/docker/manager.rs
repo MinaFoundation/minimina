@@ -75,6 +75,7 @@ pub struct ComposeInfo {
     pub config_files: String,
 }
 
+#[derive(Clone)]
 pub struct DockerManager {
     pub network_path: PathBuf,
     pub compose_path: PathBuf,
