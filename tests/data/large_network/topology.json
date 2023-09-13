@@ -26,7 +26,7 @@
     "pk": "B62qjw6nhuPRERVeUwwEdT7KAcEg7D8pUiKdDmf7Ny1W7utcq9UKw1q",
     "sk": "EKFbpuwm2ALsgDXy7NSpmEaDF62W6ULMSzdV8haSCaHeizFCHcDm",
     "role": "Archive_node",
-    "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley",
+    "docker_image": "gcr.io/o1labs-192920/mina-archive:2.0.0rampup3-bfd1009-buster",
     "git_build": null,
     "schema_files": [
       "https://raw.githubusercontent.com/MinaProtocol/mina/026634caa96e7d76cc2570ab89ff5709162acd41/src/app/archive/create_schema.sql",

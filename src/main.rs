@@ -8,7 +8,11 @@ mod service;
 mod topology;
 mod utils;
 
-use std::{collections::HashMap, process::exit};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    process::exit,
+};
 
 use crate::{
     default_ledger_generator::DefaultLedgerGenerator,
@@ -18,6 +22,7 @@ use crate::{
         node,
     },
     service::{ServiceConfig, ServiceType},
+    utils::fetch_schema,
 };
 use clap::Parser;
 use cli::{Cli, Command, NetworkCommand, NodeCommand};
@@ -61,14 +66,16 @@ fn main() {
                     }
                 };
 
-                // hardcode docker image for now
+                // hardcode docker image for default network (not topology based)
                 let docker_image =
                     "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley";
+                let docker_image_archive =
+                    "gcr.io/o1labs-192920/mina-archive:2.0.0rampup3-bfd1009-buster";
 
                 // create docker manager
                 let docker = DockerManager::new(&network_path);
 
-                // key-pairs for block producers and libp2p keys for all services
+                // key-pairs for block producers and libp2p keys for all services for default network (not topology based)
                 let mut bp_keys_opt: Option<HashMap<String, NodeKey>> = None;
                 let mut libp2p_keys_opt: Option<HashMap<String, NodeKey>> = None;
 
@@ -151,9 +158,8 @@ fn main() {
                             generate_default_topology(
                                 bp_keys,
                                 libp2p_keys,
-                                &cmd,
-                                &docker,
                                 docker_image,
+                                docker_image_archive,
                             )
                         } else {
                             error!("Failed to generate docker-compose.yaml. Keys not generated.");
@@ -182,6 +188,55 @@ fn main() {
                             "Successfully created network with id: '{}'!",
                             cmd.network_id()
                         );
+
+                        // if we have archive node we need to create database and apply schema scripts
+                        if let Some(archive_node) = services
+                            .iter()
+                            .find(|s| s.service_type == ServiceType::ArchiveNode)
+                        {
+                            // start postgres container
+                            let postgres_name = format!("postgres-{}", &cmd.network_id());
+                            match docker.compose_start(vec![&postgres_name]) {
+                                Ok(out) => {
+                                    if out.status.success() {
+                                        info!("Successfully started postgres container for network with id: '{}'!", cmd.network_id());
+                                    } else {
+                                        let error_message = format!(
+                                            "Failed to start postgres container for network with id: '{}'",
+                                            cmd.network_id()
+                                        );
+                                        print_error(&error_message, "");
+                                    }
+                                }
+                                Err(e) => {
+                                    let error_message = format!(
+                                        "Failed to start postgres container for network with id: '{}'",
+                                        cmd.network_id()
+                                    );
+                                    print_error(&error_message, &e.to_string());
+                                }
+                            };
+
+                            // make sure postgres is running
+                            container_is_running(docker.clone(), &postgres_name);
+
+                            // create database
+                            let cmd = ["createdb", "-U", "postgres", "archive"];
+                            let _ = docker.exec(&postgres_name, &cmd);
+
+                            // apply schema scripts
+                            let scripts = archive_node.archive_schema_files.as_ref().unwrap();
+                            apply_schema_scripts(
+                                docker.clone(),
+                                &postgres_name,
+                                scripts,
+                                network_path.clone(),
+                            );
+
+                            // stop postgres
+                            let _ = docker.compose_stop(vec![&postgres_name]);
+                        }
+
                         // generate command output
                         let result = output::generate_network_info(services, cmd.network_id());
                         println!("{}", result);
@@ -473,6 +528,49 @@ fn main() {
     }
 }
 
+fn container_is_running(docker: DockerManager, container_name: &str) {
+    let mut container_running = false;
+    let mut retries = 0;
+    while !container_running && retries < 10 {
+        let containers = docker.compose_ps(None).unwrap();
+        let container = docker.filter_container_by_name(containers, container_name);
+        if let Some(container) = container {
+            if container.state == ContainerState::Running {
+                container_running = true;
+            }
+        }
+        retries += 1;
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+}
+
+fn apply_schema_scripts(
+    docker: DockerManager,
+    postgres_name: &str,
+    scripts: &Vec<String>,
+    network_path: PathBuf,
+) {
+    for script in scripts {
+        let file_path = fetch_schema(script, network_path.clone()).unwrap();
+        let file_name = file_path.file_name().unwrap().to_str().unwrap();
+        let docker_file_path = Path::new("/tmp").join(file_path.file_name().unwrap());
+        info!("Applying schema script: {}", file_name);
+
+        let _ = docker.cp(postgres_name, &file_path, &docker_file_path);
+
+        let cmd = [
+            "psql",
+            "-U",
+            "postgres",
+            "-d",
+            "archive",
+            "-f",
+            docker_file_path.to_str().unwrap(),
+        ];
+        let _ = docker.exec(postgres_name, &cmd);
+    }
+}
+
 fn generate_default_genesis_ledger(
     bp_keys_opt: &mut Option<HashMap<String, NodeKey>>,
     libp2p_keys_opt: &mut Option<HashMap<String, NodeKey>>,
@@ -511,16 +609,15 @@ fn generate_default_genesis_ledger(
 fn generate_default_topology(
     bp_keys: &HashMap<String, NodeKey>,
     libp2p_keys: &HashMap<String, NodeKey>,
-    cmd: &cli::CreateNetworkArgs,
-    docker: &DockerManager,
     docker_image: &str,
+    docker_image_archive: &str,
 ) -> Vec<service::ServiceConfig> {
     let seed_name = "mina-seed-1";
     let peers =
         ServiceConfig::generate_peers([libp2p_keys[seed_name].key_string.clone()].to_vec(), 3102);
     let seed = ServiceConfig {
         service_type: ServiceType::Seed,
-        service_name: format!["{}-{}", &cmd.network_id(), seed_name],
+        service_name: seed_name.to_string(),
         docker_image: Some(docker_image.into()),
         git_build: None,
         client_port: Some(3100),
@@ -535,12 +632,14 @@ fn generate_default_topology(
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
+        archive_schema_files: None,
+        archive_port: None,
     };
 
     let bp_1_name = "mina-bp-1";
     let bp_1 = ServiceConfig {
         service_type: ServiceType::BlockProducer,
-        service_name: format!["{}-{}", &cmd.network_id(), bp_1_name],
+        service_name: bp_1_name.to_string(),
         docker_image: Some(docker_image.into()),
         git_build: None,
         client_port: Some(4000),
@@ -555,12 +654,14 @@ fn generate_default_topology(
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
+        archive_schema_files: None,
+        archive_port: None,
     };
 
     let bp_2_name = "mina-bp-2";
     let bp_2 = ServiceConfig {
         service_type: ServiceType::BlockProducer,
-        service_name: format!["{}-{}", &cmd.network_id(), bp_2_name],
+        service_name: bp_2_name.to_string(),
         docker_image: Some(docker_image.into()),
         git_build: None,
         client_port: Some(4005),
@@ -575,12 +676,14 @@ fn generate_default_topology(
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
+        archive_schema_files: None,
+        archive_port: None,
     };
 
     let snark_coordinator_name = "mina-snark-coordinator";
     let snark_coordinator = ServiceConfig {
         service_type: ServiceType::SnarkCoordinator,
-        service_name: format!["{}-{}", &cmd.network_id(), snark_coordinator_name],
+        service_name: snark_coordinator_name.to_string(),
         docker_image: Some(docker_image.into()),
         git_build: None,
         client_port: Some(7000),
@@ -595,12 +698,14 @@ fn generate_default_topology(
         snark_coordinator_fees: Some("0.001".into()),
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
+        archive_schema_files: None,
+        archive_port: None,
     };
 
     let snark_worker_1_name = "mina-snark-worker-1";
     let snark_worker_1 = ServiceConfig {
         service_type: ServiceType::SnarkWorker,
-        service_name: format!["{}-{}", &cmd.network_id(), snark_worker_1_name],
+        service_name: snark_worker_1_name.to_string(),
         docker_image: Some(docker_image.into()),
         git_build: None,
         client_port: None,
@@ -615,14 +720,41 @@ fn generate_default_topology(
         snark_coordinator_fees: None,
         snark_coordinator_port: Some(7000),
         snark_worker_proof_level: Some("none".into()),
+        archive_schema_files: None,
+        archive_port: None,
     };
 
-    let services = vec![seed, bp_1, bp_2, snark_coordinator, snark_worker_1];
-    match docker.compose_generate_file(&services) {
-        Ok(()) => info!("Successfully generated docker-compose.yaml!"),
-        Err(e) => error!("Error generating docker-compose.yaml: {}", e),
-    }
+    let archive_node_name = "mina-archive";
+    let archive_node = ServiceConfig {
+        service_type: ServiceType::ArchiveNode,
+        service_name: archive_node_name.to_string(),
+        docker_image: Some(docker_image_archive.into()),
+        git_build: None,
+        client_port: None,
+        public_key: None,
+        public_key_path: None,
+        private_key: None,
+        private_key_path: None,
+        libp2p_keypair: None,
+        libp2p_keypair_path: None,
+        peers: None,
+        peers_list_path: None,
+        snark_coordinator_fees: None,
+        snark_coordinator_port: None,
+        snark_worker_proof_level: None,
+        archive_schema_files: Some(vec!["https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/create_schema.sql".into()
+                                       ,"https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/zkapp_tables.sql".into()]),
+        archive_port: Some(3086),
+    };
 
+    let services = vec![
+        seed,
+        bp_1,
+        bp_2,
+        snark_coordinator,
+        snark_worker_1,
+        archive_node,
+    ];
     services
 }
 

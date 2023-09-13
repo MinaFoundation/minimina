@@ -79,6 +79,7 @@ impl TopologyInfo {
         service_name: String,
         peer_list_file: &Path,
         client_port: u16,
+        archive_port: u16,
     ) -> ServiceConfig {
         match self {
             TopologyInfo::Archive(archive_info) => ServiceConfig {
@@ -86,7 +87,7 @@ impl TopologyInfo {
                 service_name,
                 docker_image: archive_info.docker_image.clone(),
                 git_build: archive_info.git_build.clone(),
-                client_port: Some(client_port),
+                client_port: None,
                 public_key: Some(archive_info.pk.clone()),
                 public_key_path: None,
                 private_key: Some(archive_info.sk.clone()),
@@ -98,6 +99,14 @@ impl TopologyInfo {
                 snark_coordinator_port: None,
                 snark_coordinator_fees: None,
                 snark_worker_proof_level: None,
+                archive_schema_files: Some(
+                    archive_info
+                        .schema_files
+                        .iter()
+                        .map(|path| path.to_str().unwrap().to_string())
+                        .collect(),
+                ),
+                archive_port: Some(archive_port),
             },
             TopologyInfo::Node(node_info) => ServiceConfig {
                 service_type: node_info.service_type.clone(),
@@ -116,6 +125,8 @@ impl TopologyInfo {
                 snark_coordinator_port: None,
                 snark_coordinator_fees: None,
                 snark_worker_proof_level: None,
+                archive_schema_files: None,
+                archive_port: None,
             },
             TopologyInfo::SnarkCoordinator(snark_info) => ServiceConfig {
                 service_type: snark_info.service_type.clone(),
@@ -134,6 +145,8 @@ impl TopologyInfo {
                 snark_coordinator_port: Some(7000),
                 snark_coordinator_fees: Some(snark_info.snark_worker_fee.clone()),
                 snark_worker_proof_level: Some("full".to_string()),
+                archive_schema_files: None,
+                archive_port: None,
             },
         }
     }
@@ -147,11 +160,17 @@ impl Topology {
 
     pub fn services(&self, peer_list_file: &Path) -> Vec<ServiceConfig> {
         let mut client_port = 7070;
+        let archive_port = 3086;
         self.topology
             .iter()
             .map(|(service_name, service_info)| {
                 client_port += 5;
-                service_info.to_service_config(service_name.clone(), peer_list_file, client_port)
+                service_info.to_service_config(
+                    service_name.clone(),
+                    peer_list_file,
+                    client_port,
+                    archive_port,
+                )
             })
             .collect()
     }

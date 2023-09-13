@@ -41,8 +41,6 @@ pub struct ContainerInfo {
     pub exit_code: i32,
     #[serde(rename = "Labels")]
     pub labels: String,
-    #[serde(rename = "Publishers")]
-    pub publishers: Option<Vec<String>>,
     #[serde(rename = "Service")]
     pub service: String,
 }
@@ -77,6 +75,7 @@ pub struct ComposeInfo {
     pub config_files: String,
 }
 
+#[derive(Clone)]
 pub struct DockerManager {
     pub network_path: PathBuf,
     pub compose_path: PathBuf,
@@ -96,6 +95,20 @@ impl DockerManager {
         let contents = DockerCompose::generate(configs, &self.network_path);
         file.write_all(contents.as_bytes())?;
         Ok(())
+    }
+
+    pub fn exec(&self, service: &str, cmd: &[&str]) -> std::io::Result<Output> {
+        let mut args = vec!["exec", "-i", service];
+        args.extend_from_slice(cmd);
+        let out = run_command("docker", &args)?;
+        Ok(out)
+    }
+
+    pub fn cp(&self, service: &str, src: &Path, dest: &Path) -> std::io::Result<Output> {
+        let destination = format!("{}:{}", service, dest.to_str().unwrap());
+        let args = vec!["cp", src.to_str().unwrap(), destination.as_str()];
+        let out = run_command("docker", &args)?;
+        Ok(out)
     }
 
     pub fn _compose_up(&self) -> std::io::Result<Output> {

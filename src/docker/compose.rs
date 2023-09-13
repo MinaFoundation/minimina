@@ -80,9 +80,10 @@ impl DockerCompose {
         let mut volumes = HashMap::new();
         volumes.insert(CONFIG_DIRECTORY.to_string(), None);
 
-        let archive_port = configs.iter().find_map(|config| {
+        let archive_data = configs.iter().find_map(|config| {
             if config.service_type == ServiceType::ArchiveNode {
-                config.client_port
+                let archive_host = format!("{}-{network_name}", config.service_name.clone());
+                Some((archive_host, config.archive_port.unwrap()))
             } else {
                 None
             }
@@ -101,13 +102,12 @@ impl DockerCompose {
                                 "{}-{network_name}",
                                 config.service_name.clone()
                             ),
-                            network_mode: Some("host".to_string()),
                             entrypoint: Some(vec!["mina".to_string()]),
                             image: config.docker_image.clone().unwrap(),
                             command: Some(match config.service_type {
                                 ServiceType::Seed => config.generate_seed_command(),
                                 ServiceType::BlockProducer => {
-                                    config.generate_block_producer_command(archive_port)
+                                    config.generate_block_producer_command(archive_data.clone())
                                 }
                                 ServiceType::SnarkCoordinator => {
                                     config.generate_snark_coordinator_command()
@@ -115,6 +115,13 @@ impl DockerCompose {
                                 ServiceType::SnarkWorker => config.generate_snark_worker_command(),
                                 _ => String::new(),
                             }),
+                            ports: match config.client_port {
+                                Some(port) => {
+                                    let gql_port = port + 1;
+                                    Some(vec![format!("{}:{}", gql_port, gql_port)])
+                                }
+                                None => None,
+                            },
                             ..Default::default()
                         };
                         Some((
@@ -145,26 +152,27 @@ impl DockerCompose {
                     image: "postgres".to_string(),
                     environment: Some(postgres_environment),
                     volumes: Some(vec![format!("{}:/var/lib/postgresql/data", POSTGRES_DATA)]),
-                    ports: Some(vec!["6451:5432".to_string()]),
+                    ports: Some(vec!["5432".to_string()]),
                     ..Default::default()
                 },
             );
 
-            let archive_name = format!("{}-{network_name}", archive_config.service_name.clone(),);
+            let archive_name = format!("{}-{network_name}", archive_config.service_name.clone());
+            let (_, archive_port) = archive_data.unwrap();
+            let archive_command = format!("mina-archive run --postgres-uri postgres://postgres:postgres@{}:5432/archive --server-port {}", postgres_name, archive_port);
+
             services.insert(
-                    archive_name.clone(),
-                    Service {
-                        container_name: archive_name,
-                        image: archive_config.docker_image.clone().unwrap(),
-                        command: Some(
-                            "mina-archive run --postgres-uri postgres://postgres:postgres@postgres:5432/archive --server-port 3086".to_string()
-                        ),
-                        volumes: Some(vec![format!("{}:/data", ARCHIVE_DATA)]),
-                        ports: Some(vec!["3086:3086".to_string()]),
-                        depends_on: Some(vec![postgres_name]),
-                        ..Default::default()
-                    },
-                );
+                archive_name.clone(),
+                Service {
+                    container_name: archive_name,
+                    image: archive_config.docker_image.clone().unwrap(),
+                    command: Some(archive_command),
+                    volumes: Some(vec![format!("{}:/data", ARCHIVE_DATA)]),
+                    ports: Some(vec![archive_port.to_string()]),
+                    depends_on: Some(vec![postgres_name]),
+                    ..Default::default()
+                },
+            );
         }
 
         let compose = DockerCompose {
@@ -242,7 +250,7 @@ mod tests {
                 service_name: "mina-archive555".to_string(),
                 service_type: ServiceType::ArchiveNode,
                 docker_image: Some("archive-image".into()),
-                client_port: Some(8303),
+                archive_port: Some(8304),
                 ..Default::default()
             },
         ];
