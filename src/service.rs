@@ -52,6 +52,7 @@ pub struct ServiceConfig {
 
     //archive node specific
     pub archive_schema_files: Option<Vec<String>>,
+    pub archive_port: Option<u16>,
 }
 
 impl ServiceConfig {

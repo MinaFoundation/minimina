@@ -82,7 +82,7 @@ impl DockerCompose {
 
         let archive_port = configs.iter().find_map(|config| {
             if config.service_type == ServiceType::ArchiveNode {
-                config.client_port
+                config.archive_port
             } else {
                 None
             }
@@ -152,7 +152,7 @@ impl DockerCompose {
 
             let archive_name = format!("{}-{network_name}", archive_config.service_name.clone());
             let archive_port = archive_port.unwrap();
-            let archive_command = format!("mina-archive run --postgres-uri postgres://postgres:postgres@postgres:5432/archive --server-port {}", archive_port);
+            let archive_command = format!("mina-archive run --postgres-uri postgres://postgres:postgres@{}:5432/archive --server-port {}", postgres_name, archive_port);
 
             services.insert(
                 archive_name.clone(),
