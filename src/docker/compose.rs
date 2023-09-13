@@ -80,9 +80,10 @@ impl DockerCompose {
         let mut volumes = HashMap::new();
         volumes.insert(CONFIG_DIRECTORY.to_string(), None);
 
-        let archive_port = configs.iter().find_map(|config| {
+        let archive_data = configs.iter().find_map(|config| {
             if config.service_type == ServiceType::ArchiveNode {
-                config.archive_port
+                let archive_host = format!("{}-{network_name}", config.service_name.clone());
+                Some((archive_host, config.archive_port.unwrap()))
             } else {
                 None
             }
@@ -106,7 +107,7 @@ impl DockerCompose {
                             command: Some(match config.service_type {
                                 ServiceType::Seed => config.generate_seed_command(),
                                 ServiceType::BlockProducer => {
-                                    config.generate_block_producer_command(archive_port)
+                                    config.generate_block_producer_command(archive_data.clone())
                                 }
                                 ServiceType::SnarkCoordinator => {
                                     config.generate_snark_coordinator_command()
@@ -157,7 +158,7 @@ impl DockerCompose {
             );
 
             let archive_name = format!("{}-{network_name}", archive_config.service_name.clone());
-            let archive_port = archive_port.unwrap();
+            let (_, archive_port) = archive_data.unwrap();
             let archive_command = format!("mina-archive run --postgres-uri postgres://postgres:postgres@{}:5432/archive --server-port {}", postgres_name, archive_port);
 
             services.insert(
