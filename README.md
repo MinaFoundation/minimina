@@ -58,7 +58,7 @@ $ tree -p ~/.minimina/default/
     └── [-rw-r--r--]  mina-snark-worker-1.pub
 ```
 
-Then default network can be started, stopped, and deleted
+The default network can be started, stopped, and deleted
 
 ```bash
 cargo run -- network start
@@ -66,7 +66,7 @@ cargo run -- network stop
 cargo run -- network delete
 ```
 
-Defaul network info and status can be queried
+Default network info and status can be queried
 
 ```bash
 cargo run -- network info
