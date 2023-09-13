@@ -62,14 +62,16 @@ fn main() {
                     }
                 };
 
-                // hardcode docker image for now
+                // hardcode docker image for default network (not topology based)
                 let docker_image =
                     "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley";
+                let docker_image_archive =
+                    "gcr.io/o1labs-192920/mina-archive:2.0.0rampup3-bfd1009-buster";
 
                 // create docker manager
                 let docker = DockerManager::new(&network_path);
 
-                // key-pairs for block producers and libp2p keys for all services
+                // key-pairs for block producers and libp2p keys for all services for default network (not topology based)
                 let mut bp_keys_opt: Option<HashMap<String, NodeKey>> = None;
                 let mut libp2p_keys_opt: Option<HashMap<String, NodeKey>> = None;
 
@@ -149,7 +151,12 @@ fn main() {
                         if let (Some(bp_keys), Some(libp2p_keys)) =
                             (&bp_keys_opt.as_ref(), &libp2p_keys_opt.as_ref())
                         {
-                            generate_default_topology(bp_keys, libp2p_keys, &docker, docker_image)
+                            generate_default_topology(
+                                bp_keys,
+                                libp2p_keys,
+                                docker_image,
+                                docker_image_archive,
+                            )
                         } else {
                             error!("Failed to generate docker-compose.yaml. Keys not generated.");
                             return;
@@ -582,8 +589,8 @@ fn generate_default_genesis_ledger(
 fn generate_default_topology(
     bp_keys: &HashMap<String, NodeKey>,
     libp2p_keys: &HashMap<String, NodeKey>,
-    docker: &DockerManager,
     docker_image: &str,
+    docker_image_archive: &str,
 ) -> Vec<service::ServiceConfig> {
     let seed_name = "mina-seed-1";
     let peers =
@@ -697,12 +704,37 @@ fn generate_default_topology(
         archive_port: None,
     };
 
-    let services = vec![seed, bp_1, bp_2, snark_coordinator, snark_worker_1];
-    match docker.compose_generate_file(&services) {
-        Ok(()) => info!("Successfully generated docker-compose.yaml!"),
-        Err(e) => error!("Error generating docker-compose.yaml: {}", e),
-    }
+    let archive_node_name = "mina-archive";
+    let archive_node = ServiceConfig {
+        service_type: ServiceType::ArchiveNode,
+        service_name: archive_node_name.to_string(),
+        docker_image: Some(docker_image_archive.into()),
+        git_build: None,
+        client_port: None,
+        public_key: None,
+        public_key_path: None,
+        private_key: None,
+        private_key_path: None,
+        libp2p_keypair: None,
+        libp2p_keypair_path: None,
+        peers: None,
+        peers_list_path: None,
+        snark_coordinator_fees: None,
+        snark_coordinator_port: None,
+        snark_worker_proof_level: None,
+        archive_schema_files: Some(vec!["https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/create_schema.sql".into()
+                                       ,"https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/zkapp_tables.sql".into()]),
+        archive_port: Some(3086),
+    };
 
+    let services = vec![
+        seed,
+        bp_1,
+        bp_2,
+        snark_coordinator,
+        snark_worker_1,
+        archive_node,
+    ];
     services
 }
 
