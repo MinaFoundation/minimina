@@ -250,7 +250,7 @@ mod tests {
                 service_name: "mina-archive555".to_string(),
                 service_type: ServiceType::ArchiveNode,
                 docker_image: Some("archive-image".into()),
-                client_port: Some(8303),
+                archive_port: Some(8304),
                 ..Default::default()
             },
         ];
