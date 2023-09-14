@@ -215,7 +215,7 @@ impl ServiceConfig {
     }
 }
 
-pub fn generate_network_info(services: Vec<ServiceConfig>, network_id: &str) -> network::Create {
+pub fn generate_network_info(services: &[ServiceConfig], network_id: &str) -> network::Create {
     let mut nodes: HashMap<String, node::Info> = HashMap::new();
     for service in services.iter() {
         nodes.insert(service.service_name.clone(), service.to_node_info());
@@ -306,6 +306,6 @@ mod tests {
                 .unwrap(),
             &serde_json::to_value("Block_producer").unwrap()
         );
-        assert_eq!(expect, generate_network_info(services, network_id));
+        assert_eq!(expect, generate_network_info(&services, network_id));
     }
 }

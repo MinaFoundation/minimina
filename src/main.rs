@@ -1,307 +1,138 @@
 mod cli;
-mod default_ledger_generator;
 mod directory_manager;
 mod docker;
+mod genesis_ledger;
 mod keys;
 mod output;
 mod service;
 mod topology;
 mod utils;
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    process::exit,
-};
-
 use crate::{
-    default_ledger_generator::DefaultLedgerGenerator,
+    genesis_ledger::*,
     keys::{KeysManager, NodeKey},
-    output::{
-        network::{self},
-        node,
-    },
+    output::{network, node},
     service::{ServiceConfig, ServiceType},
     utils::fetch_schema,
 };
 use clap::Parser;
-use cli::{Cli, Command, NetworkCommand, NodeCommand};
+use cli::{
+    Cli, Command, CommandWithNetworkId, CommandWithNodeId, DefaultLogLevel, NetworkCommand,
+    NodeCommand,
+};
 use directory_manager::DirectoryManager;
 use docker::manager::{ContainerState, DockerManager};
 use env_logger::{Builder, Env};
 use log::{error, info, warn};
+use std::{
+    collections::HashMap,
+    fs::{read_to_string, write},
+    io::{Error, ErrorKind, Result},
+    path::Path,
+    process::exit,
+};
 
 // The least supported version of docker compose
 const LEAST_COMPOSE_VERSION: &str = "2.21.0";
 
-fn main() {
-    Builder::from_env(Env::default().default_filter_or("warn")).init();
-    let cli: Cli = Cli::parse();
-    let directory_manager = DirectoryManager::new();
+// Hardcoded daemon image for default network
+const DEFAULT_DAEMON_DOCKER_IMAGE: &str =
+    "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup4-14047c5-bullseye-berkeley";
 
-    if !compose_version_ok() {
-        exit(1);
-    }
+// Hardcoded archive image for default network
+const DEFAULT_ARCHIVE_DOCKER_IMAGE: &str =
+    "gcr.io/o1labs-192920/mina-archive:2.0.0rampup4-14047c5-bullseye";
+
+fn main() -> Result<()> {
+    let cli: Cli = Cli::parse();
+    Builder::from_env(Env::default().default_filter_or(cli.command.log_level())).init();
+
+    let directory_manager = DirectoryManager::new();
+    check_compose_version()?;
 
     match cli.command {
         Command::Network(net_cmd) => match net_cmd {
             NetworkCommand::Create(cmd) => {
-                if directory_manager.network_path_exists(cmd.network_id()) {
-                    warn!(
-                        "Network with network-id '{}' already exists. Overwiting!",
-                        cmd.network_id()
-                    );
-                }
-                info!("Creating network with network-id '{}'.", cmd.network_id());
-                // create directory structure for network
-                let network_path = match directory_manager.generate_dir_structure(cmd.network_id())
-                {
-                    Ok(np) => np,
-                    Err(e) => {
-                        error!(
-                            "Failed to set up network directory structure for network_id '{}' with error = {}",
-                            cmd.network_id(), e
-                        );
-                        return;
-                    }
-                };
-
-                // hardcode docker image for default network (not topology based)
-                let docker_image =
-                    "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup4-14047c5-bullseye-berkeley";
-                let docker_image_archive =
-                    "gcr.io/o1labs-192920/mina-archive:2.0.0rampup4-14047c5-bullseye";
-
-                // create docker manager
+                let network_id = cmd.network_id().to_string();
+                let network_path = directory_manager.network_path(&network_id);
                 let docker = DockerManager::new(&network_path);
 
-                // key-pairs for block producers and libp2p keys for all services for default network (not topology based)
+                check_setup_network(&directory_manager, &network_id)?;
+
+                // key-pairs for block producers and libp2p keys for all services
+                // for default network (not topology based)
                 let mut bp_keys_opt: Option<HashMap<String, NodeKey>> = None;
                 let mut libp2p_keys_opt: Option<HashMap<String, NodeKey>> = None;
 
-                // generate genesis ledger
-                match &cmd.genesis_ledger {
-                    Some(genesis_ledger) => {
-                        if cmd.topology.is_none() {
-                            error!(
-                                "Must provide a topology file with a genesis ledger, \
-                                 keys will be incompatible otherwise."
-                            );
+                // consume the genesis ledger
+                handle_genesis_ledger(
+                    &cmd,
+                    &directory_manager,
+                    &network_id,
+                    &mut bp_keys_opt,
+                    &mut libp2p_keys_opt,
+                )?;
 
-                            directory_manager
-                                .delete_network_directory(cmd.network_id())
-                                .unwrap();
-                            std::process::exit(1);
-                        }
-
-                        info!(
-                            "Copying genesis ledger from '{}' to network directory.",
-                            genesis_ledger.display()
-                        );
-
-                        let genesis_path = &network_path.join("genesis_ledger.json");
-                        std::fs::copy(genesis_ledger, genesis_path).unwrap();
-                    }
-                    None => generate_default_genesis_ledger(
-                        &mut bp_keys_opt,
-                        &mut libp2p_keys_opt,
-                        &network_path,
-                        docker_image,
-                    ),
-                }
-
-                // generate docker-compose.yaml based on topology
-                let services = match &cmd.topology {
-                    Some(topology_path) => {
-                        if cmd.genesis_ledger.is_none() {
-                            error!(
-                                "Must provide a genesis ledger with a topology file, \
-                                 keys will be incompatible otherwise."
-                            );
-
-                            directory_manager
-                                .delete_network_directory(cmd.network_id())
-                                .unwrap();
-                            std::process::exit(1);
-                        }
-                        info!(
-                            "Generating docker-compose based on provided topology '{}'.",
-                            topology_path.display()
-                        );
-
-                        // peers list is based on the network seeds for now
-                        match topology::Topology::new(topology_path) {
-                            Ok(topology) => {
-                                let peer_list_path =
-                                    directory_manager.peers_list_path(cmd.network_id());
-                                let services = topology.services(&peer_list_path);
-                                let seed_services: Vec<&ServiceConfig> = services
-                                    .iter()
-                                    .filter(|s| s.service_type == ServiceType::Seed)
-                                    .collect();
-                                let _ = directory_manager.create_peer_list_file(
-                                    cmd.network_id(),
-                                    seed_services,
-                                    peer_list_path,
-                                );
-                                services
-                            }
-                            Err(err) => {
-                                error!(
-                                    "Error occured while parsing the topology file:\n\
-                                     path: {}\n\
-                                     error: {err}",
-                                    topology_path.display()
-                                );
-                                std::process::exit(1)
-                            }
-                        }
-                    }
-                    None => {
-                        info!("Topology not provided. Generating docker-compose based on default topology.");
-
-                        if let (Some(bp_keys), Some(libp2p_keys)) =
-                            (&bp_keys_opt.as_ref(), &libp2p_keys_opt.as_ref())
-                        {
-                            generate_default_topology(
-                                bp_keys,
-                                libp2p_keys,
-                                docker_image,
-                                docker_image_archive,
-                                cmd.network_id(),
-                            )
-                        } else {
-                            error!("Failed to generate docker-compose.yaml. Keys not generated.");
-                            return;
-                        }
-                    }
-                };
+                // build services from topology file
+                let services = handle_topology(
+                    &cmd,
+                    &directory_manager,
+                    &network_id,
+                    bp_keys_opt,
+                    libp2p_keys_opt,
+                )?;
 
                 // copy libp2p + network keys
-                if let Err(e) = directory_manager.copy_all_network_keys(cmd.network_id(), &services)
-                {
+                if let Err(e) = directory_manager.copy_all_network_keys(&network_id, &services) {
                     error!("Failed to copy keys with error: {e}");
-                    std::process::exit(1);
+                    exit(1);
                 }
 
                 // generate docker compose
                 if let Err(e) = docker.compose_generate_file(&services) {
                     error!("Failed to generate docker-compose.yaml with error: {e}");
-                    std::process::exit(1);
+                    exit(1);
                 }
 
-                //create network
-                match docker.compose_create() {
-                    Ok(_) => {
-                        info!(
-                            "Successfully created network with id: '{}'!",
-                            cmd.network_id()
-                        );
-
-                        // if we have archive node we need to create database and apply schema scripts
-                        if let Some(archive_node) = services
-                            .iter()
-                            .find(|s| s.service_type == ServiceType::ArchiveNode)
-                        {
-                            // start postgres container
-                            let postgres_name = format!("postgres-{}", &cmd.network_id());
-                            match docker.compose_start(vec![&postgres_name]) {
-                                Ok(out) => {
-                                    if out.status.success() {
-                                        info!("Successfully started postgres container for network with id: '{}'!", cmd.network_id());
-                                    } else {
-                                        let error_message = format!(
-                                            "Failed to start postgres container for network with id: '{}'",
-                                            cmd.network_id()
-                                        );
-                                        print_error(&error_message, "");
-                                    }
-                                }
-                                Err(e) => {
-                                    let error_message = format!(
-                                        "Failed to start postgres container for network with id: '{}'",
-                                        cmd.network_id()
-                                    );
-                                    print_error(&error_message, &e.to_string());
-                                }
-                            };
-
-                            // make sure postgres is running
-                            container_is_running(docker.clone(), &postgres_name);
-
-                            // create database
-                            let cmd = ["createdb", "-U", "postgres", "archive"];
-                            let _ = docker.exec(&postgres_name, &cmd);
-
-                            // apply schema scripts
-                            let scripts = archive_node.archive_schema_files.as_ref().unwrap();
-                            apply_schema_scripts(
-                                docker.clone(),
-                                &postgres_name,
-                                scripts,
-                                network_path.clone(),
-                            );
-
-                            // stop postgres
-                            let _ = docker.compose_stop(vec![&postgres_name]);
-                        }
-
-                        // generate command output
-                        let result = output::generate_network_info(services, cmd.network_id());
-                        println!("{}", result);
-                        let json_data = format!("{}", result);
-                        let json_path = network_path.join("network.json");
-                        match std::fs::write(json_path, json_data) {
-                            Ok(()) => {}
-                            Err(e) => error!("Error generating network.json: {}", e),
-                        }
-                    }
-                    Err(e) => {
-                        let error_message = format!(
-                            "Failed to register network with 'docker compose create' with network_id '{}'",
-                            cmd.network_id()
-                        );
-                        print_error(&error_message, &e.to_string());
-                    }
-                }
+                create_network(&docker, &network_id, &network_path, &services)
             }
 
             NetworkCommand::Info(cmd) => {
-                if network_not_exists(&cmd.network_id) {
-                    return;
-                };
-                let network_path = directory_manager.network_path(&cmd.network_id);
-                let json_path = network_path.join("network.json");
-                match std::fs::read_to_string(json_path) {
+                let network_id = cmd.network_id;
+                let json_path = directory_manager
+                    .network_path(&network_id)
+                    .join("network.json");
+
+                check_network_exists(&network_id)?;
+
+                match read_to_string(json_path) {
                     Ok(json_data) => {
-                        println!("{}", json_data);
+                        println!("{json_data}");
+                        Ok(())
                     }
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get info for network with network_id '{}' with error = {}",
-                            cmd.network_id, e
+                            "Failed to get info for network '{network_id}' with error: {e}"
                         );
-                        print_error(&error_message, &e.to_string());
+                        print_error(&error_message, &e.to_string())
                     }
                 }
             }
 
             NetworkCommand::Status(cmd) => {
-                if network_not_exists(&cmd.network_id) {
-                    return;
-                };
-                let network_path = directory_manager.network_path(&cmd.network_id);
+                let network_id = cmd.network_id;
+                let network_path = directory_manager.network_path(&network_id);
+                check_network_exists(&network_id)?;
+
                 let docker = DockerManager::new(&network_path);
                 let ls_out = match docker.compose_ls() {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get status from docker compose ls for network with network_id '{}'",
-                            cmd.network_id
+                            "Failed to get status from docker compose ls for network '{network_id}'."
                         );
-                        print_error(&error_message, &e.to_string());
 
-                        return;
+                        return print_error(&error_message, &e.to_string());
                     }
                 };
 
@@ -309,52 +140,42 @@ fn main() {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get status from docker compose ps for network with network_id '{}'",
-                            cmd.network_id
+                            "Failed to get status from docker compose ps for network '{network_id}'."
                         );
-                        print_error(&error_message, &e.to_string());
 
-                        return;
+                        return print_error(&error_message, &e.to_string());
                     }
                 };
 
-                let compose_file_path = docker.compose_path.as_path().to_str().unwrap();
-                let mut status = network::Status::new(&cmd.network_id);
+                let compose_file_path = docker.compose_path.to_str().unwrap();
+                let mut status = network::Status::new(&network_id);
                 status.update_from_compose_ls(ls_out, compose_file_path);
                 status.update_from_compose_ps(ps_out);
 
-                println!("{}", status);
+                println!("{status}");
+                Ok(())
             }
 
             NetworkCommand::Delete(cmd) => {
-                if network_not_exists(&cmd.network_id) {
-                    return;
-                };
-                let docker = DockerManager::new(&directory_manager.network_path(&cmd.network_id));
+                let network_id = cmd.network_id;
+                check_network_exists(&network_id)?;
+
+                let docker = DockerManager::new(&directory_manager.network_path(&network_id));
                 match docker.compose_down() {
-                    Ok(_) => match directory_manager.delete_network_directory(&cmd.network_id) {
+                    Ok(_) => match directory_manager.delete_network_directory(&network_id) {
                         Ok(_) => {
-                            println!(
-                                "{}",
-                                network::Delete {
-                                    network_id: cmd.network_id
-                                }
-                            )
+                            println!("{}", network::Delete { network_id });
+                            Ok(())
                         }
                         Err(e) => {
-                            let error_message = format!(
-                                "Failed to delete network directory for network_id '{}'",
-                                cmd.network_id
-                            );
-                            print_error(&error_message, &e.to_string());
+                            let error_message =
+                                format!("Failed to delete network directory for '{network_id}'.");
+                            print_error(&error_message, &e.to_string())
                         }
                     },
                     Err(e) => {
-                        let error_message = format!(
-                            "Failed to delete network with network_id '{}'",
-                            cmd.network_id
-                        );
-                        print_error(&error_message, &e.to_string());
+                        let error_message = format!("Failed to delete network '{network_id}'.");
+                        print_error(&error_message, &e.to_string())
                     }
                 }
             }
@@ -363,81 +184,80 @@ fn main() {
                 let networks = directory_manager
                     .list_network_directories()
                     .expect("Failed to list networks");
-
                 let mut list = network::List::new();
+
                 if networks.is_empty() {
-                    println!("{}", list);
+                    println!("{list}");
                 } else {
                     list.update(
                         networks,
                         directory_manager.base_path.as_path().to_str().unwrap(),
                     );
-                    println!("{}", list);
+                    println!("{list}");
                 }
+
+                Ok(())
             }
 
             NetworkCommand::Start(cmd) => {
-                if network_not_exists(&cmd.network_id) {
-                    return;
-                };
-                let network_path = directory_manager.network_path(&cmd.network_id);
+                let network_id = cmd.network_id().to_string();
+                check_network_exists(&network_id)?;
+
+                let network_path = directory_manager.network_path(&network_id);
                 let docker = DockerManager::new(&network_path);
+
                 match docker.compose_start_all() {
-                    Ok(_) => {
-                        println!(
-                            "{}",
-                            network::Start {
-                                network_id: cmd.network_id
-                            }
-                        )
+                    Ok(output) => {
+                        if cmd.verbose {
+                            println!("Status: {}", output.status);
+                            println!("Stdout: {}", String::from_utf8_lossy(&output.stdout));
+                            println!("Stderr: {}", String::from_utf8_lossy(&output.stderr));
+                        }
+
+                        println!("{}", network::Start { network_id });
+                        Ok(())
                     }
                     Err(e) => {
-                        let error_message = format!(
-                            "Failed to start network with network_id '{}'",
-                            cmd.network_id
-                        );
-                        print_error(&error_message, &e.to_string());
+                        let error_message = format!("Failed to start network '{network_id}'.");
+                        print_error(&error_message, &e.to_string())
                     }
                 }
             }
 
             NetworkCommand::Stop(cmd) => {
-                if network_not_exists(&cmd.network_id) {
-                    return;
-                };
-                let network_path = directory_manager.network_path(&cmd.network_id);
+                let network_id = cmd.network_id;
+                check_network_exists(&network_id)?;
+
+                let network_path = directory_manager.network_path(&network_id);
                 let docker = DockerManager::new(&network_path);
+
                 match docker.compose_stop_all() {
                     Ok(_) => {
-                        println!(
-                            "{}",
-                            network::Stop {
-                                network_id: cmd.network_id
-                            }
-                        )
+                        println!("{}", network::Stop { network_id });
+                        Ok(())
                     }
                     Err(e) => {
-                        let error_message = format!(
-                            "Failed to stop network with network_id '{}'",
-                            cmd.network_id
-                        );
-                        print_error(&error_message, &e.to_string());
+                        let error_message = format!("Failed to stop network '{network_id}'.");
+                        print_error(&error_message, &e.to_string())
                     }
                 }
             }
         },
+
         Command::Node(node_cmd) => match node_cmd {
             NodeCommand::Start(cmd) => {
-                let network_path = directory_manager.network_path(cmd.network_id());
-                let docker = DockerManager::new(&network_path);
+                let node_id = cmd.node_id().to_string();
+                let network_id = cmd.network_id().to_string();
+                let network_path = directory_manager.network_path(&network_id);
 
-                let nodes = docker.compose_ps(None).unwrap();
-                let node = docker.filter_container_by_name(nodes, cmd.node_id());
                 let mut fresh_state = false;
-                match node {
+                let docker = DockerManager::new(&network_path);
+                let nodes = docker.compose_ps(None)?;
+
+                match docker.filter_container_by_name(nodes, &node_id) {
                     Some(node) => match node.state {
                         ContainerState::Running => {
-                            warn!("Node with node_id '{}' is already running.", cmd.node_id());
+                            warn!("Node '{node_id}' is already running in network '{network_id}'.");
                         }
                         ContainerState::Created => {
                             fresh_state = true;
@@ -445,128 +265,212 @@ fn main() {
                         _ => {}
                     },
                     None => {
-                        let error_message: String =
-                            format!("Failed to start node with node_id '{}'", cmd.node_id());
-                        let error = format!(
-                            "Node with node_id '{}' does not exist in the network '{}'",
-                            cmd.node_id(),
-                            cmd.network_id()
-                        );
-                        print_error(&error_message, error.as_str());
-                        return;
+                        let error =
+                            format!("Node '{node_id}' does not exist in network '{network_id}'.");
+                        return handle_start_error(&node_id, error.as_str());
                     }
                 }
 
-                fn handle_start_error(node_id: &str, error: impl ToString) {
-                    let error_message: String =
-                        format!("Failed to start node with node_id '{}'", node_id);
-                    print_error(&error_message, error.to_string().as_str());
-                }
-                match docker.compose_start(vec![cmd.node_id()]) {
+                match docker.compose_start(vec![&node_id]) {
                     Ok(out) => {
                         if out.status.success() {
                             println!(
                                 "{}",
                                 node::Start {
                                     fresh_state,
-                                    node_id: cmd.node_id().to_string(),
-                                    network_id: cmd.network_id().to_string()
+                                    node_id,
+                                    network_id,
                                 }
-                            )
+                            );
+                            Ok(())
                         } else {
-                            handle_start_error(cmd.node_id(), String::from_utf8_lossy(&out.stderr));
+                            handle_start_error(&node_id, String::from_utf8_lossy(&out.stderr))
                         }
                     }
-                    Err(e) => handle_start_error(cmd.node_id(), e),
+                    Err(e) => handle_start_error(&node_id, e),
                 }
             }
+
             NodeCommand::Stop(cmd) => {
-                let network_path = directory_manager.network_path(cmd.network_id());
+                let node_id = cmd.node_id().to_string();
+                let network_id = cmd.network_id().to_string();
+                let network_path = directory_manager.network_path(&network_id);
                 let docker = DockerManager::new(&network_path);
-                fn handle_stop_error(node_id: &str, error: impl ToString) {
-                    let error_message = format!("Failed to stop node with node_id '{}'", node_id,);
-                    print_error(&error_message, error.to_string().as_str());
-                }
-                match docker.compose_stop(vec![cmd.node_id()]) {
+
+                match docker.compose_stop(vec![&node_id]) {
                     Ok(out) => {
                         if out.status.success() {
                             println!(
                                 "{}",
                                 node::Stop {
-                                    node_id: cmd.node_id().to_string(),
-                                    network_id: cmd.network_id().to_string()
+                                    node_id,
+                                    network_id
                                 }
-                            )
+                            );
+                            Ok(())
                         } else {
-                            handle_stop_error(cmd.node_id(), String::from_utf8_lossy(&out.stderr));
+                            handle_stop_error(&node_id, String::from_utf8_lossy(&out.stderr))
                         }
                     }
-                    Err(e) => handle_stop_error(cmd.node_id(), e),
+                    Err(e) => handle_stop_error(&node_id, e),
                 }
             }
+
             NodeCommand::Logs(cmd) => {
-                info!(
-                    "Node logs command with node_id {}, network_id {}.",
-                    cmd.node_id(),
-                    cmd.network_id()
-                );
+                let node_id = cmd.node_id();
+                let network_id = cmd.network_id();
+                // let network_path = directory_manager.network_path(cmd.network_id());
+                // let docker = DockerManager::new(&network_path);
+                // TODO run docker logs(?) on node_id
+
+                info!("Node logs command with node_id '{node_id}', network_id '{network_id}'.");
+                Ok(())
             }
+
             NodeCommand::DumpArchiveData(cmd) => {
-                info!(
-                    "Node dump archive data command with node_id {}, network_id {}.",
-                    cmd.node_id(),
-                    cmd.network_id()
-                );
+                let node_id = cmd.node_id();
+                let network_id = cmd.network_id();
+                // check the node is archive, exit with error if not
+                // let network_path = directory_manager.network_path(cmd.network_id());
+                // let docker = DockerManager::new(&network_path);
+                // TODO postgres dump of archive with node_id
+
+                info!("Node dump archive data command with node_id '{node_id}', network_id '{network_id}'.");
+                Ok(())
             }
+
             NodeCommand::DumpPrecomputedBlocks(cmd) => {
-                info!(
-                    "Node dump precomputed blocks command with node_id {}, network_id {}.",
-                    cmd.node_id(),
-                    cmd.network_id()
-                );
+                let node_id = cmd.node_id();
+                let network_id = cmd.network_id();
+                // let network_path = directory_manager.network_path(cmd.network_id());
+                // let docker = DockerManager::new(&network_path);
+                // TODO dump the percomputed blocks of node_id
+
+                info!("Node dump precomputed blocks command with node_id '{node_id}', network_id '{network_id}'.");
+                Ok(())
             }
+
             NodeCommand::RunReplayer(cmd) => {
+                let node_id = cmd.node_id();
+                let network_id = cmd.network_id();
+                // check if node is archive, exit with error if not
+                // let network_path = directory_manager.network_path(cmd.network_id());
+                // let docker = DockerManager::new(&network_path);
+                // TODO run mina replayer on node_id
+
                 info!(
-                    "Node logs command with node_id {}, network_id {}, start_slot_since_genesis {}.",
-                    cmd.node_id(),
-                    cmd.network_id(),
+                    "Node logs command with node_id '{node_id}', network_id '{network_id}', \
+                        start_slot_since_genesis '{}'.",
                     cmd.start_slot_since_genesis(),
                 );
+                Ok(())
             }
         },
     }
 }
 
-fn container_is_running(docker: DockerManager, container_name: &str) {
+fn create_network(
+    docker: &DockerManager,
+    network_id: &str,
+    network_path: &std::path::Path,
+    services: &[ServiceConfig],
+) -> Result<()> {
+    match docker.compose_create() {
+        Ok(_) => {
+            info!("Successfully created docker-compose for network '{network_id}'!");
+
+            // if we have archive node we need to create database and apply schema scripts
+            if let Some(archive_node) = services
+                .iter()
+                .find(|s| s.service_type == ServiceType::ArchiveNode)
+            {
+                // start postgres container
+                let postgres_name = format!("postgres-{network_id}");
+                let error_message = format!("Failed to start '{postgres_name}' container.");
+
+                match docker.compose_start(vec![&postgres_name]) {
+                    Ok(out) => {
+                        if out.status.success() {
+                            info!("Successfully started '{postgres_name}' container!");
+                        } else {
+                            return print_error(
+                                &error_message,
+                                &String::from_utf8_lossy(&out.stderr),
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        return print_error(&error_message, &e.to_string());
+                    }
+                };
+
+                // make sure postgres is running
+                container_is_running(docker.clone(), &postgres_name)?;
+
+                // create database
+                let cmd = ["createdb", "-U", "postgres", "archive"];
+                docker.exec(&postgres_name, &cmd)?;
+
+                // apply schema scripts
+                let scripts = archive_node.archive_schema_files.as_ref().unwrap();
+                apply_schema_scripts(docker.clone(), &postgres_name, scripts, network_path)?;
+
+                // stop postgres
+                docker.compose_stop(vec![&postgres_name])?;
+            }
+
+            // generate command output
+            let result = format!("{}", output::generate_network_info(services, network_id));
+            let json_path = network_path.join("network.json");
+
+            if let Err(e) = write(json_path, &result) {
+                error!("Error generating network.json: {e}")
+            }
+
+            // print result to stdout
+            println!("{result}");
+            Ok(())
+        }
+        Err(e) => {
+            let error_message =
+                format!("Failed to register network '{network_id}' with 'docker compose create'.");
+            print_error(&error_message, &e.to_string())
+        }
+    }
+}
+
+fn container_is_running(docker: DockerManager, container_name: &str) -> Result<()> {
     let mut container_running = false;
     let mut retries = 0;
+
     while !container_running && retries < 10 {
-        let containers = docker.compose_ps(None).unwrap();
+        let containers = docker.compose_ps(None)?;
         let container = docker.filter_container_by_name(containers, container_name);
+
         if let Some(container) = container {
             if container.state == ContainerState::Running {
                 container_running = true;
             }
         }
+
         retries += 1;
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
+
+    Ok(())
 }
 
+/// Applies provided schema `scripts` to the postgres db, `postgres_name`
 fn apply_schema_scripts(
     docker: DockerManager,
     postgres_name: &str,
     scripts: &Vec<String>,
-    network_path: PathBuf,
-) {
+    network_path: &Path,
+) -> Result<()> {
     for script in scripts {
-        let file_path = fetch_schema(script, network_path.clone()).unwrap();
+        let file_path = fetch_schema(script, network_path.to_path_buf()).unwrap();
         let file_name = file_path.file_name().unwrap().to_str().unwrap();
         let docker_file_path = Path::new("/tmp").join(file_path.file_name().unwrap());
-        info!("Applying schema script: {}", file_name);
-
-        let _ = docker.cp(postgres_name, &file_path, &docker_file_path);
-
         let cmd = [
             "psql",
             "-U",
@@ -576,16 +480,23 @@ fn apply_schema_scripts(
             "-f",
             docker_file_path.to_str().unwrap(),
         ];
-        let _ = docker.exec(postgres_name, &cmd);
+
+        info!("Applying schema script: {}", file_name);
+        docker.cp(postgres_name, &file_path, &docker_file_path)?;
+        docker.exec(postgres_name, &cmd)?;
     }
+
+    Ok(())
 }
 
+/// Generates a genesis ledger for the default network:
+/// 1 seed, 2 bps, and a snark coordinator with one woker
 fn generate_default_genesis_ledger(
     bp_keys_opt: &mut Option<HashMap<String, NodeKey>>,
     libp2p_keys_opt: &mut Option<HashMap<String, NodeKey>>,
     network_path: &std::path::Path,
     docker_image: &str,
-) {
+) -> Result<()> {
     info!("Genesis ledger not provided. Generating default genesis ledger.");
 
     // set default services to generate keys for
@@ -595,7 +506,7 @@ fn generate_default_genesis_ledger(
     let snark_workers = vec!["mina-snark-worker-1"];
     let all_services = [seeds, block_producers, snark_coordinators, snark_workers].concat();
 
-    //generate key-pairs for default services
+    // generate key-pairs for default services
     let keys_manager = KeysManager::new(network_path, docker_image);
     *bp_keys_opt = Some(
         keys_manager
@@ -608,13 +519,17 @@ fn generate_default_genesis_ledger(
             .expect("Failed to generate libp2p key pairs for mina services."),
     );
 
-    //generate default genesis ledger
-    match DefaultLedgerGenerator::generate(network_path, bp_keys_opt.as_ref().unwrap()) {
-        Ok(()) => {}
-        Err(e) => error!("Error generating default ledger: {}", e),
+    // generate default genesis ledger
+    if let Err(e) = default::LedgerGenerator::generate(network_path, bp_keys_opt.as_ref().unwrap())
+    {
+        error!("Error generating default ledger: {e}");
     }
+
+    Ok(())
 }
 
+/// Generates a topology file for the default network:
+/// 1 seed, 2 bps, and a snark coordinator with one woker
 fn generate_default_topology(
     bp_keys: &HashMap<String, NodeKey>,
     libp2p_keys: &HashMap<String, NodeKey>,
@@ -773,63 +688,228 @@ fn generate_default_topology(
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
-        archive_schema_files: Some(vec!["https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/create_schema.sql".into()
-                                       ,"https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/zkapp_tables.sql".into()]),
+        archive_schema_files: Some(vec![
+            "https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/create_schema.sql".into(),
+            "https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/zkapp_tables.sql".into()
+        ]),
         archive_port: Some(3086),
         worker_nodes: None,
         snark_coordinator_host: None,
     };
 
-    let services = vec![
+    vec![
         seed,
         bp_1,
         bp_2,
         snark_coordinator,
         snark_worker_1,
         archive_node,
-    ];
-    services
+    ]
 }
 
-fn network_not_exists(network_id: &str) -> bool {
+/// If the network exists, its directory is deleted, corresponding docker
+/// images are removed, and it is created anew.
+/// If the network doesn't exist, the directory structure is created.
+fn check_setup_network(directory_manager: &DirectoryManager, network_id: &str) -> Result<()> {
+    if directory_manager.network_path_exists(network_id) {
+        warn!("Network '{network_id}' already exists. Overwriting!");
+    }
+
+    // create directory structure for network
+    info!("Creating network '{network_id}'.");
+    if let Err(e) = directory_manager.generate_dir_structure(network_id) {
+        error!("Failed to set up network directory structure for '{network_id}' with error: {e}");
+        exit(1);
+    }
+
+    Ok(())
+}
+
+fn check_network_exists(network_id: &str) -> Result<()> {
     let directory_manager = DirectoryManager::new();
     if directory_manager.network_path_exists(network_id) {
-        false
+        return Ok(());
     } else {
-        let error_message = format!("Network with network_id '{}' does not exist.", network_id);
-        let network_path = directory_manager.network_path(network_id);
+        let error_message = format!("Network '{network_id}' does not exist.");
         let error = format!(
             "Network directory '{}' does not exist.",
-            network_path.display()
+            directory_manager.network_path(network_id).display()
         );
-        print_error(&error_message, &error);
-        true
+
+        print_error(&error_message, &error)?
+    }
+
+    error!("Network '{network_id}' does not exist");
+    exit(1)
+}
+
+/// Handles `network_id`'s genesis ledger
+///
+/// If no genesis ledger is provided, a default ledger will be generated
+fn handle_genesis_ledger(
+    cmd: &cli::CreateNetworkArgs,
+    directory_manager: &DirectoryManager,
+    network_id: &str,
+    bp_keys_opt: &mut Option<HashMap<String, NodeKey>>,
+    libp2p_keys_opt: &mut Option<HashMap<String, NodeKey>>,
+) -> Result<()> {
+    let network_path = directory_manager.network_path(network_id);
+
+    match &cmd.genesis_ledger {
+        Some(genesis_ledger) => {
+            if cmd.topology.is_none() {
+                error!(
+                    "Must provide a topology file with a genesis ledger, \
+                     keys will be incompatible otherwise."
+                );
+
+                directory_manager.delete_network_directory(network_id)?;
+                exit(1);
+            }
+
+            info!(
+                "Copying genesis ledger from '{}' to network directory.",
+                genesis_ledger.display()
+            );
+
+            // overwrite genesis state timestamp
+            let genesis_path = &network_path.join("genesis_ledger.json");
+            let contents = read_to_string(genesis_ledger.clone())?;
+            let mut ledger: serde_json::Value = serde_json::from_str(&contents)?;
+            let genesis = ledger.get_mut("genesis").unwrap();
+            let timestamp = genesis.get_mut("genesis_state_timestamp").unwrap();
+
+            *timestamp = serde_json::Value::String(current_timestamp());
+
+            let contents = serde_json::to_string_pretty(&ledger)?;
+            write(genesis_path, contents)
+        }
+        None => generate_default_genesis_ledger(
+            bp_keys_opt,
+            libp2p_keys_opt,
+            &network_path,
+            DEFAULT_DAEMON_DOCKER_IMAGE,
+        ),
     }
 }
 
-fn print_error(error_message: &str, error: &str) {
-    let error_message = format!("{}: {}", error_message, error);
-    error!("{}", error_message);
-    println!("{}", output::Error { error_message });
+/// Creates the list of docker service configs from the topology file at `topology_path`
+/// using the seed nodes as the list of network peers (at least 1 seed node must be declared)
+///
+/// Logs and error and exits with code 1 if the topology file can't be parsed
+fn create_services(
+    directory_manager: &DirectoryManager,
+    topology_path: &Path,
+    network_id: &str,
+) -> Result<Vec<ServiceConfig>> {
+    match topology::Topology::new(topology_path) {
+        Ok(topology) => {
+            let peers = topology.seeds();
+            let peer_list_file =
+                directory_manager.create_peer_list_file(network_id, &peers, 3102)?;
+
+            if peers.is_empty() {
+                error!("There are no seed nodes declared in this network. You must include seed nodes.");
+                exit(1);
+            }
+
+            Ok(topology.services(&peer_list_file))
+        }
+        Err(err) => {
+            error!(
+                "Error occured while parsing the topology file:\n\
+                 path: {}\n\
+                 error: {err}",
+                topology_path.display()
+            );
+            exit(1)
+        }
+    }
 }
 
-fn compose_version_ok() -> bool {
+/// Creates service configs for the nodes specified in the topology file of the given `cmd`
+fn handle_topology(
+    cmd: &cli::CreateNetworkArgs,
+    directory_manager: &DirectoryManager,
+    network_id: &str,
+    bp_keys: Option<HashMap<String, NodeKey>>,
+    libp2p_keys: Option<HashMap<String, NodeKey>>,
+) -> Result<Vec<ServiceConfig>> {
+    match &cmd.topology {
+        Some(topology_path) => {
+            if cmd.genesis_ledger.is_none() {
+                error!(
+                    "Must provide a genesis ledger with a topology file, \
+                     keys will be incompatible otherwise."
+                );
+
+                directory_manager.delete_network_directory(network_id)?;
+                exit(1);
+            }
+
+            info!(
+                "Generating docker-compose based on provided topology '{}'.",
+                topology_path.display()
+            );
+            create_services(directory_manager, topology_path, network_id)
+        }
+        None => {
+            info!("Topology not provided. Generating docker-compose based on default topology.");
+
+            if let (Some(bp_keys), Some(libp2p_keys)) = (&bp_keys.as_ref(), &libp2p_keys.as_ref()) {
+                Ok(generate_default_topology(
+                    bp_keys,
+                    libp2p_keys,
+                    DEFAULT_DAEMON_DOCKER_IMAGE,
+                    DEFAULT_ARCHIVE_DOCKER_IMAGE,
+                ))
+            } else {
+                let err = "Failed to generate docker-compose.yaml. Keys not generated.";
+                error!("{err}");
+                Err(Error::new(ErrorKind::InvalidData, err))
+            }
+        }
+    }
+}
+
+fn check_compose_version() -> Result<()> {
     let compose_version = DockerManager::compose_version();
     match compose_version {
         Some(version) => {
             if version.as_str() < LEAST_COMPOSE_VERSION {
                 error!(
-                    "Docker compose version '{}' is less than the least supported version '{}'.",
-                    version, LEAST_COMPOSE_VERSION
+                    "Docker compose version '{version}' is less than \
+                        the least supported version '{LEAST_COMPOSE_VERSION}'."
                 );
-                false
-            } else {
-                true
+
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "docker compose needs to be updated",
+                ));
             }
+
+            Ok(())
         }
         None => {
             error!("It seems that docker not installed! Please install docker and try again.");
-            false
+            Err(Error::new(ErrorKind::NotFound, "docker is missing"))
         }
     }
+}
+
+fn print_error(error_message: &str, error: &str) -> Result<()> {
+    let error_message = format!("{error_message}: {error}");
+    error!("{error_message}");
+    println!("{}", output::Error { error_message });
+    Ok(())
+}
+
+fn handle_stop_error(node_id: &str, error: impl ToString) -> Result<()> {
+    let error_message = format!("Failed to stop node '{node_id}'");
+    print_error(&error_message, error.to_string().as_str())
+}
+
+fn handle_start_error(node_id: &str, error: impl ToString) -> Result<()> {
+    let error_message: String = format!("Failed to start node '{node_id}'");
+    print_error(&error_message, error.to_string().as_str())
 }

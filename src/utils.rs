@@ -24,10 +24,9 @@ use url::Url;
 ///
 /// * `io::Result<Output>` - The output from the command execution.
 pub fn run_command(cmd: &str, args: &[&str]) -> io::Result<Output> {
-    debug!("Running command: {} {}", cmd, args.join(" "));
-    let output = Command::new(cmd).args(args).output();
+    debug!("Running command: {cmd} {}", args.join(" "));
 
-    match output {
+    match Command::new(cmd).args(args).output() {
         Ok(output) => {
             debug!("status: {}", output.status);
             debug!("stdout: {}", String::from_utf8_lossy(&output.stdout));
@@ -35,7 +34,7 @@ pub fn run_command(cmd: &str, args: &[&str]) -> io::Result<Output> {
             Ok(output)
         }
         Err(e) => {
-            error!("Failed to run command: {}", e);
+            error!("Failed to run command: {e}");
             Err(io::Error::new(ErrorKind::Other, e))
         }
     }
@@ -50,18 +49,21 @@ pub fn get_current_user_uid_gid() -> Option<String> {
     let current_user = users::get_current_uid();
     let current_group = users::get_current_gid();
 
-    Some(format!("{}:{}", current_user, current_group))
+    Some(format!("{current_user}:{current_group}"))
 }
 
 /// Fetch the schema from a given URL and save it to a file.
 /// The file is saved in the given network path.
 pub fn fetch_schema(url: &str, network_path: PathBuf) -> Result<PathBuf, reqwest::Error> {
+    debug!("Fetching schema from: {url}");
+
     let parsed_url = Url::parse(url).expect("Invalid URL");
     let filename = parsed_url
         .path_segments()
         .and_then(|segments| segments.last())
         .unwrap_or("schema.sql");
     let mut file_path = network_path;
+
     file_path.push(filename);
     let response = reqwest::blocking::get(parsed_url)?;
     let mut file = File::create(&file_path).expect("Failed to create file");
