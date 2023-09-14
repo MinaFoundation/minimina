@@ -112,7 +112,9 @@ impl DockerCompose {
                                 ServiceType::SnarkCoordinator => {
                                     config.generate_snark_coordinator_command()
                                 }
-                                ServiceType::SnarkWorker => config.generate_snark_worker_command(),
+                                ServiceType::SnarkWorker => {
+                                    config.generate_snark_worker_command(network_name.to_string())
+                                }
                                 _ => String::new(),
                             }),
                             ports: match config.client_port {

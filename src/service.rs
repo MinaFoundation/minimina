@@ -44,12 +44,14 @@ pub struct ServiceConfig {
     pub peers_list_path: Option<PathBuf>,
 
     //snark coordinator specific
-    pub snark_coordinator_port: Option<u16>,
     pub snark_coordinator_fees: Option<String>,
     pub worker_nodes: Option<u16>,
 
     //snark worker specific
     pub snark_worker_proof_level: Option<String>,
+    // on snark_worker -daemon-address <snark_coordinator_host>:<snark_coordinator_port>
+    pub snark_coordinator_host: Option<String>,
+    pub snark_coordinator_port: Option<u16>,
 
     //archive node specific
     pub archive_schema_files: Option<Vec<String>>,
@@ -179,7 +181,7 @@ impl ServiceConfig {
     }
 
     // generate command for snark worker node
-    pub fn generate_snark_worker_command(&self) -> String {
+    pub fn generate_snark_worker_command(&self, network_name: String) -> String {
         assert_eq!(self.service_type, ServiceType::SnarkWorker);
         let mut base_command = vec![
             "internal".to_string(),
@@ -190,12 +192,17 @@ impl ServiceConfig {
             format!("/config-directory/{}", self.service_name),
         ];
 
-        if let Some(snark_coordinator_port) = &self.snark_coordinator_port {
+        if self.snark_coordinator_port.is_some() && self.snark_coordinator_host.is_some() {
             base_command.push("-daemon-address".to_string());
-            base_command.push(format!("localhost:{}", snark_coordinator_port));
+            base_command.push(format!(
+                "{}-{}:{}",
+                self.snark_coordinator_host.as_ref().unwrap(),
+                network_name,
+                self.snark_coordinator_port.unwrap()
+            ));
         } else {
             warn!(
-                "No snark coordinator port provided for snark worker node '{}'. This is not recommended.",
+                "No snark coordinator port or host provided for snark worker node '{}'. This is not recommended.",
                 self.service_name
             );
         }

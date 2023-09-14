@@ -635,6 +635,7 @@ fn generate_default_topology(
         archive_schema_files: None,
         archive_port: None,
         worker_nodes: None,
+        snark_coordinator_host: None,
     };
 
     let bp_1_name = "mina-bp-1";
@@ -658,6 +659,7 @@ fn generate_default_topology(
         archive_schema_files: None,
         archive_port: None,
         worker_nodes: None,
+        snark_coordinator_host: None,
     };
 
     let bp_2_name = "mina-bp-2";
@@ -681,6 +683,7 @@ fn generate_default_topology(
         archive_schema_files: None,
         archive_port: None,
         worker_nodes: None,
+        snark_coordinator_host: None,
     };
 
     let snark_coordinator_name = "mina-snark-coordinator";
@@ -704,6 +707,7 @@ fn generate_default_topology(
         archive_schema_files: None,
         archive_port: None,
         worker_nodes: Some(1),
+        snark_coordinator_host: None,
     };
 
     let snark_worker_1_name = "mina-snark-worker-1";
@@ -727,6 +731,7 @@ fn generate_default_topology(
         archive_schema_files: None,
         archive_port: None,
         worker_nodes: None,
+        snark_coordinator_host: Some(snark_coordinator.service_name.clone()),
     };
 
     let archive_node_name = "mina-archive";
@@ -751,6 +756,7 @@ fn generate_default_topology(
                                        ,"https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/zkapp_tables.sql".into()]),
         archive_port: Some(3086),
         worker_nodes: None,
+        snark_coordinator_host: None,
     };
 
     let services = vec![

@@ -109,6 +109,7 @@ impl TopologyInfo {
                 ),
                 archive_port: Some(archive_port),
                 worker_nodes: None,
+                snark_coordinator_host: None,
             },
             TopologyInfo::Node(node_info) => ServiceConfig {
                 service_type: node_info.service_type.clone(),
@@ -130,6 +131,7 @@ impl TopologyInfo {
                 archive_schema_files: None,
                 archive_port: None,
                 worker_nodes: None,
+                snark_coordinator_host: None,
             },
             TopologyInfo::SnarkCoordinator(snark_info) => ServiceConfig {
                 service_type: snark_info.service_type.clone(),
@@ -151,6 +153,7 @@ impl TopologyInfo {
                 archive_schema_files: None,
                 archive_port: None,
                 worker_nodes: Some(snark_info.worker_nodes),
+                snark_coordinator_host: None,
             },
         }
     }
@@ -197,6 +200,7 @@ impl Topology {
                     docker_image: coordinator.docker_image.clone(),
                     snark_coordinator_port: coordinator.snark_coordinator_port,
                     snark_worker_proof_level: coordinator.snark_worker_proof_level.clone(),
+                    snark_coordinator_host: Some(coordinator.service_name.clone()),
                     ..Default::default()
                 }),
             );
