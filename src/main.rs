@@ -68,9 +68,9 @@ fn main() {
 
                 // hardcode docker image for default network (not topology based)
                 let docker_image =
-                    "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley";
+                    "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup4-14047c5-bullseye-berkeley";
                 let docker_image_archive =
-                    "gcr.io/o1labs-192920/mina-archive:2.0.0rampup3-bfd1009-buster";
+                    "gcr.io/o1labs-192920/mina-archive:2.0.0rampup4-14047c5-bullseye";
 
                 // create docker manager
                 let docker = DockerManager::new(&network_path);
@@ -742,8 +742,8 @@ fn generate_default_topology(
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
-        archive_schema_files: Some(vec!["https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/create_schema.sql".into()
-                                       ,"https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/zkapp_tables.sql".into()]),
+        archive_schema_files: Some(vec!["https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/create_schema.sql".into()
+                                       ,"https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/zkapp_tables.sql".into()]),
         archive_port: Some(3086),
     };
 
