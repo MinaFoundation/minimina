@@ -80,7 +80,6 @@ impl TopologyInfo {
         peer_list_file: &Path,
         client_port: u16,
         archive_port: u16,
-        snark_coordinator_port: u16,
     ) -> ServiceConfig {
         match self {
             TopologyInfo::Archive(archive_info) => ServiceConfig {
@@ -147,7 +146,7 @@ impl TopologyInfo {
                 libp2p_keypair_path: Some(snark_info.libp2p_keyfile.clone()),
                 peers: None,
                 peers_list_path: Some(peer_list_file.to_path_buf()),
-                snark_coordinator_port: Some(snark_coordinator_port),
+                snark_coordinator_port: None,
                 snark_coordinator_fees: Some(snark_info.snark_worker_fee.clone()),
                 snark_worker_proof_level: Some("full".to_string()),
                 archive_schema_files: None,
@@ -167,7 +166,6 @@ impl Topology {
 
     pub fn services(&self, peer_list_file: &Path) -> Vec<ServiceConfig> {
         let mut client_port = 7070;
-        let mut snark_coordinator_port = 7000;
         let archive_port = 3086;
 
         let mut services: Vec<ServiceConfig> = self
@@ -175,13 +173,11 @@ impl Topology {
             .iter()
             .map(|(service_name, service_info)| {
                 client_port += 5;
-                snark_coordinator_port += 1;
                 service_info.to_service_config(
                     service_name.clone(),
                     peer_list_file,
                     client_port,
                     archive_port,
-                    snark_coordinator_port,
                 )
             })
             .collect();
@@ -198,7 +194,7 @@ impl Topology {
                     service_type: ServiceType::SnarkWorker,
                     service_name: format!("{}-worker_{}", coordinator.service_name, i),
                     docker_image: coordinator.docker_image.clone(),
-                    snark_coordinator_port: coordinator.snark_coordinator_port,
+                    snark_coordinator_port: coordinator.client_port,
                     snark_worker_proof_level: coordinator.snark_worker_proof_level.clone(),
                     snark_coordinator_host: Some(coordinator.service_name.clone()),
                     ..Default::default()
