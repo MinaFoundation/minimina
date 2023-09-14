@@ -46,6 +46,7 @@ pub struct ServiceConfig {
     //snark coordinator specific
     pub snark_coordinator_port: Option<u16>,
     pub snark_coordinator_fees: Option<String>,
+    pub worker_nodes: Option<u16>,
 
     //snark worker specific
     pub snark_worker_proof_level: Option<String>,
