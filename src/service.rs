@@ -39,6 +39,7 @@ pub struct ServiceConfig {
     pub libp2p_keypair: Option<String>,
     /// Path to the libp2p keyfile used by `mina daemon --libp2p-keypair KEYFILE ...`
     pub libp2p_keypair_path: Option<PathBuf>,
+    pub libp2p_peerid: Option<String>,
     pub peers: Option<Vec<String>>,
     /// Path to the file used by `mina daemon --peer-list-file PATH ...`
     pub peers_list_path: Option<PathBuf>,
@@ -63,12 +64,14 @@ impl ServiceConfig {
     pub fn generate_peer(
         seed_name: &str,
         network_name: &str,
-        libp2p_keypairs: &str,
+        libp2p_peerid: &str,
         external_port: u16,
     ) -> String {
         let seed_host = format!("{}-{}", seed_name, network_name);
-        let last_key = libp2p_keypairs.split(',').last().unwrap();
-        format!("/dns4/{}/tcp/{}/p2p/{}", seed_host, external_port, last_key)
+        format!(
+            "/dns4/{}/tcp/{}/p2p/{}",
+            seed_host, external_port, libp2p_peerid
+        )
     }
 
     // generate base daemon command common for most mina services

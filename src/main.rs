@@ -623,10 +623,11 @@ fn generate_default_topology(
     network_id: &str,
 ) -> Vec<service::ServiceConfig> {
     let seed_name = "mina-seed-1";
+    let libp2p_peerid = libp2p_keys[seed_name].key_string.split(',').last().unwrap();
     let peer = ServiceConfig::generate_peer(
         seed_name,
         network_id,
-        &libp2p_keys[seed_name].key_string,
+        libp2p_peerid,
         3102, //external port on my mina_seed_1 will be 3102
     );
     let seed = ServiceConfig {
@@ -641,6 +642,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[seed_name].key_string.clone()),
         libp2p_keypair_path: None,
+        libp2p_peerid: Some(libp2p_peerid.to_string()),
         peers: None,
         peers_list_path: None,
         snark_coordinator_fees: None,
@@ -665,6 +667,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[bp_1_name].key_string.clone()),
         libp2p_keypair_path: None,
+        libp2p_peerid: None,
         peers: Some(vec![peer.clone()]),
         peers_list_path: None,
         snark_coordinator_fees: None,
@@ -689,6 +692,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[bp_2_name].key_string.clone()),
         libp2p_keypair_path: None,
+        libp2p_peerid: None,
         peers: Some(vec![peer.clone()]),
         peers_list_path: None,
         snark_coordinator_fees: None,
@@ -713,6 +717,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[snark_coordinator_name].key_string.clone()),
         libp2p_keypair_path: None,
+        libp2p_peerid: None,
         peers: Some(vec![peer]),
         peers_list_path: None,
         snark_coordinator_fees: Some("0.001".into()),
@@ -737,6 +742,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: None,
         libp2p_keypair_path: None,
+        libp2p_peerid: None,
         peers: None,
         peers_list_path: None,
         snark_coordinator_fees: None,
@@ -761,6 +767,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: None,
         libp2p_keypair_path: None,
+        libp2p_peerid: None,
         peers: None,
         peers_list_path: None,
         snark_coordinator_fees: None,

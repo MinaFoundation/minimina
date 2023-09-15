@@ -172,11 +172,11 @@ impl DirectoryManager {
         for peer in peers {
             let peer_hostname = format!("{}-{}", peer.service_name, network_id);
             let external_port = peer.client_port.unwrap() + 2;
-            let pub_key = peer.public_key.clone().unwrap();
+            let libp2p_key = peer.libp2p_peerid.clone().unwrap();
             writeln!(
                 file,
                 "/dns4/{}/tcp/{}/p2p/{}",
-                peer_hostname, external_port, pub_key
+                peer_hostname, external_port, libp2p_key
             )?;
         }
 

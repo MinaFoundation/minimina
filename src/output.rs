@@ -273,6 +273,7 @@ mod tests {
             private_key_path: None,
             libp2p_keypair: None,
             libp2p_keypair_path: None,
+            libp2p_peerid: None,
             peers: None,
             peers_list_path: None,
             snark_coordinator_port: None,
