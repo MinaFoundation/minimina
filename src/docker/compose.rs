@@ -43,6 +43,7 @@ struct Defaults {
 struct Environment {
     mina_privkey_pass: String,
     mina_libp2p_pass: String,
+    mina_client_trustlist: String,
 }
 
 #[derive(Default, Serialize)]
@@ -192,6 +193,7 @@ impl DockerCompose {
                 environment: Environment {
                     mina_privkey_pass: "naughty blue worm".to_string(),
                     mina_libp2p_pass: "naughty blue worm".to_string(),
+                    mina_client_trustlist: "0.0.0.0/0".to_string(),
                 },
             },
             volumes,
@@ -213,6 +215,7 @@ impl DockerCompose {
         .replace("<<: '*default-attributes'", "<<: *default-attributes")
         .replace("mina_privkey_pass", "MINA_PRIVKEY_PASS")
         .replace("mina_libp2p_pass", "MINA_LIBP2P_PASS")
+        .replace("mina_client_trustlist", "MINA_CLIENT_TRUSTLIST")
         .replace("null", "")
     }
 }
