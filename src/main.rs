@@ -320,12 +320,16 @@ fn main() -> Result<()> {
             NodeCommand::Logs(cmd) => {
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
-                // let container = format!("{node_id}-{network_id}");
-                // let network_path = directory_manager.network_path(cmd.network_id());
-                // let docker = DockerManager::new(&network_path);
-                // TODO run docker logs(?) on container
+                let network_path = directory_manager.network_path(network_id);
+                let docker = DockerManager::new(&network_path);
 
-                info!("Node logs command with node_id '{node_id}', network_id '{network_id}'.");
+                match docker.run_docker_logs(node_id, network_id) {
+                    Ok(output) => {
+                        println!("{}", String::from_utf8_lossy(&output.stdout));
+                    }
+                    Err(e) => error!("{e}"),
+                }
+
                 Ok(())
             }
 
