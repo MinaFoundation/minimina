@@ -160,6 +160,7 @@ fn main() {
                                 libp2p_keys,
                                 docker_image,
                                 docker_image_archive,
+                                cmd.network_id(),
                             )
                         } else {
                             error!("Failed to generate docker-compose.yaml. Keys not generated.");
@@ -611,10 +612,15 @@ fn generate_default_topology(
     libp2p_keys: &HashMap<String, NodeKey>,
     docker_image: &str,
     docker_image_archive: &str,
+    network_id: &str,
 ) -> Vec<service::ServiceConfig> {
     let seed_name = "mina-seed-1";
-    let peers =
-        ServiceConfig::generate_peers([libp2p_keys[seed_name].key_string.clone()].to_vec(), 3102);
+    let peer = ServiceConfig::generate_peer(
+        seed_name,
+        network_id,
+        &libp2p_keys[seed_name].key_string,
+        3102, //external port on my mina_seed_1 will be 3102
+    );
     let seed = ServiceConfig {
         service_type: ServiceType::Seed,
         service_name: seed_name.to_string(),
@@ -651,7 +657,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[bp_1_name].key_string.clone()),
         libp2p_keypair_path: None,
-        peers: Some(peers.clone()),
+        peers: Some(vec![peer.clone()]),
         peers_list_path: None,
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
@@ -675,7 +681,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[bp_2_name].key_string.clone()),
         libp2p_keypair_path: None,
-        peers: Some(peers.clone()),
+        peers: Some(vec![peer.clone()]),
         peers_list_path: None,
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
@@ -699,7 +705,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[snark_coordinator_name].key_string.clone()),
         libp2p_keypair_path: None,
-        peers: Some(peers),
+        peers: Some(vec![peer]),
         peers_list_path: None,
         snark_coordinator_fees: Some("0.001".into()),
         snark_coordinator_port: None,

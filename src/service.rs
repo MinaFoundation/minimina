@@ -59,13 +59,16 @@ pub struct ServiceConfig {
 }
 
 impl ServiceConfig {
-    // helper function to generate peers list based on libp2p keypair list and external port
-    pub fn generate_peers(libp2p_keypairs: Vec<String>, external_port: u16) -> Vec<String> {
-        libp2p_keypairs
-            .into_iter()
-            .filter_map(|s| s.split(',').last().map(|s| s.to_string()))
-            .map(|last_key| format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", external_port, last_key))
-            .collect()
+    // helper function to generate peer
+    pub fn generate_peer(
+        seed_name: &str,
+        network_name: &str,
+        libp2p_keypairs: &str,
+        external_port: u16,
+    ) -> String {
+        let seed_host = format!("{}-{}", seed_name, network_name);
+        let last_key = libp2p_keypairs.split(',').last().unwrap();
+        format!("/dns4/{}/tcp/{}/p2p/{}", seed_host, external_port, last_key)
     }
 
     // generate base daemon command common for most mina services
@@ -98,6 +101,8 @@ impl ServiceConfig {
             "Trace".to_string(),
             "-config-directory".to_string(),
             format!("/config-directory/{}", self.service_name),
+            // "-bind-ip".to_string(),
+            // "0.0.0.0".to_string(),
         ]
     }
 
