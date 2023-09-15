@@ -851,6 +851,11 @@ fn handle_topology(
                 "Generating docker-compose based on provided topology '{}'.",
                 topology_path.display()
             );
+
+            let network_topology_path = directory_manager
+                .network_path(network_id)
+                .join("topology.json");
+            std::fs::copy(topology_path, network_topology_path)?;
             create_services(directory_manager, topology_path, network_id)
         }
         None => {
