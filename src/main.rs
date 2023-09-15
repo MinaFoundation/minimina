@@ -132,11 +132,19 @@ fn main() {
                         // peers list is based on the network seeds for now
                         match topology::Topology::new(topology_path) {
                             Ok(topology) => {
-                                let peers = topology.seeds();
-                                let peer_list_file = directory_manager
-                                    .create_peer_list_file(cmd.network_id(), &peers, 3102)
-                                    .unwrap();
-                                topology.services(&peer_list_file)
+                                let peer_list_path =
+                                    directory_manager.peers_list_path(cmd.network_id());
+                                let services = topology.services(&peer_list_path);
+                                let seed_services: Vec<&ServiceConfig> = services
+                                    .iter()
+                                    .filter(|s| s.service_type == ServiceType::Seed)
+                                    .collect();
+                                let _ = directory_manager.create_peer_list_file(
+                                    cmd.network_id(),
+                                    seed_services,
+                                    peer_list_path,
+                                );
+                                services
                             }
                             Err(err) => {
                                 error!(

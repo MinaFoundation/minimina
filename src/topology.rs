@@ -205,6 +205,7 @@ impl Topology {
         services
     }
 
+    #[allow(dead_code)]
     pub fn seeds(&self) -> Vec<NodeTopologyInfo> {
         self.topology
             .values()

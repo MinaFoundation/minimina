@@ -11,7 +11,6 @@
 //! - `peer_list_file.txt`: Contains the list of libp2p peers for the network.
 
 use crate::service::ServiceConfig;
-use crate::topology::NodeTopologyInfo;
 use dirs::home_dir;
 use log::info;
 use std::os::unix::fs::PermissionsExt;
@@ -156,26 +155,32 @@ impl DirectoryManager {
         Ok(())
     }
 
+    pub fn peers_list_path(&self, network_id: &str) -> PathBuf {
+        self.network_path(network_id).join("peer_list_file.txt")
+    }
+
     pub fn create_peer_list_file(
         &self,
         network_id: &str,
-        peers: &Vec<NodeTopologyInfo>,
-        external_port: u16,
+        peers: Vec<&ServiceConfig>,
+        peer_list_path: PathBuf,
     ) -> std::io::Result<PathBuf> {
         use std::io::Write;
 
-        let peers_list_path = self.network_path(network_id).join("peer_list_file.txt");
-        let mut file = std::fs::File::create(peers_list_path.clone()).unwrap();
+        let mut file = std::fs::File::create(peer_list_path.clone()).unwrap();
 
         for peer in peers {
+            let peer_hostname = format!("{}-{}", peer.service_name, network_id);
+            let external_port = peer.client_port.unwrap() + 2;
+            let pub_key = peer.public_key.clone().unwrap();
             writeln!(
                 file,
-                "/ip4/127.0.0.1/tcp/{}/p2p/{}",
-                external_port, peer.libp2p_peerid
+                "/dns4/{}/tcp/{}/p2p/{}",
+                peer_hostname, external_port, pub_key
             )?;
         }
 
-        Ok(peers_list_path)
+        Ok(peer_list_path)
     }
 }
 
