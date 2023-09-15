@@ -3,14 +3,16 @@
 //! This module facilitates the generation contents of `docker-compose.yaml` for
 //! deploying various Mina services in a Docker environment.
 
+use crate::{
+    service::{ServiceConfig, ServiceType},
+    DEFAULT_ARCHIVE_DOCKER_IMAGE, DEFAULT_DAEMON_DOCKER_IMAGE,
+};
 use log::debug;
 use serde::ser::{SerializeStruct, Serializer};
 use serde::Serialize;
 use serde_yaml;
 use std::collections::HashMap;
 use std::path::Path;
-
-use crate::service::{ServiceConfig, ServiceType};
 
 #[derive(Serialize)]
 pub(crate) struct DockerCompose {
@@ -104,7 +106,10 @@ impl DockerCompose {
                                 config.service_name.clone()
                             ),
                             entrypoint: Some(vec!["mina".to_string()]),
-                            image: config.docker_image.clone().unwrap(),
+                            image: config
+                                .docker_image
+                                .clone()
+                                .unwrap_or(DEFAULT_DAEMON_DOCKER_IMAGE.into()),
                             command: Some(match config.service_type {
                                 ServiceType::Seed => config.generate_seed_command(),
                                 ServiceType::BlockProducer => {
@@ -173,7 +178,10 @@ impl DockerCompose {
                 archive_name.clone(),
                 Service {
                     container_name: archive_name,
-                    image: archive_config.docker_image.clone().unwrap(),
+                    image: archive_config
+                        .docker_image
+                        .clone()
+                        .unwrap_or(DEFAULT_ARCHIVE_DOCKER_IMAGE.into()),
                     command: Some(archive_command),
                     volumes: Some(vec![format!("{}:/data", ARCHIVE_DATA)]),
                     ports: Some(vec![archive_port.to_string()]),
