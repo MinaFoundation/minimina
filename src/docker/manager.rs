@@ -168,18 +168,8 @@ impl DockerManager {
         ];
 
         if let Some(state) = filter {
-            let state_str = match state {
-                ContainerState::Created => "created",
-                ContainerState::Exited => "exited",
-                ContainerState::Running => "running",
-                ContainerState::Paused => "paused",
-                ContainerState::Restarting => "restarting",
-                ContainerState::Removing => "removing",
-                ContainerState::Dead => "dead",
-                ContainerState::Unknown => "unknown",
-            };
             cmd.push("--filter".to_string());
-            cmd.push(format!("status={}", state_str));
+            cmd.push(format!("status={}", state.to_string()));
         }
 
         // Convert Vec<String> to Vec<&str> for compatibility with run_docker_compose
@@ -258,5 +248,20 @@ impl DockerManager {
 
         let out = run_command("docker", &args)?;
         Ok(out)
+    }
+}
+
+impl ToString for ContainerState {
+    fn to_string(&self) -> String {
+        match self {
+            ContainerState::Created => "created".into(),
+            ContainerState::Exited => "exited".into(),
+            ContainerState::Running => "running".into(),
+            ContainerState::Paused => "paused".into(),
+            ContainerState::Restarting => "restarting".into(),
+            ContainerState::Removing => "removing".into(),
+            ContainerState::Dead => "dead".into(),
+            ContainerState::Unknown => "unknown".into(),
+        }
     }
 }

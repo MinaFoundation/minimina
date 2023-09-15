@@ -93,7 +93,7 @@ pub mod default {
 
 pub fn current_timestamp() -> String {
     let datetime = Local::now();
-    datetime.format("%Y-%m-%dT%H:%M:%S%z").to_string()
+    datetime.format("%Y-%m-%dT%H:%M:%S%.6f%Z").to_string()
 }
 
 #[cfg(test)]

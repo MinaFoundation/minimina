@@ -94,18 +94,14 @@ fn main() -> Result<()> {
                     exit(1);
                 }
 
-                create_network(&docker, &network_id, &network_path, &services)
+                create_network(&docker, &directory_manager, &network_id, &services)
             }
 
             NetworkCommand::Info(cmd) => {
                 let network_id = cmd.network_id;
-                let json_path = directory_manager
-                    .network_path(&network_id)
-                    .join("network.json");
-
                 check_network_exists(&network_id)?;
 
-                match read_to_string(json_path) {
+                match read_to_string(directory_manager.network_file_path(&network_id)) {
                     Ok(json_data) => {
                         println!("{json_data}");
                         Ok(())
@@ -201,10 +197,14 @@ fn main() -> Result<()> {
 
             NetworkCommand::Start(cmd) => {
                 let network_id = cmd.network_id().to_string();
-                check_network_exists(&network_id)?;
-
                 let network_path = directory_manager.network_path(&network_id);
                 let docker = DockerManager::new(&network_path);
+
+                check_network_exists(&network_id)?;
+                if let Err(e) = directory_manager.check_genesis_timestamp(&network_id) {
+                    error!("{e} Update it by running 'network create' again. Exiting.");
+                    exit(1);
+                }
 
                 match docker.compose_start_all() {
                     Ok(output) => {
@@ -248,21 +248,22 @@ fn main() -> Result<()> {
             NodeCommand::Start(cmd) => {
                 let node_id = cmd.node_id().to_string();
                 let network_id = cmd.network_id().to_string();
+                let container = format!("{node_id}-{network_id}");
                 let network_path = directory_manager.network_path(&network_id);
-
-                let mut fresh_state = false;
                 let docker = DockerManager::new(&network_path);
                 let nodes = docker.compose_ps(None)?;
 
-                match docker.filter_container_by_name(nodes, &node_id) {
+                match docker.filter_container_by_name(nodes, &container) {
                     Some(node) => match node.state {
                         ContainerState::Running => {
                             warn!("Node '{node_id}' is already running in network '{network_id}'.");
                         }
-                        ContainerState::Created => {
-                            fresh_state = true;
+                        container_state => {
+                            info!(
+                                "Node '{node_id}' is {} in network '{network_id}'.",
+                                container_state.to_string()
+                            );
                         }
-                        _ => {}
                     },
                     None => {
                         let error =
@@ -271,13 +272,12 @@ fn main() -> Result<()> {
                     }
                 }
 
-                match docker.compose_start(vec![&node_id]) {
+                match docker.compose_start(vec![&container]) {
                     Ok(out) => {
                         if out.status.success() {
                             println!(
                                 "{}",
                                 node::Start {
-                                    fresh_state,
                                     node_id,
                                     network_id,
                                 }
@@ -294,10 +294,11 @@ fn main() -> Result<()> {
             NodeCommand::Stop(cmd) => {
                 let node_id = cmd.node_id().to_string();
                 let network_id = cmd.network_id().to_string();
+                let container = format!("{node_id}-{network_id}");
                 let network_path = directory_manager.network_path(&network_id);
                 let docker = DockerManager::new(&network_path);
 
-                match docker.compose_stop(vec![&node_id]) {
+                match docker.compose_stop(vec![&container]) {
                     Ok(out) => {
                         if out.status.success() {
                             println!(
@@ -319,9 +320,10 @@ fn main() -> Result<()> {
             NodeCommand::Logs(cmd) => {
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
+                // let container = format!("{node_id}-{network_id}");
                 // let network_path = directory_manager.network_path(cmd.network_id());
                 // let docker = DockerManager::new(&network_path);
-                // TODO run docker logs(?) on node_id
+                // TODO run docker logs(?) on container
 
                 info!("Node logs command with node_id '{node_id}', network_id '{network_id}'.");
                 Ok(())
@@ -331,9 +333,10 @@ fn main() -> Result<()> {
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
                 // check the node is archive, exit with error if not
+                // let container = format!("{node_id}-{network_id}");
                 // let network_path = directory_manager.network_path(cmd.network_id());
                 // let docker = DockerManager::new(&network_path);
-                // TODO postgres dump of archive with node_id
+                // TODO postgres dump of archive with container
 
                 info!("Node dump archive data command with node_id '{node_id}', network_id '{network_id}'.");
                 Ok(())
@@ -342,9 +345,10 @@ fn main() -> Result<()> {
             NodeCommand::DumpPrecomputedBlocks(cmd) => {
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
+                // let container = format!("{node_id}-{network_id}");
                 // let network_path = directory_manager.network_path(cmd.network_id());
                 // let docker = DockerManager::new(&network_path);
-                // TODO dump the percomputed blocks of node_id
+                // TODO dump the percomputed blocks of container
 
                 info!("Node dump precomputed blocks command with node_id '{node_id}', network_id '{network_id}'.");
                 Ok(())
@@ -354,9 +358,10 @@ fn main() -> Result<()> {
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
                 // check if node is archive, exit with error if not
+                // let container = format!("{node_id}-{network_id}");
                 // let network_path = directory_manager.network_path(cmd.network_id());
                 // let docker = DockerManager::new(&network_path);
-                // TODO run mina replayer on node_id
+                // TODO run mina replayer on container
 
                 info!(
                     "Node logs command with node_id '{node_id}', network_id '{network_id}', \
@@ -371,8 +376,8 @@ fn main() -> Result<()> {
 
 fn create_network(
     docker: &DockerManager,
+    directory_manager: &DirectoryManager,
     network_id: &str,
-    network_path: &std::path::Path,
     services: &[ServiceConfig],
 ) -> Result<()> {
     match docker.compose_create() {
@@ -413,7 +418,12 @@ fn create_network(
 
                 // apply schema scripts
                 let scripts = archive_node.archive_schema_files.as_ref().unwrap();
-                apply_schema_scripts(docker.clone(), &postgres_name, scripts, network_path)?;
+                apply_schema_scripts(
+                    docker.clone(),
+                    &postgres_name,
+                    scripts,
+                    &directory_manager.network_path(network_id),
+                )?;
 
                 // stop postgres
                 docker.compose_stop(vec![&postgres_name])?;
@@ -421,9 +431,8 @@ fn create_network(
 
             // generate command output
             let result = format!("{}", output::generate_network_info(services, network_id));
-            let json_path = network_path.join("network.json");
 
-            if let Err(e) = write(json_path, &result) {
+            if let Err(e) = write(directory_manager.network_path(network_id), &result) {
                 error!("Error generating network.json: {e}")
             }
 
@@ -494,7 +503,7 @@ fn apply_schema_scripts(
 fn generate_default_genesis_ledger(
     bp_keys_opt: &mut Option<HashMap<String, NodeKey>>,
     libp2p_keys_opt: &mut Option<HashMap<String, NodeKey>>,
-    network_path: &std::path::Path,
+    network_path: &Path,
     docker_image: &str,
 ) -> Result<()> {
     info!("Genesis ledger not provided. Generating default genesis ledger.");
@@ -725,6 +734,7 @@ fn check_setup_network(directory_manager: &DirectoryManager, network_id: &str) -
     Ok(())
 }
 
+/// Check that the network exists and overwrites genesis ledger if needed
 fn check_network_exists(network_id: &str) -> Result<()> {
     let directory_manager = DirectoryManager::new();
     if directory_manager.network_path_exists(network_id) {
@@ -756,7 +766,7 @@ fn handle_genesis_ledger(
     let network_path = directory_manager.network_path(network_id);
 
     match &cmd.genesis_ledger {
-        Some(genesis_ledger) => {
+        Some(genesis_ledger_path) => {
             if cmd.topology.is_none() {
                 error!(
                     "Must provide a topology file with a genesis ledger, \
@@ -769,20 +779,11 @@ fn handle_genesis_ledger(
 
             info!(
                 "Copying genesis ledger from '{}' to network directory.",
-                genesis_ledger.display()
+                genesis_ledger_path.display()
             );
 
-            // overwrite genesis state timestamp
-            let genesis_path = &network_path.join("genesis_ledger.json");
-            let contents = read_to_string(genesis_ledger.clone())?;
-            let mut ledger: serde_json::Value = serde_json::from_str(&contents)?;
-            let genesis = ledger.get_mut("genesis").unwrap();
-            let timestamp = genesis.get_mut("genesis_state_timestamp").unwrap();
-
-            *timestamp = serde_json::Value::String(current_timestamp());
-
-            let contents = serde_json::to_string_pretty(&ledger)?;
-            write(genesis_path, contents)
+            directory_manager.copy_genesis_ledger(network_id, genesis_ledger_path)?;
+            directory_manager.overwrite_genesis_timestamp(network_id, genesis_ledger_path)
         }
         None => generate_default_genesis_ledger(
             bp_keys_opt,
@@ -852,9 +853,7 @@ fn handle_topology(
                 topology_path.display()
             );
 
-            let network_topology_path = directory_manager
-                .network_path(network_id)
-                .join("topology.json");
+            let network_topology_path = directory_manager.topology_file_path(network_id);
             std::fs::copy(topology_path, network_topology_path)?;
             create_services(directory_manager, topology_path, network_id)
         }
