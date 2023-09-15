@@ -120,7 +120,12 @@ impl DockerCompose {
                             ports: match config.client_port {
                                 Some(port) => {
                                     let gql_port = port + 1;
-                                    Some(vec![format!("{}:{}", gql_port, gql_port)])
+                                    let external_port = port + 2;
+                                    Some(vec![
+                                        format!("{}:{}", gql_port, gql_port),
+                                        port.to_string(),
+                                        external_port.to_string(),
+                                    ])
                                 }
                                 None => None,
                             },
