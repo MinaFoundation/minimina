@@ -63,6 +63,10 @@ pub struct CreateNetworkArgs {
     /// Network identifier
     #[clap(flatten)]
     pub network_id: NetworkId,
+
+    /// Specify log level
+    #[clap(short = 'l', long, default_value = "warn")]
+    pub log_level: String,
 }
 
 #[derive(Args, Clone)]
@@ -74,6 +78,10 @@ pub struct StartNetworkArgs {
     /// Network identifier
     #[clap(short = 'v', long, default_value_t = false)]
     pub verbose: bool,
+
+    /// Specify log level
+    #[clap(short = 'l', long, default_value = "warn")]
+    pub log_level: String,
 }
 
 #[derive(Subcommand)]
@@ -162,6 +170,16 @@ impl ReplayerArgs {
     }
 }
 
+macro_rules! log_level {
+    ($name:path) => {
+        impl LogLevel for $name {
+            fn log_level(&self) -> &str {
+                &self.log_level
+            }
+        }
+    };
+}
+
 macro_rules! network_id {
     ($name:path) => {
         impl CommandWithNetworkId for $name {
@@ -182,6 +200,11 @@ macro_rules! node_id {
     };
 }
 
+log_level!(StartNetworkArgs);
+log_level!(CreateNetworkArgs);
+log_level!(NodeCommandArgs);
+log_level!(ReplayerArgs);
+
 network_id!(StartNetworkArgs);
 network_id!(CreateNetworkArgs);
 network_id!(NodeCommandArgs);
@@ -189,6 +212,26 @@ network_id!(ReplayerArgs);
 
 node_id!(NodeCommandArgs);
 node_id!(ReplayerArgs);
+
+impl DefaultLogLevel for Command {
+    fn log_level(&self) -> &str {
+        match self {
+            Command::Network(cmd) => match cmd {
+                NetworkCommand::Create(args) => args.log_level(),
+                NetworkCommand::Start(args) => args.log_level(),
+                _ => "warn",
+            },
+            Command::Node(cmd) => match cmd {
+                NodeCommand::DumpArchiveData(args)
+                | NodeCommand::DumpPrecomputedBlocks(args)
+                | NodeCommand::Logs(args)
+                | NodeCommand::Start(args)
+                | NodeCommand::Stop(args) => args.log_level(),
+                NodeCommand::RunReplayer(args) => args.log_level(),
+            },
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
