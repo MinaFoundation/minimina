@@ -275,7 +275,7 @@ mod tests {
             libp2p_keypair_path: None,
             libp2p_peerid: None,
             peers: None,
-            peers_list_path: None,
+            peer_list_file: None,
             snark_coordinator_port: None,
             snark_coordinator_fees: None,
             snark_worker_proof_level: None,

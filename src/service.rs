@@ -42,7 +42,7 @@ pub struct ServiceConfig {
     pub libp2p_peerid: Option<String>,
     pub peers: Option<Vec<String>>,
     /// Path to the file used by `mina daemon --peer-list-file PATH ...`
-    pub peers_list_path: Option<PathBuf>,
+    pub peer_list_file: Option<PathBuf>,
 
     //snark coordinator specific
     pub snark_coordinator_fees: Option<String>,
@@ -60,7 +60,6 @@ pub struct ServiceConfig {
 }
 
 impl ServiceConfig {
-    // helper function to generate peer
     pub fn generate_peer(
         seed_name: &str,
         network_name: &str,
@@ -74,7 +73,7 @@ impl ServiceConfig {
         )
     }
 
-    // generate base daemon command common for most mina services
+    /// Generate base daemon command common for most mina services
     pub fn generate_base_command(&self) -> Vec<String> {
         let client_port = self.client_port.unwrap_or(3100);
         let rest_port = client_port + 1;
@@ -109,7 +108,7 @@ impl ServiceConfig {
         ]
     }
 
-    // generate command for seed node
+    /// Generate command for seed node
     pub fn generate_seed_command(&self) -> String {
         assert_eq!(self.service_type, ServiceType::Seed);
 
@@ -120,7 +119,7 @@ impl ServiceConfig {
         base_command.join(" ")
     }
 
-    // generate command for block producer node
+    /// Generate command for block producer node
     pub fn generate_block_producer_command(&self, archive_data: Option<(String, u16)>) -> String {
         assert_eq!(self.service_type, ServiceType::BlockProducer);
 
@@ -153,7 +152,7 @@ impl ServiceConfig {
         base_command.join(" ")
     }
 
-    // generate command for snark coordinator node
+    /// Generate command for snark coordinator node
     pub fn generate_snark_coordinator_command(&self) -> String {
         assert_eq!(self.service_type, ServiceType::SnarkCoordinator);
 
@@ -188,7 +187,7 @@ impl ServiceConfig {
         base_command.join(" ")
     }
 
-    // generate command for snark worker node
+    /// Generate command for snark worker node
     pub fn generate_snark_worker_command(&self, network_name: String) -> String {
         assert_eq!(self.service_type, ServiceType::SnarkWorker);
         let mut base_command = vec![
@@ -229,7 +228,7 @@ impl ServiceConfig {
     }
 
     fn add_peers_command(&self, base_command: &mut Vec<String>) {
-        if self.peers_list_path.is_some() {
+        if self.peer_list_file.is_some() {
             base_command.push("-peer-list-file".to_string());
             base_command.push("/local-network/peer_list_file.txt".into());
         } else if let Some(ref peers) = self.peers {
@@ -261,5 +260,12 @@ impl ServiceConfig {
                 self.service_name
             );
         }
+    }
+
+    pub fn is_seed(&self) -> bool {
+        if ServiceType::Seed == self.service_type {
+            return true;
+        }
+        false
     }
 }

@@ -572,7 +572,7 @@ fn generate_default_topology(
         libp2p_keypair_path: None,
         libp2p_peerid: Some(libp2p_peerid.to_string()),
         peers: None,
-        peers_list_path: None,
+        peer_list_file: None,
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
@@ -597,7 +597,7 @@ fn generate_default_topology(
         libp2p_keypair_path: None,
         libp2p_peerid: None,
         peers: Some(vec![peer.clone()]),
-        peers_list_path: None,
+        peer_list_file: None,
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
@@ -622,7 +622,7 @@ fn generate_default_topology(
         libp2p_keypair_path: None,
         libp2p_peerid: None,
         peers: Some(vec![peer.clone()]),
-        peers_list_path: None,
+        peer_list_file: None,
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
@@ -647,7 +647,7 @@ fn generate_default_topology(
         libp2p_keypair_path: None,
         libp2p_peerid: None,
         peers: Some(vec![peer]),
-        peers_list_path: None,
+        peer_list_file: None,
         snark_coordinator_fees: Some("0.001".into()),
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
@@ -672,7 +672,7 @@ fn generate_default_topology(
         libp2p_keypair_path: None,
         libp2p_peerid: None,
         peers: None,
-        peers_list_path: None,
+        peer_list_file: None,
         snark_coordinator_fees: None,
         snark_coordinator_port: Some(7000),
         snark_worker_proof_level: Some("none".into()),
@@ -697,7 +697,7 @@ fn generate_default_topology(
         libp2p_keypair_path: None,
         libp2p_peerid: None,
         peers: None,
-        peers_list_path: None,
+        peer_list_file: None,
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
@@ -809,16 +809,20 @@ fn create_services(
 ) -> Result<Vec<ServiceConfig>> {
     match topology::Topology::new(topology_path) {
         Ok(topology) => {
-            let peers = topology.seeds();
-            let peer_list_file =
-                directory_manager.create_peer_list_file(network_id, &peers, 3102)?;
+            let peer_list_file = directory_manager.peer_list_file(network_id);
+            let services = topology.services(&peer_list_file);
+            let peers: Vec<&ServiceConfig> = services
+                .iter()
+                .filter(|service| service.is_seed())
+                .collect();
+            directory_manager.create_peer_list_file(network_id, &peers)?;
 
             if peers.is_empty() {
                 error!("There are no seed nodes declared in this network. You must include seed nodes.");
                 exit(1);
             }
 
-            Ok(topology.services(&peer_list_file))
+            Ok(services)
         }
         Err(err) => {
             error!(
@@ -870,6 +874,7 @@ fn handle_topology(
                     libp2p_keys,
                     DEFAULT_DAEMON_DOCKER_IMAGE,
                     DEFAULT_ARCHIVE_DOCKER_IMAGE,
+                    network_id,
                 ))
             } else {
                 let err = "Failed to generate docker-compose.yaml. Keys not generated.";

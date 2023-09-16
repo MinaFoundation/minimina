@@ -330,7 +330,7 @@ mod tests {
         let file = std::path::PathBuf::from("./tests/data/large_network/topology.json");
         let contents = std::fs::read_to_string(file)?;
         let topology: Topology = serde_json::from_str(&contents)?;
-        let peers_file = dir_manager.peers_list_path(network_id);
+        let peers_file = dir_manager.peer_list_file(network_id);
         let services = topology.services(&peers_file);
         let compose_contents = DockerCompose::generate(&services, &network_path);
 
