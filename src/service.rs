@@ -39,16 +39,20 @@ pub struct ServiceConfig {
     pub libp2p_keypair: Option<String>,
     /// Path to the libp2p keyfile used by `mina daemon --libp2p-keypair KEYFILE ...`
     pub libp2p_keypair_path: Option<PathBuf>,
+    pub libp2p_peerid: Option<String>,
     pub peers: Option<Vec<String>>,
     /// Path to the file used by `mina daemon --peer-list-file PATH ...`
     pub peers_list_path: Option<PathBuf>,
 
     //snark coordinator specific
-    pub snark_coordinator_port: Option<u16>,
     pub snark_coordinator_fees: Option<String>,
+    pub worker_nodes: Option<u16>,
 
     //snark worker specific
     pub snark_worker_proof_level: Option<String>,
+    // on snark_worker -daemon-address <snark_coordinator_host>:<snark_coordinator_port>
+    pub snark_coordinator_host: Option<String>,
+    pub snark_coordinator_port: Option<u16>,
 
     //archive node specific
     pub archive_schema_files: Option<Vec<String>>,
@@ -56,13 +60,18 @@ pub struct ServiceConfig {
 }
 
 impl ServiceConfig {
-    // helper function to generate peers list based on libp2p keypair list and external port
-    pub fn generate_peers(libp2p_keypairs: Vec<String>, external_port: u16) -> Vec<String> {
-        libp2p_keypairs
-            .into_iter()
-            .filter_map(|s| s.split(',').last().map(|s| s.to_string()))
-            .map(|last_key| format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", external_port, last_key))
-            .collect()
+    // helper function to generate peer
+    pub fn generate_peer(
+        seed_name: &str,
+        network_name: &str,
+        libp2p_peerid: &str,
+        external_port: u16,
+    ) -> String {
+        let seed_host = format!("{}-{}", seed_name, network_name);
+        format!(
+            "/dns4/{}/tcp/{}/p2p/{}",
+            seed_host, external_port, libp2p_peerid
+        )
     }
 
     // generate base daemon command common for most mina services
@@ -95,6 +104,8 @@ impl ServiceConfig {
             "Trace".to_string(),
             "-config-directory".to_string(),
             format!("/config-directory/{}", self.service_name),
+            // "-bind-ip".to_string(),
+            // "0.0.0.0".to_string(),
         ]
     }
 
@@ -178,7 +189,7 @@ impl ServiceConfig {
     }
 
     // generate command for snark worker node
-    pub fn generate_snark_worker_command(&self) -> String {
+    pub fn generate_snark_worker_command(&self, network_name: String) -> String {
         assert_eq!(self.service_type, ServiceType::SnarkWorker);
         let mut base_command = vec![
             "internal".to_string(),
@@ -189,12 +200,17 @@ impl ServiceConfig {
             format!("/config-directory/{}", self.service_name),
         ];
 
-        if let Some(snark_coordinator_port) = &self.snark_coordinator_port {
+        if self.snark_coordinator_port.is_some() && self.snark_coordinator_host.is_some() {
             base_command.push("-daemon-address".to_string());
-            base_command.push(format!("localhost:{}", snark_coordinator_port));
+            base_command.push(format!(
+                "{}-{}:{}",
+                self.snark_coordinator_host.as_ref().unwrap(),
+                network_name,
+                self.snark_coordinator_port.unwrap()
+            ));
         } else {
             warn!(
-                "No snark coordinator port provided for snark worker node '{}'. This is not recommended.",
+                "No snark coordinator port or host provided for snark worker node '{}'. This is not recommended.",
                 self.service_name
             );
         }

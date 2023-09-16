@@ -132,11 +132,19 @@ fn main() {
                         // peers list is based on the network seeds for now
                         match topology::Topology::new(topology_path) {
                             Ok(topology) => {
-                                let peers = topology.seeds();
-                                let peer_list_file = directory_manager
-                                    .create_peer_list_file(cmd.network_id(), &peers, 3102)
-                                    .unwrap();
-                                topology.services(&peer_list_file)
+                                let peer_list_path =
+                                    directory_manager.peers_list_path(cmd.network_id());
+                                let services = topology.services(&peer_list_path);
+                                let seed_services: Vec<&ServiceConfig> = services
+                                    .iter()
+                                    .filter(|s| s.service_type == ServiceType::Seed)
+                                    .collect();
+                                let _ = directory_manager.create_peer_list_file(
+                                    cmd.network_id(),
+                                    seed_services,
+                                    peer_list_path,
+                                );
+                                services
                             }
                             Err(err) => {
                                 error!(
@@ -160,6 +168,7 @@ fn main() {
                                 libp2p_keys,
                                 docker_image,
                                 docker_image_archive,
+                                cmd.network_id(),
                             )
                         } else {
                             error!("Failed to generate docker-compose.yaml. Keys not generated.");
@@ -611,10 +620,16 @@ fn generate_default_topology(
     libp2p_keys: &HashMap<String, NodeKey>,
     docker_image: &str,
     docker_image_archive: &str,
+    network_id: &str,
 ) -> Vec<service::ServiceConfig> {
     let seed_name = "mina-seed-1";
-    let peers =
-        ServiceConfig::generate_peers([libp2p_keys[seed_name].key_string.clone()].to_vec(), 3102);
+    let libp2p_peerid = libp2p_keys[seed_name].key_string.split(',').last().unwrap();
+    let peer = ServiceConfig::generate_peer(
+        seed_name,
+        network_id,
+        libp2p_peerid,
+        3102, //external port on my mina_seed_1 will be 3102
+    );
     let seed = ServiceConfig {
         service_type: ServiceType::Seed,
         service_name: seed_name.to_string(),
@@ -627,6 +642,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[seed_name].key_string.clone()),
         libp2p_keypair_path: None,
+        libp2p_peerid: Some(libp2p_peerid.to_string()),
         peers: None,
         peers_list_path: None,
         snark_coordinator_fees: None,
@@ -634,6 +650,8 @@ fn generate_default_topology(
         snark_worker_proof_level: None,
         archive_schema_files: None,
         archive_port: None,
+        worker_nodes: None,
+        snark_coordinator_host: None,
     };
 
     let bp_1_name = "mina-bp-1";
@@ -649,13 +667,16 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[bp_1_name].key_string.clone()),
         libp2p_keypair_path: None,
-        peers: Some(peers.clone()),
+        libp2p_peerid: None,
+        peers: Some(vec![peer.clone()]),
         peers_list_path: None,
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
         archive_schema_files: None,
         archive_port: None,
+        worker_nodes: None,
+        snark_coordinator_host: None,
     };
 
     let bp_2_name = "mina-bp-2";
@@ -671,13 +692,16 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[bp_2_name].key_string.clone()),
         libp2p_keypair_path: None,
-        peers: Some(peers.clone()),
+        libp2p_peerid: None,
+        peers: Some(vec![peer.clone()]),
         peers_list_path: None,
         snark_coordinator_fees: None,
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
         archive_schema_files: None,
         archive_port: None,
+        worker_nodes: None,
+        snark_coordinator_host: None,
     };
 
     let snark_coordinator_name = "mina-snark-coordinator";
@@ -693,13 +717,16 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[snark_coordinator_name].key_string.clone()),
         libp2p_keypair_path: None,
-        peers: Some(peers),
+        libp2p_peerid: None,
+        peers: Some(vec![peer]),
         peers_list_path: None,
         snark_coordinator_fees: Some("0.001".into()),
         snark_coordinator_port: None,
         snark_worker_proof_level: None,
         archive_schema_files: None,
         archive_port: None,
+        worker_nodes: Some(1),
+        snark_coordinator_host: None,
     };
 
     let snark_worker_1_name = "mina-snark-worker-1";
@@ -715,6 +742,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: None,
         libp2p_keypair_path: None,
+        libp2p_peerid: None,
         peers: None,
         peers_list_path: None,
         snark_coordinator_fees: None,
@@ -722,6 +750,8 @@ fn generate_default_topology(
         snark_worker_proof_level: Some("none".into()),
         archive_schema_files: None,
         archive_port: None,
+        worker_nodes: None,
+        snark_coordinator_host: Some(snark_coordinator.service_name.clone()),
     };
 
     let archive_node_name = "mina-archive";
@@ -737,6 +767,7 @@ fn generate_default_topology(
         private_key_path: None,
         libp2p_keypair: None,
         libp2p_keypair_path: None,
+        libp2p_peerid: None,
         peers: None,
         peers_list_path: None,
         snark_coordinator_fees: None,
@@ -745,6 +776,8 @@ fn generate_default_topology(
         archive_schema_files: Some(vec!["https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/create_schema.sql".into()
                                        ,"https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/zkapp_tables.sql".into()]),
         archive_port: Some(3086),
+        worker_nodes: None,
+        snark_coordinator_host: None,
     };
 
     let services = vec![

@@ -94,6 +94,7 @@ impl TopologyInfo {
                 private_key_path: None,
                 libp2p_keypair: None,
                 libp2p_keypair_path: None,
+                libp2p_peerid: None,
                 peers: None,
                 peers_list_path: Some(peer_list_file.to_path_buf()),
                 snark_coordinator_port: None,
@@ -107,6 +108,8 @@ impl TopologyInfo {
                         .collect(),
                 ),
                 archive_port: Some(archive_port),
+                worker_nodes: None,
+                snark_coordinator_host: None,
             },
             TopologyInfo::Node(node_info) => ServiceConfig {
                 service_type: node_info.service_type.clone(),
@@ -120,6 +123,7 @@ impl TopologyInfo {
                 private_key_path: node_info.privkey_path.clone(),
                 libp2p_keypair: None,
                 libp2p_keypair_path: Some(node_info.libp2p_keyfile.clone()),
+                libp2p_peerid: Some(node_info.libp2p_peerid.clone()),
                 peers: None,
                 peers_list_path: Some(peer_list_file.to_path_buf()),
                 snark_coordinator_port: None,
@@ -127,26 +131,31 @@ impl TopologyInfo {
                 snark_worker_proof_level: None,
                 archive_schema_files: None,
                 archive_port: None,
+                worker_nodes: None,
+                snark_coordinator_host: None,
             },
             TopologyInfo::SnarkCoordinator(snark_info) => ServiceConfig {
                 service_type: snark_info.service_type.clone(),
                 service_name,
                 docker_image: snark_info.docker_image.clone(),
                 git_build: snark_info.git_build.clone(),
-                client_port: None,
+                client_port: Some(client_port),
                 public_key: Some(snark_info.pk.clone()),
                 public_key_path: None,
                 private_key: Some(snark_info.sk.clone()),
                 private_key_path: None,
                 libp2p_keypair: None,
                 libp2p_keypair_path: Some(snark_info.libp2p_keyfile.clone()),
+                libp2p_peerid: Some(snark_info.libp2p_peerid.clone()),
                 peers: None,
                 peers_list_path: Some(peer_list_file.to_path_buf()),
-                snark_coordinator_port: Some(7000),
+                snark_coordinator_port: None,
                 snark_coordinator_fees: Some(snark_info.snark_worker_fee.clone()),
                 snark_worker_proof_level: Some("full".to_string()),
                 archive_schema_files: None,
                 archive_port: None,
+                worker_nodes: Some(snark_info.worker_nodes),
+                snark_coordinator_host: None,
             },
         }
     }
@@ -161,7 +170,9 @@ impl Topology {
     pub fn services(&self, peer_list_file: &Path) -> Vec<ServiceConfig> {
         let mut client_port = 7070;
         let archive_port = 3086;
-        self.topology
+
+        let mut services: Vec<ServiceConfig> = self
+            .topology
             .iter()
             .map(|(service_name, service_info)| {
                 client_port += 5;
@@ -172,9 +183,32 @@ impl Topology {
                     archive_port,
                 )
             })
-            .collect()
+            .collect();
+
+        let snark_coordinator_services: Vec<ServiceConfig> = services
+            .iter()
+            .filter(|service| service.service_type == ServiceType::SnarkCoordinator)
+            .cloned()
+            .collect();
+
+        for coordinator in snark_coordinator_services {
+            services.extend(
+                (1..=coordinator.worker_nodes.unwrap()).map(|i| ServiceConfig {
+                    service_type: ServiceType::SnarkWorker,
+                    service_name: format!("{}-worker_{}", coordinator.service_name, i),
+                    docker_image: coordinator.docker_image.clone(),
+                    snark_coordinator_port: coordinator.client_port,
+                    snark_worker_proof_level: coordinator.snark_worker_proof_level.clone(),
+                    snark_coordinator_host: Some(coordinator.service_name.clone()),
+                    ..Default::default()
+                }),
+            );
+        }
+
+        services
     }
 
+    #[allow(dead_code)]
     pub fn seeds(&self) -> Vec<NodeTopologyInfo> {
         self.topology
             .values()
@@ -541,5 +575,42 @@ mod tests {
         assert_eq!(num_bps, 4);
         assert_eq!(num_seeds, 2);
         assert_eq!(num_scs, 1);
+    }
+
+    #[test]
+    fn test_topology_to_services() {
+        let path = PathBuf::from("./tests/data/large_network/topology.json");
+        let topology = Topology::new(&path).unwrap();
+        let peer_list_file = PathBuf::from("./tests/data/large_network/peers.txt");
+        let services = topology.services(&peer_list_file);
+
+        let num_services = services.len();
+        let num_archives = services
+            .iter()
+            .filter(|service| service.service_type == ServiceType::ArchiveNode)
+            .count();
+        let num_bps = services
+            .iter()
+            .filter(|service| service.service_type == ServiceType::BlockProducer)
+            .count();
+        let num_seeds = services
+            .iter()
+            .filter(|service| service.service_type == ServiceType::Seed)
+            .count();
+        let num_scs = services
+            .iter()
+            .filter(|service| service.service_type == ServiceType::SnarkCoordinator)
+            .count();
+        let num_workers = services
+            .iter()
+            .filter(|service| service.service_type == ServiceType::SnarkWorker)
+            .count();
+
+        assert_eq!(num_services, 12);
+        assert_eq!(num_archives, 1);
+        assert_eq!(num_bps, 4);
+        assert_eq!(num_seeds, 2);
+        assert_eq!(num_scs, 1);
+        assert_eq!(num_workers, 4);
     }
 }

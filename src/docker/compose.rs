@@ -43,6 +43,7 @@ struct Defaults {
 struct Environment {
     mina_privkey_pass: String,
     mina_libp2p_pass: String,
+    mina_client_trustlist: String,
 }
 
 #[derive(Default, Serialize)]
@@ -112,13 +113,20 @@ impl DockerCompose {
                                 ServiceType::SnarkCoordinator => {
                                     config.generate_snark_coordinator_command()
                                 }
-                                ServiceType::SnarkWorker => config.generate_snark_worker_command(),
+                                ServiceType::SnarkWorker => {
+                                    config.generate_snark_worker_command(network_name.to_string())
+                                }
                                 _ => String::new(),
                             }),
                             ports: match config.client_port {
                                 Some(port) => {
                                     let gql_port = port + 1;
-                                    Some(vec![format!("{}:{}", gql_port, gql_port)])
+                                    let external_port = port + 2;
+                                    Some(vec![
+                                        format!("{}:{}", gql_port, gql_port),
+                                        port.to_string(),
+                                        external_port.to_string(),
+                                    ])
                                 }
                                 None => None,
                             },
@@ -185,6 +193,7 @@ impl DockerCompose {
                 environment: Environment {
                     mina_privkey_pass: "naughty blue worm".to_string(),
                     mina_libp2p_pass: "naughty blue worm".to_string(),
+                    mina_client_trustlist: "0.0.0.0/0".to_string(),
                 },
             },
             volumes,
@@ -206,6 +215,7 @@ impl DockerCompose {
         .replace("<<: '*default-attributes'", "<<: *default-attributes")
         .replace("mina_privkey_pass", "MINA_PRIVKEY_PASS")
         .replace("mina_libp2p_pass", "MINA_LIBP2P_PASS")
+        .replace("mina_client_trustlist", "MINA_CLIENT_TRUSTLIST")
         .replace("null", "")
     }
 }
@@ -312,7 +322,7 @@ mod tests {
         let file = std::path::PathBuf::from("./tests/data/large_network/topology.json");
         let contents = std::fs::read_to_string(file)?;
         let topology: Topology = serde_json::from_str(&contents)?;
-        let peers_file = dir_manager.create_peer_list_file(network_id, &topology.seeds(), 7070)?;
+        let peers_file = dir_manager.peers_list_path(network_id);
         let services = topology.services(&peers_file);
         let compose_contents = DockerCompose::generate(&services, &network_path);
 
