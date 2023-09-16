@@ -103,6 +103,8 @@ impl ServiceConfig {
             "Trace".to_string(),
             "-config-directory".to_string(),
             format!("/config-directory/{}", self.service_name),
+            "-precomputed-blocks-file".to_string(),
+            "/config-directory/precomputed_blocks.log".to_string(),
             // "-bind-ip".to_string(),
             // "0.0.0.0".to_string(),
         ]
