@@ -7,20 +7,15 @@
 //! - Shut down active services.
 //! - Handle interactions with the Docker CLI.
 
+use crate::{docker::compose::DockerCompose, service::ServiceConfig, utils::run_command};
+use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::io::Write;
 use std::{
     io::Result,
     path::{Path, PathBuf},
     process::Output,
 };
-
-use serde::{Deserialize, Serialize};
-
-use crate::service::ServiceConfig;
-use crate::utils::run_command;
-use std::fs::File;
-use std::io::Write;
-
-use super::compose::DockerCompose;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContainerInfo {
@@ -224,6 +219,22 @@ impl DockerManager {
         } else {
             None
         }
+    }
+
+    /// Execute a command in a compose service
+    pub fn compose_dump_precomputed_blocks(
+        &self,
+        node_id: &str,
+        network_id: &str,
+    ) -> Result<Output> {
+        let service = format!("{node_id}-{network_id}");
+        let command = vec![
+            "exec",
+            &service,
+            "cat",
+            "/config-directory/precomputed_blocks.log",
+        ];
+        self.run_docker_compose(&command)
     }
 
     /// filter container by service name

@@ -342,7 +342,7 @@ fn main() -> Result<()> {
                     Ok(output) => {
                         println!("{}", String::from_utf8_lossy(&output.stdout));
                     }
-                    Err(e) => error!("{e}"),
+                    Err(e) => error!("Error while running 'docker logs {node_id}'{e}"),
                 }
 
                 Ok(())
@@ -364,12 +364,29 @@ fn main() -> Result<()> {
             NodeCommand::DumpPrecomputedBlocks(cmd) => {
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
-                // let container = format!("{node_id}-{network_id}");
-                // let network_path = directory_manager.network_path(cmd.network_id());
-                // let docker = DockerManager::new(&network_path);
-                // TODO dump the percomputed blocks of container
+                let network_path = directory_manager.network_path(cmd.network_id());
+                let docker = DockerManager::new(&network_path);
 
-                info!("Node dump precomputed blocks command with node_id '{node_id}', network_id '{network_id}'.");
+                match docker.compose_dump_precomputed_blocks(node_id, network_id) {
+                    Ok(output) => {
+                        if output.status.success() {
+                            info!("Successfully dumped precomputed blocks for '{node_id}' on '{network_id}'");
+                            println!("{}", String::from_utf8_lossy(&output.stdout));
+                        } else {
+                            let error_message = format!(
+                                "Failed to dump precomputed blocks for '{node_id}' on '{network_id}'"
+                            );
+                            print_error(&error_message, &String::from_utf8_lossy(&output.stderr))?;
+                        }
+                    }
+                    Err(e) => {
+                        let error_message = format!(
+                            "Failed to dump precomputed blocks for '{node_id}' on '{network_id}'"
+                        );
+                        print_error(&error_message, &e.to_string())?;
+                    }
+                }
+
                 Ok(())
             }
 
