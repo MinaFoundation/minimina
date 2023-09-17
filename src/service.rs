@@ -264,10 +264,16 @@ impl ServiceConfig {
         }
     }
 
-    pub fn is_seed(&self) -> bool {
-        if ServiceType::Seed == self.service_type {
-            return true;
-        }
-        false
+    pub fn get_seeds(services: &[Self]) -> Vec<&Self> {
+        services
+            .iter()
+            .filter(|service| ServiceType::Seed == service.service_type)
+            .collect()
+    }
+
+    pub fn get_archive_node(services: &[Self]) -> Option<&Self> {
+        services
+            .iter()
+            .find(|s| s.service_type == ServiceType::ArchiveNode)
     }
 }

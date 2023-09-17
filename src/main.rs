@@ -421,18 +421,16 @@ fn create_network(
             info!("Successfully created docker-compose for network '{network_id}'!");
 
             // if we have archive node we need to create database and apply schema scripts
-            if let Some(archive_node) = services
-                .iter()
-                .find(|s| s.service_type == ServiceType::ArchiveNode)
-            {
+            if let Some(archive_node) = ServiceConfig::get_archive_node(services) {
                 // start postgres container
                 let postgres_name = format!("postgres-{network_id}");
-                let error_message = format!("Failed to start '{postgres_name}' container.");
+                let error_message =
+                    format!("Failed to start postgres container in '{network_id}'.");
 
                 match docker.compose_start(vec![&postgres_name]) {
                     Ok(out) => {
                         if out.status.success() {
-                            info!("Successfully started '{postgres_name}' container!");
+                            info!("Successfully started postgres container in '{network_id}'!");
                         } else {
                             return print_error(
                                 &error_message,
@@ -465,15 +463,12 @@ fn create_network(
                 docker.compose_stop(vec![&postgres_name])?;
             }
 
-            // generate command output
-            let result = format!("{}", output::generate_network_info(services, network_id));
-
-            if let Err(e) = write(directory_manager.network_file_path(network_id), &result) {
+            let output = format!("{}", output::generate_network_info(services, network_id));
+            if let Err(e) = write(directory_manager.network_file_path(network_id), &output) {
                 error!("Error generating network.json: {e}")
             }
 
-            // print result to stdout
-            println!("{result}");
+            println!("{output}");
             Ok(())
         }
         Err(e) => {
@@ -849,10 +844,7 @@ fn create_services(
         Ok(topology) => {
             let peer_list_file = directory_manager.peer_list_file(network_id);
             let services = topology.services(&peer_list_file);
-            let peers: Vec<&ServiceConfig> = services
-                .iter()
-                .filter(|service| service.is_seed())
-                .collect();
+            let peers: Vec<&ServiceConfig> = ServiceConfig::get_seeds(&services);
             directory_manager.create_peer_list_file(network_id, &peers)?;
 
             if peers.is_empty() {
