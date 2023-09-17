@@ -614,24 +614,12 @@ fn generate_default_topology(
         service_type: ServiceType::BlockProducer,
         service_name: bp_1_name.to_string(),
         docker_image: Some(docker_image.into()),
-        git_build: None,
         client_port: Some(4000),
         public_key: Some(bp_keys[bp_1_name].key_string.clone()),
         public_key_path: Some(bp_keys[bp_1_name].key_path_docker.clone()),
-        private_key: None,
-        private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[bp_1_name].key_string.clone()),
-        libp2p_keypair_path: None,
-        libp2p_peerid: None,
         peers: Some(vec![peer.clone()]),
-        peer_list_file: None,
-        snark_coordinator_fees: None,
-        snark_coordinator_port: None,
-        snark_worker_proof_level: None,
-        archive_schema_files: None,
-        archive_port: None,
-        worker_nodes: None,
-        snark_coordinator_host: None,
+        ..Default::default()
     };
 
     let bp_2_name = "mina-bp-2";
@@ -639,24 +627,12 @@ fn generate_default_topology(
         service_type: ServiceType::BlockProducer,
         service_name: bp_2_name.to_string(),
         docker_image: Some(docker_image.into()),
-        git_build: None,
         client_port: Some(4005),
         public_key: Some(bp_keys[bp_2_name].key_string.clone()),
         public_key_path: Some(bp_keys[bp_2_name].key_path_docker.clone()),
-        private_key: None,
-        private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[bp_2_name].key_string.clone()),
-        libp2p_keypair_path: None,
-        libp2p_peerid: None,
         peers: Some(vec![peer.clone()]),
-        peer_list_file: None,
-        snark_coordinator_fees: None,
-        snark_coordinator_port: None,
-        snark_worker_proof_level: None,
-        archive_schema_files: None,
-        archive_port: None,
-        worker_nodes: None,
-        snark_coordinator_host: None,
+        ..Default::default()
     };
 
     let snark_coordinator_name = "mina-snark-coordinator";
@@ -664,24 +640,13 @@ fn generate_default_topology(
         service_type: ServiceType::SnarkCoordinator,
         service_name: snark_coordinator_name.to_string(),
         docker_image: Some(docker_image.into()),
-        git_build: None,
         client_port: Some(7000),
         public_key: Some(bp_keys[snark_coordinator_name].key_string.clone()),
-        public_key_path: None,
-        private_key: None,
-        private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[snark_coordinator_name].key_string.clone()),
-        libp2p_keypair_path: None,
-        libp2p_peerid: None,
         peers: Some(vec![peer]),
-        peer_list_file: None,
         snark_coordinator_fees: Some("0.001".into()),
-        snark_coordinator_port: None,
-        snark_worker_proof_level: None,
-        archive_schema_files: None,
-        archive_port: None,
         worker_nodes: Some(1),
-        snark_coordinator_host: None,
+        ..Default::default()
     };
 
     let snark_worker_1_name = "mina-snark-worker-1";
@@ -689,24 +654,10 @@ fn generate_default_topology(
         service_type: ServiceType::SnarkWorker,
         service_name: snark_worker_1_name.to_string(),
         docker_image: Some(docker_image.into()),
-        git_build: None,
-        client_port: None,
-        public_key: None,
-        public_key_path: None,
-        private_key: None,
-        private_key_path: None,
-        libp2p_keypair: None,
-        libp2p_keypair_path: None,
-        libp2p_peerid: None,
-        peers: None,
-        peer_list_file: None,
-        snark_coordinator_fees: None,
         snark_coordinator_port: Some(7000),
         snark_worker_proof_level: Some("none".into()),
-        archive_schema_files: None,
-        archive_port: None,
-        worker_nodes: None,
         snark_coordinator_host: Some(snark_coordinator.service_name.clone()),
+        ..Default::default()
     };
 
     let archive_node_name = "mina-archive";
@@ -714,27 +665,12 @@ fn generate_default_topology(
         service_type: ServiceType::ArchiveNode,
         service_name: archive_node_name.to_string(),
         docker_image: Some(docker_image_archive.into()),
-        git_build: None,
-        client_port: None,
-        public_key: None,
-        public_key_path: None,
-        private_key: None,
-        private_key_path: None,
-        libp2p_keypair: None,
-        libp2p_keypair_path: None,
-        libp2p_peerid: None,
-        peers: None,
-        peer_list_file: None,
-        snark_coordinator_fees: None,
-        snark_coordinator_port: None,
-        snark_worker_proof_level: None,
         archive_schema_files: Some(vec![
             "https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/create_schema.sql".into(),
             "https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/zkapp_tables.sql".into()
         ]),
         archive_port: Some(3086),
-        worker_nodes: None,
-        snark_coordinator_host: None,
+        ..Default::default()
     };
 
     vec![
