@@ -606,11 +606,11 @@ mod tests {
             .filter(|service| service.service_type == ServiceType::SnarkWorker)
             .count();
 
-        assert_eq!(num_services, 12);
+        assert_eq!(num_services, 10);
         assert_eq!(num_archives, 1);
         assert_eq!(num_bps, 4);
         assert_eq!(num_seeds, 2);
         assert_eq!(num_scs, 1);
-        assert_eq!(num_workers, 4);
+        assert_eq!(num_workers, 2);
     }
 }
