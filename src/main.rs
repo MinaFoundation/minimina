@@ -245,8 +245,8 @@ fn main() -> Result<()> {
 
         Command::Node(node_cmd) => match node_cmd {
             NodeCommand::Start(cmd) => {
-                let node_id = cmd.node_id().to_string();
-                let network_id = cmd.network_id().to_string();
+                let node_id = cmd.node_args.node_id().to_string();
+                let network_id = cmd.node_args.network_id().to_string();
                 let container = format!("{node_id}-{network_id}");
                 let network_path = directory_manager.network_path(&network_id);
                 let docker = DockerManager::new(&network_path);
