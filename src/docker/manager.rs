@@ -118,8 +118,17 @@ impl DockerManager {
         self.run_docker_compose(&["up", "-d"])
     }
 
-    pub fn compose_down(&self, remove_volumes: bool, remove_images: bool) -> Result<Output> {
-        let mut args = vec!["down", "--remove-orphans"];
+    pub fn compose_down(
+        &self,
+        specific_service: Option<String>,
+        remove_volumes: bool,
+        remove_images: bool,
+    ) -> Result<Output> {
+        let mut args = vec!["down"];
+        let specific_service = specific_service.as_deref();
+        if let Some(service) = specific_service {
+            args.push(service);
+        }
 
         if remove_volumes {
             args.push("--volumes");
@@ -130,12 +139,18 @@ impl DockerManager {
             args.push("all");
         }
 
+        args.push("--remove-orphans");
         self.run_docker_compose(&args)
     }
 
     /// Create the network
-    pub fn compose_create(&self) -> Result<Output> {
-        self.run_docker_compose(&["create"])
+    pub fn compose_create(&self, specific_service: Option<String>) -> Result<Output> {
+        let mut args = vec!["create"];
+        let specific_service = specific_service.as_deref();
+        if let Some(service) = specific_service {
+            args.push(service);
+        }
+        self.run_docker_compose(&args)
     }
 
     /// Start all services in the network

@@ -158,7 +158,7 @@ pub mod node {
 
     #[derive(Debug, Serialize, PartialEq)]
     pub struct Start {
-        // pub fresh_state: bool,
+        pub fresh_state: bool,
         pub network_id: String,
         pub node_id: String,
     }

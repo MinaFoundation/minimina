@@ -87,7 +87,7 @@ pub struct StartNetworkArgs {
 #[derive(Subcommand)]
 pub enum NodeCommand {
     /// Start a node
-    Start(NodeCommandArgs),
+    Start(StartNodeCommandArgs),
     /// Stop a node
     Stop(NodeCommandArgs),
     /// Dump the node's logs to stdout
@@ -116,17 +116,27 @@ pub struct GlobalSlot {
 
 #[derive(Args, Debug)]
 pub struct NodeCommandArgs {
-    /// Node identifier
-    #[clap(flatten)]
-    pub node_id: NodeId,
-
     /// Network identifier
     #[clap(flatten)]
     pub network_id: NetworkId,
 
+    /// Node identifier
+    #[clap(flatten)]
+    pub node_id: NodeId,
+
     /// Log level filter
     #[clap(short = 'l', long, default_value = "warn")]
     pub log_level: String,
+}
+
+#[derive(Args, Debug)]
+pub struct StartNodeCommandArgs {
+    /// Start node with fresh state
+    #[clap(short = 'f', long, default_value_t = false)]
+    pub fresh_state: bool,
+
+    #[clap(flatten)]
+    pub node_args: NodeCommandArgs,
 }
 
 #[derive(Args, Debug)]
@@ -225,8 +235,8 @@ impl DefaultLogLevel for Command {
                 NodeCommand::DumpArchiveData(args)
                 | NodeCommand::DumpPrecomputedBlocks(args)
                 | NodeCommand::Logs(args)
-                | NodeCommand::Start(args)
                 | NodeCommand::Stop(args) => args.log_level(),
+                NodeCommand::Start(args) => args.node_args.log_level(),
                 NodeCommand::RunReplayer(args) => args.log_level(),
             },
         }
@@ -331,8 +341,32 @@ mod tests {
 
         match cli.command {
             Command::Node(NodeCommand::Start(args)) => {
-                assert_eq!(args.node_id(), "test");
-                assert_eq!(args.network_id(), "default");
+                assert_eq!(args.node_args.node_id(), "test");
+                assert_eq!(args.node_args.network_id(), "default");
+                assert!(!args.fresh_state);
+            }
+            _ => panic!("Unexpected command parsed"),
+        }
+    }
+
+    #[test]
+    fn test_node_start_fresh_state() {
+        let args = vec![
+            "minimina",
+            "node",
+            "start",
+            "--node-id",
+            "test",
+            "--fresh-state",
+        ];
+
+        let cli = Cli::parse_from(args);
+
+        match cli.command {
+            Command::Node(NodeCommand::Start(args)) => {
+                assert_eq!(args.node_args.node_id(), "test");
+                assert_eq!(args.node_args.network_id(), "default");
+                assert!(args.fresh_state);
             }
             _ => panic!("Unexpected command parsed"),
         }

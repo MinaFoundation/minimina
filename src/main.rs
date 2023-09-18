@@ -157,7 +157,7 @@ fn main() -> Result<()> {
                 check_network_exists(&network_id)?;
 
                 let docker = DockerManager::new(&directory_manager.network_path(&network_id));
-                match docker.compose_down(true, true) {
+                match docker.compose_down(None, true, true) {
                     Ok(_) => match directory_manager.delete_network_directory(&network_id) {
                         Ok(_) => {
                             println!("{}", network::Delete { network_id });
@@ -245,23 +245,31 @@ fn main() -> Result<()> {
 
         Command::Node(node_cmd) => match node_cmd {
             NodeCommand::Start(cmd) => {
-                let node_id = cmd.node_id().to_string();
-                let network_id = cmd.network_id().to_string();
+                let node_id = cmd.node_args.node_id().to_string();
+                let network_id = cmd.node_args.network_id().to_string();
                 let container = format!("{node_id}-{network_id}");
                 let network_path = directory_manager.network_path(&network_id);
                 let docker = DockerManager::new(&network_path);
                 let nodes = docker.compose_ps(None)?;
 
-                match docker.filter_container_by_name(nodes, &container) {
+                let mut fresh_state;
+
+                fresh_state = match docker.filter_container_by_name(nodes, &container) {
                     Some(node) => match node.state {
                         ContainerState::Running => {
                             warn!("Node '{node_id}' is already running in network '{network_id}'.");
+                            false
+                        }
+                        ContainerState::Created => {
+                            info!("Starting node '{node_id}' in network '{network_id}' for the first time.");
+                            true
                         }
                         container_state => {
                             info!(
                                 "Node '{node_id}' is {} in network '{network_id}'.",
                                 container_state.to_string()
                             );
+                            false
                         }
                     },
                     None => {
@@ -269,6 +277,13 @@ fn main() -> Result<()> {
                             format!("Node '{node_id}' does not exist in network '{network_id}'.");
                         return handle_start_error(&node_id, error.as_str());
                     }
+                };
+
+                if cmd.fresh_state {
+                    info!("Starting node '{node_id}' in network '{network_id}' with fresh state.");
+                    docker.compose_down(Some(container.clone()), true, false)?;
+                    docker.compose_create(Some(container.clone()))?;
+                    fresh_state = true;
                 }
 
                 match docker.compose_start(vec![&container]) {
@@ -277,6 +292,7 @@ fn main() -> Result<()> {
                             println!(
                                 "{}",
                                 node::Start {
+                                    fresh_state,
                                     node_id,
                                     network_id,
                                 }
@@ -383,7 +399,7 @@ fn create_network(
     network_id: &str,
     services: &[ServiceConfig],
 ) -> Result<()> {
-    match docker.compose_create() {
+    match docker.compose_create(None) {
         Ok(_) => {
             info!("Successfully created docker-compose for network '{network_id}'!");
 
@@ -729,7 +745,7 @@ fn check_setup_network(
 ) -> Result<()> {
     if directory_manager.network_path_exists(network_id) {
         warn!("Network '{network_id}' already exists. Overwriting!");
-        docker.compose_down(false, false)?;
+        docker.compose_down(None, false, false)?;
         directory_manager.delete_network_directory(network_id)?;
     }
 
