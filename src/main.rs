@@ -202,8 +202,7 @@ fn main() -> Result<()> {
 
                 check_network_exists(&network_id)?;
                 if let Err(e) = directory_manager.check_genesis_timestamp(&network_id) {
-                    error!("{e} Update it by running 'network create' again. Exiting.");
-                    exit(1);
+                    warn!("{e} In case network is unstable consider updating by running 'network create' again.");
                 }
 
                 match docker.compose_start_all() {

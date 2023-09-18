@@ -184,7 +184,6 @@ impl DirectoryManager {
     }
 
     /// Checks whether the genesis timestamp is too far in the past.
-    /// If it is, it is overwritten to `now()`
     pub fn check_genesis_timestamp(&self, network_id: &str) -> Result<()> {
         use chrono::{prelude::*, Duration};
 
@@ -203,22 +202,23 @@ impl DirectoryManager {
                 .unwrap(),
         )
         .unwrap();
-        let k = genesis
-            .get("k")
-            .expect("'k' field should be present in 'genesis' object")
-            .to_string()
-            .parse::<u32>()
-            .expect("'k' should be a u32");
+
+        // use k genesis parameter to calculate cutoff time
+        // in case k is not present, use default value of 20
+        let k = match genesis.get("k") {
+            Some(k) => k.to_string().parse::<u32>().unwrap(),
+            None => 20 as u32,
+        };
         let cutoff = Local::now()
             .checked_sub_signed(Duration::minutes((k / 2 * 3) as i64))
             .unwrap();
 
         // if we're outside of the first half of the first transition frontier,
-        // we overwrite the genesis timestamp to now
+        // we throw an error
         if cutoff > genesis_timestamp {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Genesis timestamp '{genesis_timestamp}' is outdated."),
+                format!("Genesis timestamp '{genesis_timestamp}' may be outdated."),
             ));
         }
 
