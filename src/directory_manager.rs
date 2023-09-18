@@ -207,7 +207,7 @@ impl DirectoryManager {
         // in case k is not present, use default value of 20
         let k = match genesis.get("k") {
             Some(k) => k.to_string().parse::<u32>().unwrap(),
-            None => 20 as u32,
+            None => 20_u32,
         };
         let cutoff = Local::now()
             .checked_sub_signed(Duration::minutes((k / 2 * 3) as i64))

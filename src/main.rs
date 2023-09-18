@@ -57,7 +57,7 @@ fn main() -> Result<()> {
                 let network_path = directory_manager.network_path(&network_id);
                 let docker = DockerManager::new(&network_path);
 
-                check_setup_network(&directory_manager, &network_id)?;
+                check_setup_network(&docker, &directory_manager, &network_id)?;
 
                 // key-pairs for block producers and libp2p keys for all services
                 // for default network (not topology based)
@@ -157,7 +157,7 @@ fn main() -> Result<()> {
                 check_network_exists(&network_id)?;
 
                 let docker = DockerManager::new(&directory_manager.network_path(&network_id));
-                match docker.compose_down() {
+                match docker.compose_down(true, true) {
                     Ok(_) => match directory_manager.delete_network_directory(&network_id) {
                         Ok(_) => {
                             println!("{}", network::Delete { network_id });
@@ -722,9 +722,15 @@ fn generate_default_topology(
 /// If the network exists, its directory is deleted, corresponding docker
 /// images are removed, and it is created anew.
 /// If the network doesn't exist, the directory structure is created.
-fn check_setup_network(directory_manager: &DirectoryManager, network_id: &str) -> Result<()> {
+fn check_setup_network(
+    docker: &DockerManager,
+    directory_manager: &DirectoryManager,
+    network_id: &str,
+) -> Result<()> {
     if directory_manager.network_path_exists(network_id) {
         warn!("Network '{network_id}' already exists. Overwriting!");
+        docker.compose_down(false, false)?;
+        directory_manager.delete_network_directory(network_id)?;
     }
 
     // create directory structure for network

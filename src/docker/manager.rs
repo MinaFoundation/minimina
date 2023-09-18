@@ -118,8 +118,19 @@ impl DockerManager {
         self.run_docker_compose(&["up", "-d"])
     }
 
-    pub fn compose_down(&self) -> Result<Output> {
-        self.run_docker_compose(&["down", "--volumes", "--remove-orphans", "--rmi", "all"])
+    pub fn compose_down(&self, remove_volumes: bool, remove_images: bool) -> Result<Output> {
+        let mut args = vec!["down", "--remove-orphans"];
+
+        if remove_volumes {
+            args.push("--volumes");
+        }
+
+        if remove_images {
+            args.push("--rmi");
+            args.push("all");
+        }
+
+        self.run_docker_compose(&args)
     }
 
     /// Create the network
