@@ -14,7 +14,11 @@ use crate::service::ServiceConfig;
 use dirs::home_dir;
 use log::info;
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    io::Result,
+    path::{Path, PathBuf},
+};
 
 pub struct DirectoryManager {
     pub base_path: PathBuf,
@@ -54,7 +58,7 @@ impl DirectoryManager {
         ["network-keypairs", "libp2p-keypairs"]
     }
 
-    pub fn generate_dir_structure(&self, network_id: &str) -> std::io::Result<PathBuf> {
+    pub fn generate_dir_structure(&self, network_id: &str) -> Result<PathBuf> {
         info!(
             "Creating directory structure for network-id '{}'",
             network_id
@@ -83,19 +87,19 @@ impl DirectoryManager {
         network_path.exists()
     }
 
-    pub fn create_network_directory(&self, network_id: &str) -> std::io::Result<()> {
+    pub fn create_network_directory(&self, network_id: &str) -> Result<()> {
         let network_path = self.network_path(network_id);
-        std::fs::create_dir_all(network_path)
+        fs::create_dir_all(network_path)
     }
 
-    pub fn delete_network_directory(&self, network_id: &str) -> std::io::Result<()> {
+    pub fn delete_network_directory(&self, network_id: &str) -> Result<()> {
         let network_path = self.network_path(network_id);
-        std::fs::remove_dir_all(network_path)
+        fs::remove_dir_all(network_path)
     }
 
-    pub fn list_network_directories(&self) -> std::io::Result<Vec<String>> {
+    pub fn list_network_directories(&self) -> Result<Vec<String>> {
         let mut networks = vec![];
-        for entry in std::fs::read_dir(&self.base_path)? {
+        for entry in fs::read_dir(&self.base_path)? {
             let entry = entry?;
             if entry.file_type()?.is_dir() {
                 if let Some(network_id) = entry.file_name().to_str() {
@@ -106,16 +110,16 @@ impl DirectoryManager {
         Ok(networks)
     }
 
-    fn create_subdirectories(&self, network_id: &str) -> std::io::Result<()> {
+    fn create_subdirectories(&self, network_id: &str) -> Result<()> {
         for subdirectory in self.subdirectories_paths(network_id) {
-            std::fs::create_dir_all(subdirectory)?;
+            fs::create_dir_all(subdirectory)?;
         }
         Ok(())
     }
 
-    fn set_subdirectories_permissions(&self, network_id: &str, mode: u32) -> std::io::Result<()> {
+    fn set_subdirectories_permissions(&self, network_id: &str, mode: u32) -> Result<()> {
         for subdirectory in self.subdirectories_paths(network_id) {
-            std::fs::set_permissions(subdirectory, std::fs::Permissions::from_mode(mode))?;
+            fs::set_permissions(subdirectory, fs::Permissions::from_mode(mode))?;
         }
         Ok(())
     }
@@ -126,7 +130,7 @@ impl DirectoryManager {
         &self,
         network_id: &str,
         services: &Vec<ServiceConfig>,
-    ) -> std::io::Result<()> {
+    ) -> Result<()> {
         let network_keys = self.network_path(network_id).join(self.subdirectories[0]);
         let libp2p_keys = self.network_path(network_id).join(self.subdirectories[1]);
 
@@ -137,7 +141,7 @@ impl DirectoryManager {
                     .clone()
                     .join(format!("{}.json", &service.service_name));
 
-                std::fs::copy(network_key_path, &service_network_key)?;
+                fs::copy(network_key_path, &service_network_key)?;
                 set_key_file_permissions(&service_network_key)?;
             }
 
@@ -147,7 +151,7 @@ impl DirectoryManager {
                     .clone()
                     .join(format!("{}.json", &service.service_name));
 
-                std::fs::copy(libp2p_key_path, &service_libp2p_key)?;
+                fs::copy(libp2p_key_path, &service_libp2p_key)?;
                 set_key_file_permissions(&service_libp2p_key)?;
             }
         }
@@ -155,19 +159,15 @@ impl DirectoryManager {
         Ok(())
     }
 
-    pub fn peers_list_path(&self, network_id: &str) -> PathBuf {
+    pub fn peer_list_file(&self, network_id: &str) -> PathBuf {
         self.network_path(network_id).join("peer_list_file.txt")
     }
 
-    pub fn create_peer_list_file(
-        &self,
-        network_id: &str,
-        peers: Vec<&ServiceConfig>,
-        peer_list_path: PathBuf,
-    ) -> std::io::Result<PathBuf> {
+    pub fn create_peer_list_file(&self, network_id: &str, peers: &[&ServiceConfig]) -> Result<()> {
         use std::io::Write;
 
-        let mut file = std::fs::File::create(peer_list_path.clone()).unwrap();
+        let peer_list_path = self.peer_list_file(network_id);
+        let mut file = fs::File::create(peer_list_path)?;
 
         for peer in peers {
             let peer_hostname = format!("{}-{}", peer.service_name, network_id);
@@ -180,12 +180,94 @@ impl DirectoryManager {
             )?;
         }
 
-        Ok(peer_list_path)
+        Ok(())
+    }
+
+    /// Checks whether the genesis timestamp is too far in the past.
+    pub fn check_genesis_timestamp(&self, network_id: &str) -> Result<()> {
+        use chrono::{prelude::*, Duration};
+
+        let network_path = self.network_path(network_id);
+        let genesis_ledger_path = network_path.join("genesis_ledger.json");
+        let contents = fs::read_to_string(genesis_ledger_path)?;
+        let json: serde_json::Value = serde_json::from_str(&contents)?;
+        let genesis = json
+            .get("genesis")
+            .expect("'genesis' field should be present in genesis ledger");
+        let genesis_timestamp = DateTime::parse_from_rfc3339(
+            genesis
+                .get("genesis_state_timestamp")
+                .expect("'genesis_state_timestamp' should be a field in 'genesis' object")
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+
+        // use k genesis parameter to calculate cutoff time
+        // in case k is not present, use default value of 20
+        let k = match genesis.get("k") {
+            Some(k) => k.to_string().parse::<u32>().unwrap(),
+            None => 20_u32,
+        };
+        let cutoff = Local::now()
+            .checked_sub_signed(Duration::minutes((k / 2 * 3) as i64))
+            .unwrap();
+
+        // if we're outside of the first half of the first transition frontier,
+        // we throw an error
+        if cutoff > genesis_timestamp {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Genesis timestamp '{genesis_timestamp}' may be outdated."),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Copies the genesis ledger at `genesis_ledger_path` to the network directory
+    pub fn copy_genesis_ledger(&self, network_id: &str, genesis_ledger_path: &Path) -> Result<()> {
+        let network_genesis_path = self.genesis_ledger_path(network_id);
+        fs::copy(genesis_ledger_path, network_genesis_path).map(|_| ())
+    }
+
+    pub fn overwrite_genesis_timestamp(
+        &self,
+        network_id: &str,
+        genesis_ledger_path: &Path,
+    ) -> Result<()> {
+        use crate::genesis_ledger::current_timestamp;
+        use fs::{read_to_string, write};
+
+        let contents = read_to_string(genesis_ledger_path)?;
+        let mut ledger: serde_json::Value = serde_json::from_str(&contents)?;
+        let genesis = ledger.get_mut("genesis").unwrap();
+        let timestamp = genesis.get_mut("genesis_state_timestamp").unwrap();
+
+        *timestamp = serde_json::Value::String(current_timestamp());
+
+        let contents = serde_json::to_string_pretty(&ledger)?;
+        write(self.genesis_ledger_path(network_id), contents)
+    }
+
+    /// Returns the genesis ledger path for the given network
+    pub fn genesis_ledger_path(&self, network_id: &str) -> PathBuf {
+        self.network_path(network_id).join("genesis_ledger.json")
+    }
+
+    /// Returns the network file path for the given network
+    pub fn network_file_path(&self, network_id: &str) -> PathBuf {
+        self.network_path(network_id).join("network.json")
+    }
+
+    /// Returns the topology file path for the given network
+    pub fn topology_file_path(&self, network_id: &str) -> PathBuf {
+        self.network_path(network_id).join("topology.json")
     }
 }
 
-fn set_key_file_permissions(file: &Path) -> std::io::Result<()> {
-    std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o600))?;
+fn set_key_file_permissions(file: &Path) -> Result<()> {
+    fs::set_permissions(file, fs::Permissions::from_mode(0o600))?;
     Ok(())
 }
 
@@ -277,7 +359,7 @@ mod tests {
             let mut subdir_path = dir_manager._base_path().clone();
             subdir_path.push(network_id);
             subdir_path.push(subdir);
-            let metadata = std::fs::metadata(subdir_path).unwrap();
+            let metadata = fs::metadata(subdir_path).unwrap();
             assert!(metadata.permissions().readonly());
         }
 
@@ -292,7 +374,6 @@ mod tests {
         );
         let network_id = "test_network";
         let subdirectories = dir_manager.subdirectories;
-
         let paths = dir_manager.subdirectories_paths(network_id);
 
         for (path, subdir) in paths.iter().zip(&subdirectories) {
@@ -301,5 +382,61 @@ mod tests {
             subdir_path.push(subdir);
             assert_eq!(path, &subdir_path);
         }
+    }
+
+    #[test]
+    fn test_check_genesis_timestamp() -> Result<()> {
+        use chrono::{prelude::*, Duration};
+
+        let base_path = "/tmp/test_check_genesis_timestamp";
+        let network_id = "test_network";
+        let dir_manager = DirectoryManager::_new_with_base_path(base_path.into());
+        let genesis_ledger_path = dir_manager
+            .network_path(network_id)
+            .join("genesis_ledger.json");
+        fs::create_dir_all(PathBuf::from(base_path).join(network_id))?;
+
+        let k = 20;
+        let now = Local::now();
+        let old_time = now
+            .checked_sub_signed(Duration::minutes(k / 2 * 3 + 1))
+            .unwrap()
+            .format("%Y-%m-%dT%H:%M:%S%.6f%Z");
+        let recent_time = now
+            .checked_sub_signed(Duration::minutes(k / 2 * 3 - 1))
+            .unwrap()
+            .format("%Y-%m-%dT%H:%M:%S%.6f%Z");
+
+        let old_genesis = format!(
+            "{{
+                \"genesis\": {{
+                    \"k\": {k},
+                    \"genesis_state_timestamp\": \"{old_time}\"
+                }}
+            }}"
+        );
+        let recent_genesis = format!(
+            "{{
+                \"genesis\": {{
+                    \"k\": {k},
+                    \"genesis_state_timestamp\": \"{recent_time}\"
+                }}
+            }}",
+        );
+
+        println!("Old:    {old_time}");
+        println!("Recent: {recent_time}");
+
+        // genesis ledger is too old so the timestamp will be overwritten
+        fs::write(genesis_ledger_path.clone(), old_genesis.clone())?;
+        assert!(dir_manager.check_genesis_timestamp(network_id).is_err());
+
+        // genesis ledger is recent enough so the timestamp will not be overwritten
+        fs::write(genesis_ledger_path.clone(), recent_genesis.clone())?;
+        assert!(dir_manager.check_genesis_timestamp(network_id).is_ok());
+
+        dir_manager.delete_network_directory(network_id)?;
+
+        Ok(())
     }
 }

@@ -5,7 +5,7 @@
     "role": "Snark_coordinator",
     "docker_image": "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup4-14047c5-bullseye-berkeley",
     "git_build": null,
-    "worker_nodes": 4,
+    "worker_nodes": 2,
     "snark_worker_fee": "0.0001",
     "libp2p_pass": "naughty blue worm",
     "libp2p_keyfile": "./tests/data/large_network/libp2p_keys/snark-node.json",

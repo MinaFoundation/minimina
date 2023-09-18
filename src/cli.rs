@@ -6,7 +6,7 @@ use clap::{Args, Parser, Subcommand};
 #[command(
     author,
     version,
-    about = "MiniMina - A Command-line Tool for Spinning up Mina Network Locally"
+    about = "MiniMina - A Command-line Tool for Spinning up Local Mina Networks"
 )]
 #[command(propagate_version = true)]
 pub struct Cli {
@@ -38,18 +38,19 @@ pub enum NetworkCommand {
     /// Get details of a local network
     Info(NetworkId),
     /// Start a local network
-    Start(NetworkId),
+    Start(StartNetworkArgs),
     /// Stop a local network
     Stop(NetworkId),
 }
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 pub struct NetworkId {
+    /// Network identifier
     #[clap(short, long, default_value = "default")]
     pub network_id: String,
 }
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct CreateNetworkArgs {
     /// Path to the (JSON) topology file
     #[clap(short = 't', long)]
@@ -62,6 +63,25 @@ pub struct CreateNetworkArgs {
     /// Network identifier
     #[clap(flatten)]
     pub network_id: NetworkId,
+
+    /// Specify log level
+    #[clap(short = 'l', long, default_value = "warn")]
+    pub log_level: String,
+}
+
+#[derive(Args, Clone)]
+pub struct StartNetworkArgs {
+    /// Network identifier
+    #[clap(flatten)]
+    pub network_id: NetworkId,
+
+    /// Network identifier
+    #[clap(short = 'v', long, default_value_t = false)]
+    pub verbose: bool,
+
+    /// Specify log level
+    #[clap(short = 'l', long, default_value = "warn")]
+    pub log_level: String,
 }
 
 #[derive(Subcommand)]
@@ -82,66 +102,134 @@ pub enum NodeCommand {
 
 #[derive(Args, Debug)]
 pub struct NodeId {
+    /// Node identifier
     #[clap(short = 'i', long)]
     pub node_id: String,
 }
 
 #[derive(Args, Debug)]
 pub struct GlobalSlot {
+    /// Global slot since genesis
     #[clap(short = 's', long)]
     pub global_slot: u32,
 }
 
 #[derive(Args, Debug)]
 pub struct NodeCommandArgs {
+    /// Node identifier
     #[clap(flatten)]
     pub node_id: NodeId,
 
+    /// Network identifier
     #[clap(flatten)]
     pub network_id: NetworkId,
+
+    /// Log level filter
+    #[clap(short = 'l', long, default_value = "warn")]
+    pub log_level: String,
 }
 
 #[derive(Args, Debug)]
 pub struct ReplayerArgs {
+    /// Node identifier
     #[clap(flatten)]
     pub node_id: NodeId,
 
+    /// Network identifier
     #[clap(flatten)]
     pub network_id: NetworkId,
 
+    /// Global slot since genesis
     #[clap(flatten)]
     pub start_slot_since_genesis: GlobalSlot,
+
+    /// Log level filter
+    #[clap(short = 'l', long, default_value = "warn")]
+    pub log_level: String,
 }
 
-impl NodeCommandArgs {
-    // helper functions to get node_id and network_id
-    pub fn node_id(&self) -> &str {
-        &self.node_id.node_id
-    }
+pub trait DefaultLogLevel {
+    fn log_level(&self) -> &str;
+}
 
-    pub fn network_id(&self) -> &str {
-        &self.network_id.network_id
-    }
+trait LogLevel {
+    fn log_level(&self) -> &str;
+}
+
+pub trait CommandWithNetworkId {
+    fn network_id(&self) -> &str;
+}
+
+pub trait CommandWithNodeId {
+    fn node_id(&self) -> &str;
 }
 
 impl ReplayerArgs {
-    pub fn node_id(&self) -> &str {
-        &self.node_id.node_id
-    }
-
-    pub fn network_id(&self) -> &str {
-        &self.network_id.network_id
-    }
-
     pub fn start_slot_since_genesis(&self) -> u32 {
         self.start_slot_since_genesis.global_slot
     }
 }
 
-impl CreateNetworkArgs {
-    // helper function to get network_id
-    pub fn network_id(&self) -> &str {
-        &self.network_id.network_id
+macro_rules! log_level {
+    ($name:path) => {
+        impl LogLevel for $name {
+            fn log_level(&self) -> &str {
+                &self.log_level
+            }
+        }
+    };
+}
+
+macro_rules! network_id {
+    ($name:path) => {
+        impl CommandWithNetworkId for $name {
+            fn network_id(&self) -> &str {
+                &self.network_id.network_id
+            }
+        }
+    };
+}
+
+macro_rules! node_id {
+    ($name:path) => {
+        impl CommandWithNodeId for $name {
+            fn node_id(&self) -> &str {
+                &self.node_id.node_id
+            }
+        }
+    };
+}
+
+log_level!(StartNetworkArgs);
+log_level!(CreateNetworkArgs);
+log_level!(NodeCommandArgs);
+log_level!(ReplayerArgs);
+
+network_id!(StartNetworkArgs);
+network_id!(CreateNetworkArgs);
+network_id!(NodeCommandArgs);
+network_id!(ReplayerArgs);
+
+node_id!(NodeCommandArgs);
+node_id!(ReplayerArgs);
+
+impl DefaultLogLevel for Command {
+    fn log_level(&self) -> &str {
+        match self {
+            Command::Network(cmd) => match cmd {
+                NetworkCommand::Create(args) => args.log_level(),
+                NetworkCommand::Start(args) => args.log_level(),
+                _ => "warn",
+            },
+            Command::Node(cmd) => match cmd {
+                NodeCommand::DumpArchiveData(args)
+                | NodeCommand::DumpPrecomputedBlocks(args)
+                | NodeCommand::Logs(args)
+                | NodeCommand::Start(args)
+                | NodeCommand::Stop(args) => args.log_level(),
+                NodeCommand::RunReplayer(args) => args.log_level(),
+            },
+        }
     }
 }
 
@@ -215,7 +303,7 @@ mod tests {
 
         match cli.command {
             Command::Network(NetworkCommand::Start(args)) => {
-                assert_eq!(args.network_id, "test");
+                assert_eq!(args.network_id(), "test");
             }
             _ => panic!("Unexpected command parsed"),
         }

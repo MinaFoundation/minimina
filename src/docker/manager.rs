@@ -7,8 +7,11 @@
 //! - Shut down active services.
 //! - Handle interactions with the Docker CLI.
 
-use std::path::{Path, PathBuf};
-use std::process::Output;
+use std::{
+    io::Result,
+    path::{Path, PathBuf},
+    process::Output,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -90,65 +93,76 @@ impl DockerManager {
         }
     }
 
-    pub fn compose_generate_file(&self, configs: &[ServiceConfig]) -> std::io::Result<()> {
+    pub fn compose_generate_file(&self, configs: &[ServiceConfig]) -> Result<()> {
         let mut file = File::create(&self.compose_path)?;
         let contents = DockerCompose::generate(configs, &self.network_path);
         file.write_all(contents.as_bytes())?;
         Ok(())
     }
 
-    pub fn exec(&self, service: &str, cmd: &[&str]) -> std::io::Result<Output> {
+    pub fn exec(&self, service: &str, cmd: &[&str]) -> Result<Output> {
         let mut args = vec!["exec", "-i", service];
         args.extend_from_slice(cmd);
         let out = run_command("docker", &args)?;
         Ok(out)
     }
 
-    pub fn cp(&self, service: &str, src: &Path, dest: &Path) -> std::io::Result<Output> {
+    pub fn cp(&self, service: &str, src: &Path, dest: &Path) -> Result<Output> {
         let destination = format!("{}:{}", service, dest.to_str().unwrap());
         let args = vec!["cp", src.to_str().unwrap(), destination.as_str()];
         let out = run_command("docker", &args)?;
         Ok(out)
     }
 
-    pub fn _compose_up(&self) -> std::io::Result<Output> {
+    pub fn _compose_up(&self) -> Result<Output> {
         self.run_docker_compose(&["up", "-d"])
     }
 
-    pub fn compose_down(&self) -> std::io::Result<Output> {
-        self.run_docker_compose(&["down", "--volumes", "--remove-orphans", "--rmi", "all"])
+    pub fn compose_down(&self, remove_volumes: bool, remove_images: bool) -> Result<Output> {
+        let mut args = vec!["down", "--remove-orphans"];
+
+        if remove_volumes {
+            args.push("--volumes");
+        }
+
+        if remove_images {
+            args.push("--rmi");
+            args.push("all");
+        }
+
+        self.run_docker_compose(&args)
     }
 
     /// Create the network
-    pub fn compose_create(&self) -> std::io::Result<Output> {
+    pub fn compose_create(&self) -> Result<Output> {
         self.run_docker_compose(&["create"])
     }
 
     /// Start all services in the network
-    pub fn compose_start_all(&self) -> std::io::Result<Output> {
+    pub fn compose_start_all(&self) -> Result<Output> {
         self.run_docker_compose(&["start"])
     }
 
     /// Stop all services in the network
-    pub fn compose_stop_all(&self) -> std::io::Result<Output> {
+    pub fn compose_stop_all(&self) -> Result<Output> {
         self.run_docker_compose(&["stop"])
     }
 
     /// Start a subset of services in the network
-    pub fn compose_start(&self, services: Vec<&str>) -> std::io::Result<Output> {
+    pub fn compose_start(&self, services: Vec<&str>) -> Result<Output> {
         let mut cmd = vec!["start"];
         cmd.extend(services);
         self.run_docker_compose(&cmd)
     }
 
     /// Stop a subset of services in the network
-    pub fn compose_stop(&self, services: Vec<&str>) -> std::io::Result<Output> {
+    pub fn compose_stop(&self, services: Vec<&str>) -> Result<Output> {
         let mut cmd = vec!["stop"];
         cmd.extend(services);
         self.run_docker_compose(&cmd)
     }
 
-    pub fn compose_ls(&self) -> std::io::Result<Vec<ComposeInfo>> {
+    pub fn compose_ls(&self) -> Result<Vec<ComposeInfo>> {
         let output = self.run_docker_compose(&["ls", "--format", "json"])?;
         let stdout_str = String::from_utf8_lossy(&output.stdout);
         let compose_info = serde_json::from_str(&stdout_str)?;
@@ -156,10 +170,7 @@ impl DockerManager {
     }
 
     /// Get docker info of all services in the network
-    pub fn compose_ps(
-        &self,
-        filter: Option<ContainerState>,
-    ) -> std::io::Result<Vec<ContainerInfo>> {
+    pub fn compose_ps(&self, filter: Option<ContainerState>) -> Result<Vec<ContainerInfo>> {
         let mut cmd: Vec<String> = vec![
             "ps".to_string(),
             "-a".to_string(),
@@ -168,18 +179,8 @@ impl DockerManager {
         ];
 
         if let Some(state) = filter {
-            let state_str = match state {
-                ContainerState::Created => "created",
-                ContainerState::Exited => "exited",
-                ContainerState::Running => "running",
-                ContainerState::Paused => "paused",
-                ContainerState::Restarting => "restarting",
-                ContainerState::Removing => "removing",
-                ContainerState::Dead => "dead",
-                ContainerState::Unknown => "unknown",
-            };
             cmd.push("--filter".to_string());
-            cmd.push(format!("status={}", state_str));
+            cmd.push(format!("status={}", state.to_string()));
         }
 
         // Convert Vec<String> to Vec<&str> for compatibility with run_docker_compose
@@ -235,7 +236,7 @@ impl DockerManager {
         }
     }
 
-    fn run_docker_compose(&self, subcommands: &[&str]) -> std::io::Result<Output> {
+    fn run_docker_compose(&self, subcommands: &[&str]) -> Result<Output> {
         let network_id = self
             .network_path
             .file_name()
@@ -258,5 +259,26 @@ impl DockerManager {
 
         let out = run_command("docker", &args)?;
         Ok(out)
+    }
+
+    pub fn run_docker_logs(&self, node_id: &str, network_id: &str) -> Result<Output> {
+        let container = format!("{node_id}-{network_id}");
+        let args: Vec<&str> = vec!["logs", &container];
+        run_command("docker", &args)
+    }
+}
+
+impl ToString for ContainerState {
+    fn to_string(&self) -> String {
+        match self {
+            ContainerState::Created => "created".into(),
+            ContainerState::Exited => "exited".into(),
+            ContainerState::Running => "running".into(),
+            ContainerState::Paused => "paused".into(),
+            ContainerState::Restarting => "restarting".into(),
+            ContainerState::Removing => "removing".into(),
+            ContainerState::Dead => "dead".into(),
+            ContainerState::Unknown => "unknown".into(),
+        }
     }
 }

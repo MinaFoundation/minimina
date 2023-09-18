@@ -158,7 +158,7 @@ pub mod node {
 
     #[derive(Debug, Serialize, PartialEq)]
     pub struct Start {
-        pub fresh_state: bool,
+        // pub fresh_state: bool,
         pub network_id: String,
         pub node_id: String,
     }
@@ -215,7 +215,7 @@ impl ServiceConfig {
     }
 }
 
-pub fn generate_network_info(services: Vec<ServiceConfig>, network_id: &str) -> network::Create {
+pub fn generate_network_info(services: &[ServiceConfig], network_id: &str) -> network::Create {
     let mut nodes: HashMap<String, node::Info> = HashMap::new();
     for service in services.iter() {
         nodes.insert(service.service_name.clone(), service.to_node_info());
@@ -275,7 +275,7 @@ mod tests {
             libp2p_keypair_path: None,
             libp2p_peerid: None,
             peers: None,
-            peers_list_path: None,
+            peer_list_file: None,
             snark_coordinator_port: None,
             snark_coordinator_fees: None,
             snark_worker_proof_level: None,
@@ -306,6 +306,6 @@ mod tests {
                 .unwrap(),
             &serde_json::to_value("Block_producer").unwrap()
         );
-        assert_eq!(expect, generate_network_info(services, network_id));
+        assert_eq!(expect, generate_network_info(&services, network_id));
     }
 }
