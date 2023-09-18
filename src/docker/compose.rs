@@ -37,7 +37,6 @@ where
 
 #[derive(Serialize)]
 struct Defaults {
-    volumes: Vec<String>,
     environment: Environment,
 }
 
@@ -71,7 +70,6 @@ struct Service {
 }
 
 const CONFIG_DIRECTORY: &str = "config-directory";
-const ARCHIVE_DATA: &str = "archive-data";
 const POSTGRES_DATA: &str = "postgres-data";
 
 impl DockerCompose {
@@ -80,8 +78,6 @@ impl DockerCompose {
             .to_str()
             .expect("Failed to convert network path to str");
         let network_name = network_path.file_name().unwrap().to_str().unwrap();
-        let mut volumes = HashMap::new();
-        volumes.insert(CONFIG_DIRECTORY.to_string(), None);
 
         let archive_data = configs.iter().find_map(|config| {
             if config.service_type == ServiceType::ArchiveNode {
@@ -91,6 +87,14 @@ impl DockerCompose {
                 None
             }
         });
+
+        //insert volumes for each service
+        let mut volumes = configs.iter().fold(HashMap::new(), |mut acc, config| {
+            let service_name = format!("{}-{network_name}", config.service_name.clone());
+            acc.insert(service_name, None);
+            acc
+        });
+
         let mut services: HashMap<String, Service> = configs
             .iter()
             .filter_map(|config| {
@@ -99,13 +103,16 @@ impl DockerCompose {
                     // because it requires adding additional service: postgres
                     ServiceType::ArchiveNode => None,
                     _ => {
+                        let service_name =
+                            format!("{}-{network_name}", config.service_name.clone());
                         let service = Service {
                             merge: Some("*default-attributes"),
-                            container_name: format!(
-                                "{}-{network_name}",
-                                config.service_name.clone()
-                            ),
+                            container_name: service_name.clone(),
                             entrypoint: Some(vec!["mina".to_string()]),
+                            volumes: Some(vec![
+                                format!("{}:/local-network", network_path_string),
+                                format!("{}:/{}", service_name, CONFIG_DIRECTORY),
+                            ]),
                             image: config
                                 .docker_image
                                 .clone()
@@ -150,9 +157,8 @@ impl DockerCompose {
             .iter()
             .find(|config| config.service_type == ServiceType::ArchiveNode)
         {
-            // Add archive and postres volumes
+            // Add postres volume
             volumes.insert(POSTGRES_DATA.to_string(), None);
-            volumes.insert(ARCHIVE_DATA.to_string(), None);
 
             let mut postgres_environment = HashMap::new();
             postgres_environment.insert("POSTGRES_PASSWORD".to_string(), "postgres".to_string());
@@ -177,13 +183,13 @@ impl DockerCompose {
             services.insert(
                 archive_name.clone(),
                 Service {
-                    container_name: archive_name,
+                    container_name: archive_name.clone(),
                     image: archive_config
                         .docker_image
                         .clone()
                         .unwrap_or(DEFAULT_ARCHIVE_DOCKER_IMAGE.into()),
                     command: Some(archive_command),
-                    volumes: Some(vec![format!("{}:/data", ARCHIVE_DATA)]),
+                    volumes: Some(vec![format!("{}:/data", archive_name)]),
                     ports: Some(vec![archive_port.to_string()]),
                     depends_on: Some(vec![postgres_name]),
                     ..Default::default()
@@ -194,10 +200,6 @@ impl DockerCompose {
         let compose = DockerCompose {
             version: "3.8".to_string(),
             x_defaults: Defaults {
-                volumes: vec![
-                    format!("{}:/local-network", network_path_string),
-                    format!("{}:/{}", CONFIG_DIRECTORY, CONFIG_DIRECTORY),
-                ],
                 environment: Environment {
                     mina_privkey_pass: "naughty blue worm".to_string(),
                     mina_libp2p_pass: "naughty blue worm".to_string(),
@@ -282,7 +284,6 @@ mod tests {
         assert!(docker_compose.contains("mina-archive555"));
         assert!(docker_compose.contains("postgres"));
         assert!(docker_compose.contains("postgres-data"));
-        assert!(docker_compose.contains("archive-data"));
         assert!(docker_compose.contains("-archive-address"));
     }
 
