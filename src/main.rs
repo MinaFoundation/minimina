@@ -436,7 +436,7 @@ fn create_network(
             // generate command output
             let result = format!("{}", output::generate_network_info(services, network_id));
 
-            if let Err(e) = write(directory_manager.network_path(network_id), &result) {
+            if let Err(e) = write(directory_manager.network_file_path(network_id), &result) {
                 error!("Error generating network.json: {e}")
             }
 
