@@ -177,7 +177,7 @@ pub mod node {
     }
 
     #[derive(Debug, Serialize, PartialEq)]
-    pub struct MinaLogs {
+    pub struct Logs {
         pub logs: String,
         pub network_id: String,
         pub node_id: String,
@@ -248,7 +248,7 @@ impl_display!(network::Delete);
 impl_display!(node::Start);
 impl_display!(node::Stop);
 impl_display!(node::ArchiveData);
-impl_display!(node::MinaLogs);
+impl_display!(node::Logs);
 impl_display!(node::PrecomputedBlocks);
 impl_display!(node::ReplayerLogs);
 impl_display!(node::Status);

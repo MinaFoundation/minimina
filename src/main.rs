@@ -357,15 +357,30 @@ fn main() -> Result<()> {
             }
 
             NodeCommand::DumpArchiveData(cmd) => {
+                // TODO postgres dump of archive with container
+                // check the node is archive, exit with error if not
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
-                // check the node is archive, exit with error if not
-                // let container = format!("{node_id}-{network_id}");
-                // let network_path = directory_manager.network_path(cmd.network_id());
-                // let docker = DockerManager::new(&network_path);
-                // TODO postgres dump of archive with container
+                let network_path = directory_manager.network_path(cmd.network_id());
+                let docker = DockerManager::new(&network_path);
 
-                info!("Node dump archive data command with node_id '{node_id}', network_id '{network_id}'.");
+                match docker.compose_dump_archive_data(network_id) {
+                    Ok(output) => {
+                        info!("Node dump archive data command with node_id '{node_id}', network_id '{network_id}'.");
+                        println!(
+                            "{}",
+                            output::node::ArchiveData {
+                                data: String::from_utf8_lossy(&output.stdout).into(), // TODO
+                                network_id: network_id.into(),
+                                node_id: node_id.into(),
+                            }
+                        )
+                    }
+                    Err(e) => {
+                        error!("Error while dumping archive data for '{node_id}' on '{network_id}': {e}")
+                    }
+                }
+
                 Ok(())
             }
 
@@ -399,19 +414,38 @@ fn main() -> Result<()> {
             }
 
             NodeCommand::RunReplayer(cmd) => {
+                // TODO run mina replayer on container
+                // check if node is archive, exit with error if not
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
-                // check if node is archive, exit with error if not
-                // let container = format!("{node_id}-{network_id}");
-                // let network_path = directory_manager.network_path(cmd.network_id());
-                // let docker = DockerManager::new(&network_path);
-                // TODO run mina replayer on container
+                let network_path = directory_manager.network_path(cmd.network_id());
+                let docker = DockerManager::new(&network_path);
 
                 info!(
                     "Node logs command with node_id '{node_id}', network_id '{network_id}', \
                         start_slot_since_genesis '{}'.",
                     cmd.start_slot_since_genesis(),
                 );
+
+                match docker.compose_run_replayer(node_id, network_id) {
+                    Ok(output) => {
+                        info!("Successfully ran replayer for '{node_id}' on '{network_id}'");
+                        println!(
+                            "{}",
+                            output::node::ReplayerLogs {
+                                logs: String::from_utf8_lossy(&output.stdout).into(), // TODO
+                                network_id: network_id.into(),
+                                node_id: node_id.into(),
+                            }
+                        )
+                    }
+                    Err(e) => {
+                        error!(
+                            "Error while running replayer for '{node_id}' on '{network_id}': {e}"
+                        )
+                    }
+                }
+
                 Ok(())
             }
         },
@@ -597,24 +631,10 @@ fn generate_default_topology(
         service_type: ServiceType::Seed,
         service_name: seed_name.to_string(),
         docker_image: Some(docker_image.into()),
-        git_build: None,
         client_port: Some(3100),
-        public_key: None,
-        public_key_path: None,
-        private_key: None,
-        private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[seed_name].key_string.clone()),
-        libp2p_keypair_path: None,
         libp2p_peerid: Some(libp2p_peerid.to_string()),
-        peers: None,
-        peer_list_file: None,
-        snark_coordinator_fees: None,
-        snark_coordinator_port: None,
-        snark_worker_proof_level: None,
-        archive_schema_files: None,
-        archive_port: None,
-        worker_nodes: None,
-        snark_coordinator_host: None,
+        ..Default::default()
     };
 
     let bp_1_name = "mina-bp-1";
