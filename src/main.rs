@@ -84,14 +84,14 @@ fn main() -> Result<()> {
 
                 // copy libp2p + network keys
                 if let Err(e) = directory_manager.copy_all_network_keys(&network_id, &services) {
-                    error!("Failed to copy keys with error: {e}");
-                    exit(1);
+                    return exit_with(format!("Failed to copy keys with error: {e}"));
                 }
 
                 // generate docker compose
                 if let Err(e) = docker.compose_generate_file(&services) {
-                    error!("Failed to generate docker-compose.yaml with error: {e}");
-                    exit(1);
+                    return exit_with(format!(
+                        "Failed to generate docker-compose.yaml with error: {e}"
+                    ));
                 }
 
                 create_network(&docker, &directory_manager, &network_id, &services)
@@ -110,7 +110,7 @@ fn main() -> Result<()> {
                         let error_message = format!(
                             "Failed to get info for network '{network_id}' with error: {e}"
                         );
-                        print_error(&error_message, &e.to_string())
+                        exit_with(error_message)
                     }
                 }
             }
@@ -125,10 +125,9 @@ fn main() -> Result<()> {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get status from docker compose ls for network '{network_id}'."
+                            "Failed to get status from docker compose ls for network '{network_id}': {e}."
                         );
-
-                        return print_error(&error_message, &e.to_string());
+                        return exit_with(error_message);
                     }
                 };
 
@@ -136,10 +135,9 @@ fn main() -> Result<()> {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get status from docker compose ps for network '{network_id}'."
+                            "Failed to get status from docker compose ps for network '{network_id}': {e}."
                         );
-
-                        return print_error(&error_message, &e.to_string());
+                        return exit_with(error_message);
                     }
                 };
 
@@ -164,14 +162,15 @@ fn main() -> Result<()> {
                             Ok(())
                         }
                         Err(e) => {
-                            let error_message =
-                                format!("Failed to delete network directory for '{network_id}'.");
-                            print_error(&error_message, &e.to_string())
+                            let error_message = format!(
+                                "Failed to delete network directory for '{network_id}': {e}"
+                            );
+                            exit_with(error_message)
                         }
                     },
                     Err(e) => {
-                        let error_message = format!("Failed to delete network '{network_id}'.");
-                        print_error(&error_message, &e.to_string())
+                        let error_message = format!("Failed to delete network '{network_id}': {e}");
+                        exit_with(error_message)
                     }
                 }
             }
@@ -217,8 +216,8 @@ fn main() -> Result<()> {
                         Ok(())
                     }
                     Err(e) => {
-                        let error_message = format!("Failed to start network '{network_id}'.");
-                        print_error(&error_message, &e.to_string())
+                        let error_message = format!("Failed to start network '{network_id}': {e}");
+                        exit_with(error_message)
                     }
                 }
             }
@@ -236,8 +235,8 @@ fn main() -> Result<()> {
                         Ok(())
                     }
                     Err(e) => {
-                        let error_message = format!("Failed to stop network '{network_id}'.");
-                        print_error(&error_message, &e.to_string())
+                        let error_message = format!("Failed to stop network '{network_id}': {e}");
+                        exit_with(error_message)
                     }
                 }
             }
@@ -344,12 +343,11 @@ fn main() -> Result<()> {
                             info!("Successfully got logs for '{node_id}' on '{network_id}'");
                             println!("{}", String::from_utf8_lossy(&output.stdout));
                         } else {
-                            let error_message =
-                                format!("Failed to get logs for '{node_id}' on '{network_id}'");
-                            return print_error(
-                                &error_message,
-                                &String::from_utf8_lossy(&output.stderr),
+                            let error_message = format!(
+                                "Failed to get logs for '{node_id}' on '{network_id}': {}",
+                                String::from_utf8_lossy(&output.stderr)
                             );
+                            return exit_with(error_message);
                         }
                     }
                     Err(e) => error!("Error while running 'docker logs {node_id}'{e}"),
@@ -384,19 +382,16 @@ fn main() -> Result<()> {
                             println!("{}", String::from_utf8_lossy(&output.stdout));
                         } else {
                             let error_message = format!(
-                                "Failed to dump precomputed blocks for '{node_id}' on '{network_id}'"
+                                "Failed to dump precomputed blocks for '{node_id}' on '{network_id}': {}", String::from_utf8_lossy(&output.stderr)
                             );
-                            return print_error(
-                                &error_message,
-                                &String::from_utf8_lossy(&output.stderr),
-                            );
+                            return exit_with(error_message);
                         }
                     }
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to dump precomputed blocks for '{node_id}' on '{network_id}'"
+                            "Failed to dump precomputed blocks for '{node_id}' on '{network_id}': {e}"
                         );
-                        return print_error(&error_message, &e.to_string());
+                        return exit_with(error_message);
                     }
                 }
 
@@ -445,15 +440,14 @@ fn create_network(
                         if out.status.success() {
                             info!("Successfully started postgres container in '{network_id}'!");
                         } else {
-                            return print_error(
-                                &error_message,
-                                &String::from_utf8_lossy(&out.stderr),
-                            );
+                            return exit_with(format!(
+                                "{}: {}",
+                                error_message,
+                                String::from_utf8_lossy(&out.stderr)
+                            ));
                         }
                     }
-                    Err(e) => {
-                        return print_error(&error_message, &e.to_string());
-                    }
+                    Err(e) => return exit_with(format!("{error_message}: {e}")),
                 };
 
                 // make sure postgres is running
@@ -485,9 +479,10 @@ fn create_network(
             Ok(())
         }
         Err(e) => {
-            let error_message =
-                format!("Failed to register network '{network_id}' with 'docker compose create'.");
-            print_error(&error_message, &e.to_string())
+            let error_message = format!(
+                "Failed to register network '{network_id}' with 'docker compose create': {e}"
+            );
+            exit_with(error_message)
         }
     }
 }
@@ -713,8 +708,9 @@ fn check_setup_network(
     // create directory structure for network
     info!("Creating network '{network_id}'.");
     if let Err(e) = directory_manager.generate_dir_structure(network_id) {
-        error!("Failed to set up network directory structure for '{network_id}' with error: {e}");
-        exit(1);
+        return exit_with(format!(
+            "Failed to set up network directory structure for '{network_id}' with error: {e}"
+        ));
     }
 
     Ok(())
@@ -724,19 +720,14 @@ fn check_setup_network(
 fn check_network_exists(network_id: &str) -> Result<()> {
     let directory_manager = DirectoryManager::new();
     if directory_manager.network_path_exists(network_id) {
-        return Ok(());
+        Ok(())
     } else {
-        let error_message = format!("Network '{network_id}' does not exist.");
-        let error = format!(
-            "Network directory '{}' does not exist.",
+        let error_message = format!(
+            "Network directory '{}' does not exist, therefore network '{network_id}' does not exist too.",
             directory_manager.network_path(network_id).display()
         );
-
-        print_error(&error_message, &error)?
+        exit_with(error_message)
     }
-
-    error!("Network '{network_id}' does not exist");
-    exit(1)
 }
 
 /// Handles `network_id`'s genesis ledger
@@ -754,13 +745,10 @@ fn handle_genesis_ledger(
     match &cmd.genesis_ledger {
         Some(genesis_ledger_path) => {
             if cmd.topology.is_none() {
-                error!(
-                    "Must provide a topology file with a genesis ledger, \
-                     keys will be incompatible otherwise."
-                );
-
                 directory_manager.delete_network_directory(network_id)?;
-                exit(1);
+                return exit_with(
+                    "Must provide a topology file with a genesis ledger, keys will be incompatible otherwise.".to_string(),
+                );
             }
 
             info!(
@@ -889,19 +877,18 @@ fn check_compose_version() -> Result<()> {
     }
 }
 
-fn print_error(error_message: &str, error: &str) -> Result<()> {
-    let error_message = format!("{error_message}: {error}");
+fn exit_with(error_message: String) -> Result<()> {
     error!("{error_message}");
     println!("{}", output::Error { error_message });
-    Ok(())
+    exit(1);
 }
 
 fn handle_stop_error(node_id: &str, error: impl ToString) -> Result<()> {
-    let error_message = format!("Failed to stop node '{node_id}'");
-    print_error(&error_message, error.to_string().as_str())
+    let error_message = format!("Failed to stop node '{node_id}': {}", error.to_string());
+    exit_with(error_message)
 }
 
 fn handle_start_error(node_id: &str, error: impl ToString) -> Result<()> {
-    let error_message: String = format!("Failed to start node '{node_id}'");
-    print_error(&error_message, error.to_string().as_str())
+    let error_message = format!("Failed to start node '{node_id}': {}", error.to_string());
+    exit_with(error_message)
 }
