@@ -340,7 +340,17 @@ fn main() -> Result<()> {
 
                 match docker.run_docker_logs(node_id, network_id) {
                     Ok(output) => {
-                        println!("{}", String::from_utf8_lossy(&output.stdout));
+                        if output.status.success() {
+                            info!("Successfully got logs for '{node_id}' on '{network_id}'");
+                            println!("{}", String::from_utf8_lossy(&output.stdout));
+                        } else {
+                            let error_message =
+                                format!("Failed to get logs for '{node_id}' on '{network_id}'");
+                            return print_error(
+                                &error_message,
+                                &String::from_utf8_lossy(&output.stderr),
+                            );
+                        }
                     }
                     Err(e) => error!("Error while running 'docker logs {node_id}'{e}"),
                 }
@@ -376,14 +386,17 @@ fn main() -> Result<()> {
                             let error_message = format!(
                                 "Failed to dump precomputed blocks for '{node_id}' on '{network_id}'"
                             );
-                            print_error(&error_message, &String::from_utf8_lossy(&output.stderr))?;
+                            return print_error(
+                                &error_message,
+                                &String::from_utf8_lossy(&output.stderr),
+                            );
                         }
                     }
                     Err(e) => {
                         let error_message = format!(
                             "Failed to dump precomputed blocks for '{node_id}' on '{network_id}'"
                         );
-                        print_error(&error_message, &e.to_string())?;
+                        return print_error(&error_message, &e.to_string());
                     }
                 }
 
