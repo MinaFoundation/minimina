@@ -28,7 +28,7 @@ use std::{
     collections::HashMap,
     fs::{read_to_string, write},
     io::{Error, ErrorKind, Result},
-    path::Path,
+    path::{Path, PathBuf},
     process::exit,
 };
 
@@ -357,27 +357,42 @@ fn main() -> Result<()> {
             }
 
             NodeCommand::DumpArchiveData(cmd) => {
-                // TODO postgres dump of archive with container
-                // check the node is archive, exit with error if not
-                let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
+                let node_id = cmd.node_id();
                 let network_path = directory_manager.network_path(cmd.network_id());
+                let network_file_path = directory_manager.network_file_path(cmd.network_id());
                 let docker = DockerManager::new(&network_path);
+
+                check_network_exists(network_id)?;
+
+                if let Err(e) = is_node_archive(&network_file_path, node_id, network_id) {
+                    return exit_with(e.to_string());
+                }
 
                 match docker.compose_dump_archive_data(network_id) {
                     Ok(output) => {
-                        info!("Node dump archive data command with node_id '{node_id}', network_id '{network_id}'.");
-                        println!(
-                            "{}",
-                            output::node::ArchiveData {
-                                data: String::from_utf8_lossy(&output.stdout).into(), // TODO
-                                network_id: network_id.into(),
-                                node_id: node_id.into(),
-                            }
-                        )
+                        if output.status.success() {
+                            info!("Successfully dumped archive data for node '{node_id}', network '{network_id}'");
+                            println!(
+                                "{}",
+                                output::node::ArchiveData {
+                                    data: String::from_utf8_lossy(&output.stdout).into(),
+                                    network_id: network_id.into(),
+                                    node_id: node_id.into(),
+                                }
+                            )
+                        } else {
+                            let error_message = format!(
+                                "Failed to dump archive data for node '{node_id}', network '{network_id}': {}",
+                                String::from_utf8_lossy(&output.stderr)
+                            );
+                            return exit_with(error_message);
+                        }
                     }
                     Err(e) => {
-                        error!("Error while dumping archive data for '{node_id}' on '{network_id}': {e}")
+                        return exit_with(format!(
+                            "Error while dumping archive data for node '{node_id}', network_id '{network_id}': {e}"
+                        ))
                     }
                 }
 
@@ -911,4 +926,24 @@ fn handle_stop_error(node_id: &str, error: impl ToString) -> Result<()> {
 fn handle_start_error(node_id: &str, error: impl ToString) -> Result<()> {
     let error_message = format!("Failed to start node '{node_id}': {}", error.to_string());
     exit_with(error_message)
+}
+
+fn is_node_archive(network_file_path: &PathBuf, node_id: &str, network_id: &str) -> Result<()> {
+    let network_info = read_to_string(network_file_path).unwrap();
+    let network_info_data = output::deserialize_network_info(&network_info)?;
+    match network_info_data.nodes.get(node_id) {
+        Some(node) => {
+            if node.is_archive() {
+                Ok(())
+            } else {
+                let error =
+                    format!("Node '{node_id}' is not an archive node in network {network_id}.");
+                Err(Error::new(ErrorKind::InvalidData, error))
+            }
+        }
+        None => {
+            let error = format!("Node '{node_id}' does not exist in network '{network_id}'.",);
+            Err(Error::new(ErrorKind::NotFound, error))
+        }
+    }
 }
