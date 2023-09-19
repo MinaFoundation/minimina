@@ -239,9 +239,10 @@ impl DockerManager {
 
     /// Execute `pg_dump` on the postgres db
     pub fn compose_dump_archive_data(&self, network_id: &str) -> Result<Output> {
-        // TODO
         let service = format!("postgres-{network_id}");
-        let cmd = &["exec", &service, "pg_dump", "--output-file", "TODO"];
+        let cmd = &[
+            "exec", &service, "pg_dump", "--insert", "-U", "postgres", "archive",
+        ];
         self.run_docker_compose(cmd)
     }
 
