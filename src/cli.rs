@@ -409,4 +409,27 @@ mod tests {
             _ => panic!("Unexpected command parsed"),
         }
     }
+
+    #[test]
+    fn test_node_dump_precomputed_blocks() {
+        let args = vec![
+            "minimina",
+            "node",
+            "dump-precomputed-blocks",
+            "--node-id",
+            "test_node",
+            "--network-id",
+            "test_network",
+        ];
+
+        let cli = Cli::parse_from(args);
+
+        match cli.command {
+            Command::Node(NodeCommand::DumpPrecomputedBlocks(args)) => {
+                assert_eq!(args.node_id(), "test_node");
+                assert_eq!(args.network_id(), "test_network");
+            }
+            _ => panic!("Unexpected command parsed"),
+        }
+    }
 }

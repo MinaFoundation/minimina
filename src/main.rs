@@ -84,14 +84,14 @@ fn main() -> Result<()> {
 
                 // copy libp2p + network keys
                 if let Err(e) = directory_manager.copy_all_network_keys(&network_id, &services) {
-                    error!("Failed to copy keys with error: {e}");
-                    exit(1);
+                    return exit_with(format!("Failed to copy keys with error: {e}"));
                 }
 
                 // generate docker compose
                 if let Err(e) = docker.compose_generate_file(&services) {
-                    error!("Failed to generate docker-compose.yaml with error: {e}");
-                    exit(1);
+                    return exit_with(format!(
+                        "Failed to generate docker-compose.yaml with error: {e}"
+                    ));
                 }
 
                 create_network(&docker, &directory_manager, &network_id, &services)
@@ -110,7 +110,7 @@ fn main() -> Result<()> {
                         let error_message = format!(
                             "Failed to get info for network '{network_id}' with error: {e}"
                         );
-                        print_error(&error_message, &e.to_string())
+                        exit_with(error_message)
                     }
                 }
             }
@@ -125,10 +125,9 @@ fn main() -> Result<()> {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get status from docker compose ls for network '{network_id}'."
+                            "Failed to get status from docker compose ls for network '{network_id}': {e}."
                         );
-
-                        return print_error(&error_message, &e.to_string());
+                        return exit_with(error_message);
                     }
                 };
 
@@ -136,10 +135,9 @@ fn main() -> Result<()> {
                     Ok(out) => out,
                     Err(e) => {
                         let error_message = format!(
-                            "Failed to get status from docker compose ps for network '{network_id}'."
+                            "Failed to get status from docker compose ps for network '{network_id}': {e}."
                         );
-
-                        return print_error(&error_message, &e.to_string());
+                        return exit_with(error_message);
                     }
                 };
 
@@ -164,14 +162,15 @@ fn main() -> Result<()> {
                             Ok(())
                         }
                         Err(e) => {
-                            let error_message =
-                                format!("Failed to delete network directory for '{network_id}'.");
-                            print_error(&error_message, &e.to_string())
+                            let error_message = format!(
+                                "Failed to delete network directory for '{network_id}': {e}"
+                            );
+                            exit_with(error_message)
                         }
                     },
                     Err(e) => {
-                        let error_message = format!("Failed to delete network '{network_id}'.");
-                        print_error(&error_message, &e.to_string())
+                        let error_message = format!("Failed to delete network '{network_id}': {e}");
+                        exit_with(error_message)
                     }
                 }
             }
@@ -217,8 +216,8 @@ fn main() -> Result<()> {
                         Ok(())
                     }
                     Err(e) => {
-                        let error_message = format!("Failed to start network '{network_id}'.");
-                        print_error(&error_message, &e.to_string())
+                        let error_message = format!("Failed to start network '{network_id}': {e}");
+                        exit_with(error_message)
                     }
                 }
             }
@@ -236,8 +235,8 @@ fn main() -> Result<()> {
                         Ok(())
                     }
                     Err(e) => {
-                        let error_message = format!("Failed to stop network '{network_id}'.");
-                        print_error(&error_message, &e.to_string())
+                        let error_message = format!("Failed to stop network '{network_id}': {e}");
+                        exit_with(error_message)
                     }
                 }
             }
@@ -340,9 +339,18 @@ fn main() -> Result<()> {
 
                 match docker.run_docker_logs(node_id, network_id) {
                     Ok(output) => {
-                        println!("{}", String::from_utf8_lossy(&output.stdout));
+                        if output.status.success() {
+                            info!("Successfully got logs for '{node_id}' on '{network_id}'");
+                            println!("{}", String::from_utf8_lossy(&output.stdout));
+                        } else {
+                            let error_message = format!(
+                                "Failed to get logs for '{node_id}' on '{network_id}': {}",
+                                String::from_utf8_lossy(&output.stderr)
+                            );
+                            return exit_with(error_message);
+                        }
                     }
-                    Err(e) => error!("{e}"),
+                    Err(e) => error!("Error while running 'docker logs {node_id}'{e}"),
                 }
 
                 Ok(())
@@ -364,12 +372,29 @@ fn main() -> Result<()> {
             NodeCommand::DumpPrecomputedBlocks(cmd) => {
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
-                // let container = format!("{node_id}-{network_id}");
-                // let network_path = directory_manager.network_path(cmd.network_id());
-                // let docker = DockerManager::new(&network_path);
-                // TODO dump the percomputed blocks of container
+                let network_path = directory_manager.network_path(cmd.network_id());
+                let docker = DockerManager::new(&network_path);
 
-                info!("Node dump precomputed blocks command with node_id '{node_id}', network_id '{network_id}'.");
+                match docker.compose_dump_precomputed_blocks(node_id, network_id) {
+                    Ok(output) => {
+                        if output.status.success() {
+                            info!("Successfully dumped precomputed blocks for '{node_id}' on '{network_id}'");
+                            println!("{}", String::from_utf8_lossy(&output.stdout));
+                        } else {
+                            let error_message = format!(
+                                "Failed to dump precomputed blocks for '{node_id}' on '{network_id}': {}", String::from_utf8_lossy(&output.stderr)
+                            );
+                            return exit_with(error_message);
+                        }
+                    }
+                    Err(e) => {
+                        let error_message = format!(
+                            "Failed to dump precomputed blocks for '{node_id}' on '{network_id}': {e}"
+                        );
+                        return exit_with(error_message);
+                    }
+                }
+
                 Ok(())
             }
 
@@ -404,28 +429,25 @@ fn create_network(
             info!("Successfully created docker-compose for network '{network_id}'!");
 
             // if we have archive node we need to create database and apply schema scripts
-            if let Some(archive_node) = services
-                .iter()
-                .find(|s| s.service_type == ServiceType::ArchiveNode)
-            {
+            if let Some(archive_node) = ServiceConfig::get_archive_node(services) {
                 // start postgres container
                 let postgres_name = format!("postgres-{network_id}");
-                let error_message = format!("Failed to start '{postgres_name}' container.");
+                let error_message =
+                    format!("Failed to start postgres container in '{network_id}'.");
 
                 match docker.compose_start(vec![&postgres_name]) {
                     Ok(out) => {
                         if out.status.success() {
-                            info!("Successfully started '{postgres_name}' container!");
+                            info!("Successfully started postgres container in '{network_id}'!");
                         } else {
-                            return print_error(
-                                &error_message,
-                                &String::from_utf8_lossy(&out.stderr),
-                            );
+                            return exit_with(format!(
+                                "{}: {}",
+                                error_message,
+                                String::from_utf8_lossy(&out.stderr)
+                            ));
                         }
                     }
-                    Err(e) => {
-                        return print_error(&error_message, &e.to_string());
-                    }
+                    Err(e) => return exit_with(format!("{error_message}: {e}")),
                 };
 
                 // make sure postgres is running
@@ -448,21 +470,19 @@ fn create_network(
                 docker.compose_stop(vec![&postgres_name])?;
             }
 
-            // generate command output
-            let result = format!("{}", output::generate_network_info(services, network_id));
-
-            if let Err(e) = write(directory_manager.network_file_path(network_id), &result) {
+            let output = format!("{}", output::generate_network_info(services, network_id));
+            if let Err(e) = write(directory_manager.network_file_path(network_id), &output) {
                 error!("Error generating network.json: {e}")
             }
 
-            // print result to stdout
-            println!("{result}");
+            println!("{output}");
             Ok(())
         }
         Err(e) => {
-            let error_message =
-                format!("Failed to register network '{network_id}' with 'docker compose create'.");
-            print_error(&error_message, &e.to_string())
+            let error_message = format!(
+                "Failed to register network '{network_id}' with 'docker compose create': {e}"
+            );
+            exit_with(error_message)
         }
     }
 }
@@ -602,24 +622,12 @@ fn generate_default_topology(
         service_type: ServiceType::BlockProducer,
         service_name: bp_1_name.to_string(),
         docker_image: Some(docker_image.into()),
-        git_build: None,
         client_port: Some(4000),
         public_key: Some(bp_keys[bp_1_name].key_string.clone()),
         public_key_path: Some(bp_keys[bp_1_name].key_path_docker.clone()),
-        private_key: None,
-        private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[bp_1_name].key_string.clone()),
-        libp2p_keypair_path: None,
-        libp2p_peerid: None,
         peers: Some(vec![peer.clone()]),
-        peer_list_file: None,
-        snark_coordinator_fees: None,
-        snark_coordinator_port: None,
-        snark_worker_proof_level: None,
-        archive_schema_files: None,
-        archive_port: None,
-        worker_nodes: None,
-        snark_coordinator_host: None,
+        ..Default::default()
     };
 
     let bp_2_name = "mina-bp-2";
@@ -627,24 +635,12 @@ fn generate_default_topology(
         service_type: ServiceType::BlockProducer,
         service_name: bp_2_name.to_string(),
         docker_image: Some(docker_image.into()),
-        git_build: None,
         client_port: Some(4005),
         public_key: Some(bp_keys[bp_2_name].key_string.clone()),
         public_key_path: Some(bp_keys[bp_2_name].key_path_docker.clone()),
-        private_key: None,
-        private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[bp_2_name].key_string.clone()),
-        libp2p_keypair_path: None,
-        libp2p_peerid: None,
         peers: Some(vec![peer.clone()]),
-        peer_list_file: None,
-        snark_coordinator_fees: None,
-        snark_coordinator_port: None,
-        snark_worker_proof_level: None,
-        archive_schema_files: None,
-        archive_port: None,
-        worker_nodes: None,
-        snark_coordinator_host: None,
+        ..Default::default()
     };
 
     let snark_coordinator_name = "mina-snark-coordinator";
@@ -652,24 +648,13 @@ fn generate_default_topology(
         service_type: ServiceType::SnarkCoordinator,
         service_name: snark_coordinator_name.to_string(),
         docker_image: Some(docker_image.into()),
-        git_build: None,
         client_port: Some(7000),
         public_key: Some(bp_keys[snark_coordinator_name].key_string.clone()),
-        public_key_path: None,
-        private_key: None,
-        private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[snark_coordinator_name].key_string.clone()),
-        libp2p_keypair_path: None,
-        libp2p_peerid: None,
         peers: Some(vec![peer]),
-        peer_list_file: None,
         snark_coordinator_fees: Some("0.001".into()),
-        snark_coordinator_port: None,
-        snark_worker_proof_level: None,
-        archive_schema_files: None,
-        archive_port: None,
         worker_nodes: Some(1),
-        snark_coordinator_host: None,
+        ..Default::default()
     };
 
     let snark_worker_1_name = "mina-snark-worker-1";
@@ -677,24 +662,10 @@ fn generate_default_topology(
         service_type: ServiceType::SnarkWorker,
         service_name: snark_worker_1_name.to_string(),
         docker_image: Some(docker_image.into()),
-        git_build: None,
-        client_port: None,
-        public_key: None,
-        public_key_path: None,
-        private_key: None,
-        private_key_path: None,
-        libp2p_keypair: None,
-        libp2p_keypair_path: None,
-        libp2p_peerid: None,
-        peers: None,
-        peer_list_file: None,
-        snark_coordinator_fees: None,
         snark_coordinator_port: Some(7000),
         snark_worker_proof_level: Some("none".into()),
-        archive_schema_files: None,
-        archive_port: None,
-        worker_nodes: None,
         snark_coordinator_host: Some(snark_coordinator.service_name.clone()),
+        ..Default::default()
     };
 
     let archive_node_name = "mina-archive";
@@ -702,27 +673,12 @@ fn generate_default_topology(
         service_type: ServiceType::ArchiveNode,
         service_name: archive_node_name.to_string(),
         docker_image: Some(docker_image_archive.into()),
-        git_build: None,
-        client_port: None,
-        public_key: None,
-        public_key_path: None,
-        private_key: None,
-        private_key_path: None,
-        libp2p_keypair: None,
-        libp2p_keypair_path: None,
-        libp2p_peerid: None,
-        peers: None,
-        peer_list_file: None,
-        snark_coordinator_fees: None,
-        snark_coordinator_port: None,
-        snark_worker_proof_level: None,
         archive_schema_files: Some(vec![
             "https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/create_schema.sql".into(),
             "https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/zkapp_tables.sql".into()
         ]),
         archive_port: Some(3086),
-        worker_nodes: None,
-        snark_coordinator_host: None,
+        ..Default::default()
     };
 
     vec![
@@ -752,8 +708,9 @@ fn check_setup_network(
     // create directory structure for network
     info!("Creating network '{network_id}'.");
     if let Err(e) = directory_manager.generate_dir_structure(network_id) {
-        error!("Failed to set up network directory structure for '{network_id}' with error: {e}");
-        exit(1);
+        return exit_with(format!(
+            "Failed to set up network directory structure for '{network_id}' with error: {e}"
+        ));
     }
 
     Ok(())
@@ -763,19 +720,14 @@ fn check_setup_network(
 fn check_network_exists(network_id: &str) -> Result<()> {
     let directory_manager = DirectoryManager::new();
     if directory_manager.network_path_exists(network_id) {
-        return Ok(());
+        Ok(())
     } else {
-        let error_message = format!("Network '{network_id}' does not exist.");
-        let error = format!(
-            "Network directory '{}' does not exist.",
+        let error_message = format!(
+            "Network directory '{}' does not exist, therefore network '{network_id}' does not exist too.",
             directory_manager.network_path(network_id).display()
         );
-
-        print_error(&error_message, &error)?
+        exit_with(error_message)
     }
-
-    error!("Network '{network_id}' does not exist");
-    exit(1)
 }
 
 /// Handles `network_id`'s genesis ledger
@@ -793,13 +745,10 @@ fn handle_genesis_ledger(
     match &cmd.genesis_ledger {
         Some(genesis_ledger_path) => {
             if cmd.topology.is_none() {
-                error!(
-                    "Must provide a topology file with a genesis ledger, \
-                     keys will be incompatible otherwise."
-                );
-
                 directory_manager.delete_network_directory(network_id)?;
-                exit(1);
+                return exit_with(
+                    "Must provide a topology file with a genesis ledger, keys will be incompatible otherwise.".to_string(),
+                );
             }
 
             info!(
@@ -832,10 +781,7 @@ fn create_services(
         Ok(topology) => {
             let peer_list_file = directory_manager.peer_list_file(network_id);
             let services = topology.services(&peer_list_file);
-            let peers: Vec<&ServiceConfig> = services
-                .iter()
-                .filter(|service| service.is_seed())
-                .collect();
+            let peers: Vec<&ServiceConfig> = ServiceConfig::get_seeds(&services);
             directory_manager.create_peer_list_file(network_id, &peers)?;
 
             if peers.is_empty() {
@@ -931,19 +877,18 @@ fn check_compose_version() -> Result<()> {
     }
 }
 
-fn print_error(error_message: &str, error: &str) -> Result<()> {
-    let error_message = format!("{error_message}: {error}");
+fn exit_with(error_message: String) -> Result<()> {
     error!("{error_message}");
     println!("{}", output::Error { error_message });
-    Ok(())
+    exit(1);
 }
 
 fn handle_stop_error(node_id: &str, error: impl ToString) -> Result<()> {
-    let error_message = format!("Failed to stop node '{node_id}'");
-    print_error(&error_message, error.to_string().as_str())
+    let error_message = format!("Failed to stop node '{node_id}': {}", error.to_string());
+    exit_with(error_message)
 }
 
 fn handle_start_error(node_id: &str, error: impl ToString) -> Result<()> {
-    let error_message: String = format!("Failed to start node '{node_id}'");
-    print_error(&error_message, error.to_string().as_str())
+    let error_message = format!("Failed to start node '{node_id}': {}", error.to_string());
+    exit_with(error_message)
 }
