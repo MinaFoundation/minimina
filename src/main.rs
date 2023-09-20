@@ -477,8 +477,16 @@ fn create_network(
         Ok(_) => {
             info!("Successfully created docker-compose for network '{network_id}'!");
 
-            // if we have archive node we need to create database and apply schema scripts
+            // if we have archive node we need to:
+            //  - create genesis ledger in replayer format (for run-replayer command)
+            //  - create database and apply schema scripts
             if let Some(archive_node) = ServiceConfig::get_archive_node(services) {
+                // generate genesis ledger in replayer format
+                default::LedgerGenerator::genesis_ledger_to_replayer_format(
+                    &directory_manager.network_path(network_id),
+                )?;
+
+                // create database and apply schema scripts
                 // start postgres container
                 let postgres_name = format!("postgres-{network_id}");
                 let error_message =
