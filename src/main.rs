@@ -478,15 +478,15 @@ fn create_network(
             info!("Successfully created docker-compose for network '{network_id}'!");
 
             // if we have archive node we need to:
-            //  - create genesis ledger in replayer format (for run-replayer command)
+            //  - create input file for replayer (for run-replayer command)
             //  - create database and apply schema scripts
             if let Some(archive_node) = ServiceConfig::get_archive_node(services) {
-                // generate genesis ledger in replayer format
-                default::LedgerGenerator::genesis_ledger_to_replayer_format(
+                // generate input file for mina-replayer
+                default::LedgerGenerator::generate_replayer_input(
                     &directory_manager.network_path(network_id),
                 )?;
 
-                // create database and apply schema scripts
+                // create archive database and apply schema scripts
                 // start postgres container
                 let postgres_name = format!("postgres-{network_id}");
                 let error_message =
@@ -717,8 +717,8 @@ fn generate_default_topology(
         service_name: archive_node_name.to_string(),
         docker_image: Some(docker_image_archive.into()),
         archive_schema_files: Some(vec![
-            "https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/create_schema.sql".into(),
-            "https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/zkapp_tables.sql".into()
+            "https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/zkapp_tables.sql".into(),
+            "https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/create_schema.sql".into(),
         ]),
         archive_port: Some(3086),
         ..Default::default()

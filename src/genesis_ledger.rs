@@ -17,8 +17,9 @@ use std::path::Path;
 use crate::keys::NodeKey;
 
 pub(crate) const GENESIS_LEDGER_JSON: &str = "genesis_ledger.json";
-pub(crate) const GENESIS_LEDGER_REPLAYER_JSON: &str = "genesis_ledger_replayer.json";
+pub(crate) const REPLAYER_INPUT_JSON: &str = "replayer_input.json";
 
+/// Genesis ledger format
 #[derive(Serialize, Deserialize)]
 struct GenesisLedger {
     genesis: Genesis,
@@ -32,8 +33,8 @@ struct Genesis {
 
 #[derive(Serialize, Deserialize)]
 struct Ledger {
+    #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<String>,
-    num_accounts: Option<u32>,
     accounts: Vec<Account>,
 }
 
@@ -45,6 +46,21 @@ struct Account {
     delegate: Option<String>,
 }
 
+/// Replayer input format
+#[derive(Serialize, Deserialize)]
+struct ReplayerInput {
+    start_slot_since_genesis: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_epoch_ledgers_state_hash: Option<String>,
+    genesis_ledger: ReplayerGensisLedger,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ReplayerGensisLedger {
+    accounts: Vec<Account>,
+    add_genesis_winner: bool,
+}
+
 pub mod default {
 
     use super::*;
@@ -52,6 +68,7 @@ pub mod default {
     pub struct LedgerGenerator;
 
     impl LedgerGenerator {
+        /// Generate default genesis ledger
         pub fn generate(
             network_path: &Path,
             bp_keys: &HashMap<String, NodeKey>,
@@ -68,8 +85,7 @@ pub mod default {
                 .collect();
 
             let ledger = Ledger {
-                name: Some("release".into()),
-                num_accounts: Some(250),
+                name: Some("default_genesis_ledger".into()),
                 accounts,
             };
 
@@ -93,22 +109,28 @@ pub mod default {
             Ok(())
         }
 
-        pub fn genesis_ledger_to_replayer_format(network_path: &Path) -> std::io::Result<()> {
-            let mut replayer_format = String::new();
+        /// Generate replayer input file out of genesis ledger
+        pub fn generate_replayer_input(network_path: &Path) -> std::io::Result<()> {
             let genesis_ledger_file = network_path.join(GENESIS_LEDGER_JSON);
             let genesis_ledger = serde_json::from_str::<GenesisLedger>(&std::fs::read_to_string(
                 genesis_ledger_file,
             )?)?;
-            // add accounts under key "genesis_ledger"
-            replayer_format.push_str("{\"genesis_ledger\": {\"accounts\":");
-            replayer_format.push_str(&serde_json::to_string_pretty(
-                &genesis_ledger.ledger.accounts,
-            )?);
-            replayer_format.push_str("}}");
 
-            let output_file = network_path.join(GENESIS_LEDGER_REPLAYER_JSON);
+            let accounts = genesis_ledger.ledger.accounts;
+            let replayer_input = ReplayerInput {
+                start_slot_since_genesis: 0,
+                target_epoch_ledgers_state_hash: None,
+                genesis_ledger: ReplayerGensisLedger {
+                    accounts,
+                    add_genesis_winner: true,
+                },
+            };
+
+            let content = serde_json::to_string_pretty(&replayer_input)?;
+
+            let output_file = network_path.join(REPLAYER_INPUT_JSON);
             let mut file = File::create(output_file)?;
-            file.write_all(replayer_format.as_bytes())?;
+            file.write_all(content.as_bytes())?;
 
             Ok(())
         }
@@ -144,12 +166,12 @@ mod tests {
         assert!(path.exists());
         let content = std::fs::read_to_string(path).unwrap();
         assert!(content.contains("genesis_state_timestamp"));
-        assert!(content.contains("release"));
+        assert!(content.contains("ledger"));
         assert!(content.contains("test_key"));
     }
 
     #[test]
-    fn test_generate_default_ledger_replayer_format() {
+    fn test_generate_replayer_input() {
         let network_path = PathBuf::from("/tmp");
         let mut bp_keys_map: HashMap<String, NodeKey> = HashMap::new();
         let service_key = NodeKey {
@@ -161,15 +183,83 @@ mod tests {
         println!("{:?}", result);
         assert!(result.is_ok());
 
-        let result = default::LedgerGenerator::genesis_ledger_to_replayer_format(&network_path);
+        let result = default::LedgerGenerator::generate_replayer_input(&network_path);
         println!("{:?}", result);
         assert!(result.is_ok());
 
         let path = network_path.to_path_buf();
-        let path = path.join("genesis_ledger_replayer_format.json");
+        let path = path.join(REPLAYER_INPUT_JSON);
         assert!(path.exists());
         let content = std::fs::read_to_string(path).unwrap();
         assert!(content.contains("genesis_ledger"));
         assert!(content.contains("test_key"));
+        assert!(content.contains("start_slot_since_genesis"));
+    }
+
+    #[test]
+    fn test_deserialize_genesis_ledger() {
+        let genesis_ledger = r#"{
+            "genesis": {
+              "genesis_state_timestamp": "2023-09-20T17:20:57.897531+02:00"
+            },
+            "ledger": {
+              "name": "default_genesis_ledger",
+              "accounts": [
+                {
+                  "pk": "POTATO",
+                  "sk": null,
+                  "balance": "11550000.000000000",
+                  "delegate": null
+                },
+                {
+                  "pk": "TOMATO",
+                  "sk": null,
+                  "balance": "11550000.000000000",
+                  "delegate": null
+                }
+              ]
+            }
+          }"#;
+        let genesis_ledger: GenesisLedger = serde_json::from_str(genesis_ledger).unwrap();
+        assert_eq!(
+            genesis_ledger.genesis.genesis_state_timestamp,
+            "2023-09-20T17:20:57.897531+02:00"
+        );
+        assert_eq!(
+            genesis_ledger.ledger.name,
+            Some("default_genesis_ledger".into())
+        );
+        assert_eq!(genesis_ledger.ledger.accounts.len(), 2);
+        assert_eq!(genesis_ledger.ledger.accounts[0].pk, "POTATO");
+        assert_eq!(genesis_ledger.ledger.accounts[1].pk, "TOMATO");
+    }
+
+    #[test]
+    fn test_deserialize_replayer_input() {
+        let replayer_input = r#"{
+            "start_slot_since_genesis": 0,
+            "genesis_ledger": {
+              "accounts": [
+                {
+                  "pk": "POTATO",
+                  "sk": null,
+                  "balance": "11550000.000000000",
+                  "delegate": null
+                },
+                {
+                  "pk": "TOMATO",
+                  "sk": null,
+                  "balance": "11550000.000000000",
+                  "delegate": null
+                }
+              ],
+              "add_genesis_winner": true
+            }
+          }"#;
+        let replayer_input: ReplayerInput = serde_json::from_str(replayer_input).unwrap();
+        assert_eq!(replayer_input.start_slot_since_genesis, 0);
+        assert_eq!(replayer_input.genesis_ledger.accounts.len(), 2);
+        assert_eq!(replayer_input.genesis_ledger.accounts[0].pk, "POTATO");
+        assert_eq!(replayer_input.genesis_ledger.accounts[1].pk, "TOMATO");
     }
 }
