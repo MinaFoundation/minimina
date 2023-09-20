@@ -7,6 +7,7 @@
 //! - Shut down active services.
 //! - Handle interactions with the Docker CLI.
 
+use crate::genesis_ledger::REPLAYER_INPUT_JSON;
 use crate::{docker::compose::DockerCompose, service::ServiceConfig, utils::run_command};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -251,17 +252,19 @@ impl DockerManager {
         // -input-file PATH (genesis ledger)
         // -output-file PATH (output ledger)
         let service = format!("{node_id}-{network_id}");
-        let genesis_path = self.network_path.join("/genesis_ledger.json");
+        let pg_archive_uri =
+            format!("postgres://postgres:postgres@postgres-{network_id}:5432/archive");
         let cmd = &[
             "exec",
             &service,
             "mina-replayer",
-            "-input-file",
-            genesis_path.to_str().unwrap(),
-            "-archive-uri",
-            // TODO
-            "-output-file",
-            // TODO
+            "--continue-on-error",
+            "--input-file",
+            &format!("/local-network/{}", REPLAYER_INPUT_JSON),
+            "--archive-uri",
+            &pg_archive_uri,
+            "--output-file",
+            "/dev/null",
         ];
         self.run_docker_compose(cmd)
     }
