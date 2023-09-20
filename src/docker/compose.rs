@@ -189,7 +189,10 @@ impl DockerCompose {
                         .clone()
                         .unwrap_or(DEFAULT_ARCHIVE_DOCKER_IMAGE.into()),
                     command: Some(archive_command),
-                    volumes: Some(vec![format!("{}:/data", archive_name)]),
+                    volumes: Some(vec![
+                        format!("{}:/data", archive_name),
+                        format!("{}:/local-network", network_path_string),
+                    ]),
                     ports: Some(vec![archive_port.to_string()]),
                     depends_on: Some(vec![postgres_name]),
                     ..Default::default()
