@@ -8,7 +8,7 @@ extern crate chrono;
 use chrono::prelude::*;
 
 use log::{debug, info};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -16,25 +16,28 @@ use std::path::Path;
 
 use crate::keys::NodeKey;
 
-#[derive(Serialize)]
+pub(crate) const GENESIS_LEDGER_JSON: &str = "genesis_ledger.json";
+pub(crate) const GENESIS_LEDGER_REPLAYER: &str = "genesis_ledger_replayer_format.json";
+
+#[derive(Serialize, Deserialize)]
 struct GenesisLedger {
     genesis: Genesis,
     ledger: Ledger,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct Genesis {
     genesis_state_timestamp: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct Ledger {
     name: Option<String>,
     num_accounts: Option<u32>,
     accounts: Vec<Account>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct Account {
     pk: String,
     sk: Option<String>,
@@ -43,6 +46,8 @@ struct Account {
 }
 
 pub mod default {
+    use std::path::PathBuf;
+
     use super::*;
 
     pub struct LedgerGenerator;
@@ -80,11 +85,31 @@ pub mod default {
 
             // Construct the path to file
             let path = network_path.to_path_buf();
-            let path = path.join("genesis_ledger.json");
+            let path = path.join(GENESIS_LEDGER_JSON);
 
             // Write content to the output file.
             let mut file = File::create(path)?;
             file.write_all(content.as_bytes())?;
+
+            Ok(())
+        }
+
+        pub fn genesis_ledger_to_replayer_format(network_path: &PathBuf) -> std::io::Result<()> {
+            let mut replayer_format = String::new();
+            let genesis_ledger_file = network_path.join(GENESIS_LEDGER_JSON);
+            let genesis_ledger = serde_json::from_str::<GenesisLedger>(&std::fs::read_to_string(
+                genesis_ledger_file,
+            )?)?;
+            // add accounts under key "genesis_ledger"
+            replayer_format.push_str("{\"genesis_ledger\": {\"accounts\":");
+            replayer_format.push_str(&serde_json::to_string_pretty(
+                &genesis_ledger.ledger.accounts,
+            )?);
+            replayer_format.push_str("}}");
+
+            let output_file = network_path.join(GENESIS_LEDGER_REPLAYER);
+            let mut file = File::create(output_file)?;
+            file.write_all(replayer_format.as_bytes())?;
 
             Ok(())
         }
@@ -116,11 +141,36 @@ mod tests {
         assert!(result.is_ok());
 
         let path = network_path.to_path_buf();
-        let path = path.join("genesis_ledger.json");
+        let path = path.join(GENESIS_LEDGER_JSON);
         assert!(path.exists());
         let content = std::fs::read_to_string(path).unwrap();
         assert!(content.contains("genesis_state_timestamp"));
         assert!(content.contains("release"));
+        assert!(content.contains("test_key"));
+    }
+
+    #[test]
+    fn test_generate_default_ledger_replayer_format() {
+        let network_path = PathBuf::from("/tmp");
+        let mut bp_keys_map: HashMap<String, NodeKey> = HashMap::new();
+        let service_key = NodeKey {
+            key_string: "test_key".to_string(),
+            key_path_docker: "test_key_path".to_string(),
+        };
+        bp_keys_map.insert("node0".to_string(), service_key);
+        let result = default::LedgerGenerator::generate(&network_path, &bp_keys_map);
+        println!("{:?}", result);
+        assert!(result.is_ok());
+
+        let result = default::LedgerGenerator::genesis_ledger_to_replayer_format(&network_path);
+        println!("{:?}", result);
+        assert!(result.is_ok());
+
+        let path = network_path.to_path_buf();
+        let path = path.join("genesis_ledger_replayer_format.json");
+        assert!(path.exists());
+        let content = std::fs::read_to_string(path).unwrap();
+        assert!(content.contains("genesis_ledger"));
         assert!(content.contains("test_key"));
     }
 }
