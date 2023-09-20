@@ -405,6 +405,8 @@ fn main() -> Result<()> {
                 let network_path = directory_manager.network_path(cmd.network_id());
                 let docker = DockerManager::new(&network_path);
 
+                check_network_exists(network_id)?;
+
                 match docker.compose_dump_precomputed_blocks(node_id, network_id) {
                     Ok(output) => {
                         if output.status.success() {
@@ -429,35 +431,47 @@ fn main() -> Result<()> {
             }
 
             NodeCommand::RunReplayer(cmd) => {
-                // TODO run mina replayer on container
-                // check if node is archive, exit with error if not
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
                 let network_path = directory_manager.network_path(cmd.network_id());
+                let network_file_path = directory_manager.network_file_path(cmd.network_id());
                 let docker = DockerManager::new(&network_path);
+                check_network_exists(network_id)?;
+
+                if let Err(e) = is_node_archive(&network_file_path, node_id, network_id) {
+                    return exit_with(e.to_string());
+                }
 
                 info!(
-                    "Node logs command with node_id '{node_id}', network_id '{network_id}', \
+                    "Node run-replayer command with node_id '{node_id}', network_id '{network_id}', \
                         start_slot_since_genesis '{}'.",
                     cmd.start_slot_since_genesis,
                 );
 
                 match docker.compose_run_replayer(node_id, network_id) {
                     Ok(output) => {
-                        info!("Successfully ran replayer for '{node_id}' on '{network_id}'");
-                        println!(
-                            "{}",
-                            output::node::ReplayerLogs {
-                                logs: String::from_utf8_lossy(&output.stdout).into(), // TODO
-                                network_id: network_id.into(),
-                                node_id: node_id.into(),
-                            }
-                        )
+                        if output.status.success() {
+                            info!("Successfully ran replayer for node '{node_id}' on network '{network_id}'");
+                            println!(
+                                "{}",
+                                output::node::ReplayerLogs {
+                                    logs: String::from_utf8_lossy(&output.stdout).into(),
+                                    network_id: network_id.into(),
+                                    node_id: node_id.into(),
+                                }
+                            )
+                        } else {
+                            let error_message = format!(
+                                "Failed to run replayer for node '{node_id}' on network '{network_id}': {}",
+                                String::from_utf8_lossy(&output.stderr)
+                            );
+                            return exit_with(error_message);
+                        }
                     }
                     Err(e) => {
-                        error!(
-                            "Error while running replayer for '{node_id}' on '{network_id}': {e}"
-                        )
+                        return exit_with(format!(
+                            "Error while running replayer for node '{node_id}' on network '{network_id}': {e}"
+                        ));
                     }
                 }
 
@@ -490,12 +504,12 @@ fn create_network(
                 // start postgres container
                 let postgres_name = format!("postgres-{network_id}");
                 let error_message =
-                    format!("Failed to start postgres container in '{network_id}'.");
+                    format!("Failed to start postgres container in network '{network_id}'.");
 
                 match docker.compose_start(vec![&postgres_name]) {
                     Ok(out) => {
                         if out.status.success() {
-                            info!("Successfully started postgres container in '{network_id}'!");
+                            info!("Successfully started postgres container in network '{network_id}'!");
                         } else {
                             return exit_with(format!(
                                 "{}: {}",
@@ -945,7 +959,7 @@ fn is_node_archive(network_file_path: &PathBuf, node_id: &str, network_id: &str)
                 Ok(())
             } else {
                 let error =
-                    format!("Node '{node_id}' is not an archive node in network {network_id}.");
+                    format!("Node '{node_id}' is not an archive node in network '{network_id}'.");
                 Err(Error::new(ErrorKind::InvalidData, error))
             }
         }
