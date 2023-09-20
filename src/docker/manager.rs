@@ -228,16 +228,45 @@ impl DockerManager {
         network_id: &str,
     ) -> Result<Output> {
         let service = format!("{node_id}-{network_id}");
-        let command = vec![
+        let cmd = &[
             "exec",
             &service,
             "cat",
             "/config-directory/precomputed_blocks.log",
         ];
-        self.run_docker_compose(&command)
+        self.run_docker_compose(cmd)
     }
 
-    /// filter container by service name
+    /// Execute `pg_dump` on the postgres db
+    pub fn compose_dump_archive_data(&self, network_id: &str) -> Result<Output> {
+        let service = format!("postgres-{network_id}");
+        let cmd = &[
+            "exec", &service, "pg_dump", "--insert", "-U", "postgres", "archive",
+        ];
+        self.run_docker_compose(cmd)
+    }
+
+    /// Execute archive node's replayer
+    pub fn compose_run_replayer(&self, node_id: &str, network_id: &str) -> Result<Output> {
+        // -input-file PATH (genesis ledger)
+        // -output-file PATH (output ledger)
+        let service = format!("{node_id}-{network_id}");
+        let genesis_path = self.network_path.join("/genesis_ledger.json");
+        let cmd = &[
+            "exec",
+            &service,
+            "mina-replayer",
+            "-input-file",
+            genesis_path.to_str().unwrap(),
+            "-archive-uri",
+            // TODO
+            "-output-file",
+            // TODO
+        ];
+        self.run_docker_compose(cmd)
+    }
+
+    /// Filter container by service name
     /// returns Option<ContainerInfo>
     pub fn filter_container_by_name(
         &self,

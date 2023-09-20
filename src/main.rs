@@ -28,7 +28,7 @@ use std::{
     collections::HashMap,
     fs::{read_to_string, write},
     io::{Error, ErrorKind, Result},
-    path::Path,
+    path::{Path, PathBuf},
     process::exit,
 };
 
@@ -357,15 +357,45 @@ fn main() -> Result<()> {
             }
 
             NodeCommand::DumpArchiveData(cmd) => {
-                let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
-                // check the node is archive, exit with error if not
-                // let container = format!("{node_id}-{network_id}");
-                // let network_path = directory_manager.network_path(cmd.network_id());
-                // let docker = DockerManager::new(&network_path);
-                // TODO postgres dump of archive with container
+                let node_id = cmd.node_id();
+                let network_path = directory_manager.network_path(cmd.network_id());
+                let network_file_path = directory_manager.network_file_path(cmd.network_id());
+                let docker = DockerManager::new(&network_path);
 
-                info!("Node dump archive data command with node_id '{node_id}', network_id '{network_id}'.");
+                check_network_exists(network_id)?;
+
+                if let Err(e) = is_node_archive(&network_file_path, node_id, network_id) {
+                    return exit_with(e.to_string());
+                }
+
+                match docker.compose_dump_archive_data(network_id) {
+                    Ok(output) => {
+                        if output.status.success() {
+                            info!("Successfully dumped archive data for node '{node_id}', network '{network_id}'");
+                            println!(
+                                "{}",
+                                output::node::ArchiveData {
+                                    data: String::from_utf8_lossy(&output.stdout).into(),
+                                    network_id: network_id.into(),
+                                    node_id: node_id.into(),
+                                }
+                            )
+                        } else {
+                            let error_message = format!(
+                                "Failed to dump archive data for node '{node_id}', network '{network_id}': {}",
+                                String::from_utf8_lossy(&output.stderr)
+                            );
+                            return exit_with(error_message);
+                        }
+                    }
+                    Err(e) => {
+                        return exit_with(format!(
+                            "Error while dumping archive data for node '{node_id}', network_id '{network_id}': {e}"
+                        ))
+                    }
+                }
+
                 Ok(())
             }
 
@@ -399,19 +429,38 @@ fn main() -> Result<()> {
             }
 
             NodeCommand::RunReplayer(cmd) => {
+                // TODO run mina replayer on container
+                // check if node is archive, exit with error if not
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
-                // check if node is archive, exit with error if not
-                // let container = format!("{node_id}-{network_id}");
-                // let network_path = directory_manager.network_path(cmd.network_id());
-                // let docker = DockerManager::new(&network_path);
-                // TODO run mina replayer on container
+                let network_path = directory_manager.network_path(cmd.network_id());
+                let docker = DockerManager::new(&network_path);
 
                 info!(
                     "Node logs command with node_id '{node_id}', network_id '{network_id}', \
                         start_slot_since_genesis '{}'.",
                     cmd.start_slot_since_genesis(),
                 );
+
+                match docker.compose_run_replayer(node_id, network_id) {
+                    Ok(output) => {
+                        info!("Successfully ran replayer for '{node_id}' on '{network_id}'");
+                        println!(
+                            "{}",
+                            output::node::ReplayerLogs {
+                                logs: String::from_utf8_lossy(&output.stdout).into(), // TODO
+                                network_id: network_id.into(),
+                                node_id: node_id.into(),
+                            }
+                        )
+                    }
+                    Err(e) => {
+                        error!(
+                            "Error while running replayer for '{node_id}' on '{network_id}': {e}"
+                        )
+                    }
+                }
+
                 Ok(())
             }
         },
@@ -597,24 +646,10 @@ fn generate_default_topology(
         service_type: ServiceType::Seed,
         service_name: seed_name.to_string(),
         docker_image: Some(docker_image.into()),
-        git_build: None,
         client_port: Some(3100),
-        public_key: None,
-        public_key_path: None,
-        private_key: None,
-        private_key_path: None,
         libp2p_keypair: Some(libp2p_keys[seed_name].key_string.clone()),
-        libp2p_keypair_path: None,
         libp2p_peerid: Some(libp2p_peerid.to_string()),
-        peers: None,
-        peer_list_file: None,
-        snark_coordinator_fees: None,
-        snark_coordinator_port: None,
-        snark_worker_proof_level: None,
-        archive_schema_files: None,
-        archive_port: None,
-        worker_nodes: None,
-        snark_coordinator_host: None,
+        ..Default::default()
     };
 
     let bp_1_name = "mina-bp-1";
@@ -891,4 +926,24 @@ fn handle_stop_error(node_id: &str, error: impl ToString) -> Result<()> {
 fn handle_start_error(node_id: &str, error: impl ToString) -> Result<()> {
     let error_message = format!("Failed to start node '{node_id}': {}", error.to_string());
     exit_with(error_message)
+}
+
+fn is_node_archive(network_file_path: &PathBuf, node_id: &str, network_id: &str) -> Result<()> {
+    let network_info = read_to_string(network_file_path).unwrap();
+    let network_info_data = output::deserialize_network_info(&network_info)?;
+    match network_info_data.nodes.get(node_id) {
+        Some(node) => {
+            if node.is_archive() {
+                Ok(())
+            } else {
+                let error =
+                    format!("Node '{node_id}' is not an archive node in network {network_id}.");
+                Err(Error::new(ErrorKind::InvalidData, error))
+            }
+        }
+        None => {
+            let error = format!("Node '{node_id}' does not exist in network '{network_id}'.",);
+            Err(Error::new(ErrorKind::NotFound, error))
+        }
+    }
 }
