@@ -439,7 +439,7 @@ fn main() -> Result<()> {
                 info!(
                     "Node logs command with node_id '{node_id}', network_id '{network_id}', \
                         start_slot_since_genesis '{}'.",
-                    cmd.start_slot_since_genesis(),
+                    cmd.start_slot_since_genesis,
                 );
 
                 match docker.compose_run_replayer(node_id, network_id) {

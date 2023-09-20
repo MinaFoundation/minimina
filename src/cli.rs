@@ -108,13 +108,6 @@ pub struct NodeId {
 }
 
 #[derive(Args, Debug)]
-pub struct GlobalSlot {
-    /// Global slot since genesis
-    #[clap(short = 's', long)]
-    pub global_slot: u32,
-}
-
-#[derive(Args, Debug)]
 pub struct NodeCommandArgs {
     /// Network identifier
     #[clap(flatten)]
@@ -150,8 +143,8 @@ pub struct ReplayerArgs {
     pub network_id: NetworkId,
 
     /// Global slot since genesis
-    #[clap(flatten)]
-    pub start_slot_since_genesis: GlobalSlot,
+    #[clap(short = 's', long)]
+    pub start_slot_since_genesis: u32,
 
     /// Log level filter
     #[clap(short = 'l', long, default_value = "warn")]
@@ -172,12 +165,6 @@ pub trait CommandWithNetworkId {
 
 pub trait CommandWithNodeId {
     fn node_id(&self) -> &str;
-}
-
-impl ReplayerArgs {
-    pub fn start_slot_since_genesis(&self) -> u32 {
-        self.start_slot_since_genesis.global_slot
-    }
 }
 
 macro_rules! log_level {
