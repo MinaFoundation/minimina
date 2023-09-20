@@ -274,13 +274,16 @@ fn set_key_file_permissions(file: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use tempdir::TempDir;
+
     use super::*;
 
     #[test]
     fn test_create_and_delete_network_directory() {
-        let dir_manager = DirectoryManager::_new_with_base_path(
-            "/tmp/test_create_and_delete_network_directory-testing".into(),
-        );
+        let tempdir = TempDir::new("test_create_and_delete_network_directory")
+            .expect("Cannot create temporary directory");
+        let base_path = tempdir.path();
+        let dir_manager = DirectoryManager::_new_with_base_path(base_path.to_path_buf());
         let network_id = "test_network";
 
         // Create the network directory
@@ -295,8 +298,10 @@ mod tests {
 
     #[test]
     fn test_create_subdirectories() {
-        let dir_manager =
-            DirectoryManager::_new_with_base_path("/tmp/test_create_subdirectories-testing".into());
+        let tempdir =
+            TempDir::new("test_create_subdirectories").expect("Cannot create temporary directory");
+        let base_path = tempdir.path();
+        let dir_manager = DirectoryManager::_new_with_base_path(base_path.to_path_buf());
         let network_id = "test_network";
         let subdirectories = dir_manager.subdirectories;
 
@@ -317,8 +322,10 @@ mod tests {
 
     #[test]
     fn test_list_networks() {
-        let dir_manager =
-            DirectoryManager::_new_with_base_path("/tmp/test_list_networks-testing".into());
+        let tempdir =
+            TempDir::new("test_list_networks").expect("Cannot create temporary directory");
+        let base_path = tempdir.path();
+        let dir_manager = DirectoryManager::_new_with_base_path(base_path.to_path_buf());
 
         let network_ids = ["test_network1", "test_network2"];
 
@@ -341,9 +348,10 @@ mod tests {
 
     #[test]
     fn test_chmod_network_subdirectories() {
-        let dir_manager = DirectoryManager::_new_with_base_path(
-            "/tmp/test_chmod_network_subdirectories-testing".into(),
-        );
+        let tempdir = TempDir::new("test_chmod_network_subdirectories")
+            .expect("Cannot create temporary directory");
+        let base_path = tempdir.path();
+        let dir_manager = DirectoryManager::_new_with_base_path(base_path.to_path_buf());
         let network_id = "test_network";
         let subdirectories = dir_manager.subdirectories;
 
@@ -370,9 +378,10 @@ mod tests {
 
     #[test]
     fn test_network_subdirectories_paths() {
-        let dir_manager = DirectoryManager::_new_with_base_path(
-            "/tmp/test_network_subdirectories_paths-testing".into(),
-        );
+        let tempdir = TempDir::new("test_network_subdirectories_paths")
+            .expect("Cannot create temporary directory");
+        let base_path = tempdir.path();
+        let dir_manager = DirectoryManager::_new_with_base_path(base_path.to_path_buf());
         let network_id = "test_network";
         let subdirectories = dir_manager.subdirectories;
         let paths = dir_manager.subdirectories_paths(network_id);
@@ -388,8 +397,9 @@ mod tests {
     #[test]
     fn test_check_genesis_timestamp() -> Result<()> {
         use chrono::{prelude::*, Duration};
-
-        let base_path = "/tmp/test_check_genesis_timestamp";
+        let tempdir = TempDir::new("test_network_subdirectories_paths")
+            .expect("Cannot create temporary directory");
+        let base_path = tempdir.path();
         let network_id = "test_network";
         let dir_manager = DirectoryManager::_new_with_base_path(base_path.into());
         let genesis_ledger_path = dir_manager

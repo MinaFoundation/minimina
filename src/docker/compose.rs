@@ -235,6 +235,8 @@ impl DockerCompose {
 
 #[cfg(test)]
 mod tests {
+    use tempdir::TempDir;
+
     use super::*;
     use crate::service::ServiceType;
 
@@ -277,7 +279,7 @@ mod tests {
                 ..Default::default()
             },
         ];
-        let network_path = Path::new("/tmp");
+        let network_path = Path::new("/not-a-real-path");
         let docker_compose = DockerCompose::generate(&configs, network_path);
         println!("{:?}", docker_compose);
         assert!(docker_compose.contains("seed"));
@@ -308,7 +310,7 @@ mod tests {
                 ..Default::default()
             },
         ];
-        let network_path = Path::new("/tmp2");
+        let network_path = Path::new("/not-a-real-path");
         let docker_compose = DockerCompose::generate(&configs, network_path);
         println!("{}", docker_compose);
         assert!(docker_compose.contains("seed"));
@@ -323,10 +325,10 @@ mod tests {
     #[test]
     fn test_generate_compose_from_topology() -> std::io::Result<()> {
         use crate::{topology::Topology, DirectoryManager};
-
-        let dir_manager = DirectoryManager::_new_with_base_path(
-            "/tmp/test_generate_compose_from_topology".into(),
-        );
+        let tempdir = TempDir::new("test_generate_compose_from_topology")
+            .expect("Cannot create temporary directory");
+        let tmp_network_path = tempdir.path();
+        let dir_manager = DirectoryManager::_new_with_base_path(tmp_network_path.to_path_buf());
         let network_id = "test_network";
         let network_path = dir_manager.network_path(network_id);
         dir_manager.generate_dir_structure(network_id)?;

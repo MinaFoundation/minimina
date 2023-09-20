@@ -144,20 +144,23 @@ pub fn current_timestamp() -> String {
 
 #[cfg(test)]
 mod tests {
+    use tempdir::TempDir;
+
     use super::*;
     use std::collections::HashMap;
-    use std::path::PathBuf;
 
     #[test]
     fn test_generate_default_ledger() {
-        let network_path = PathBuf::from("/tmp");
+        let tempdir = TempDir::new("test_generate_default_ledger")
+            .expect("Cannot create temporary directory");
+        let network_path = tempdir.path();
         let mut bp_keys_map: HashMap<String, NodeKey> = HashMap::new();
         let service_key = NodeKey {
             key_string: "test_key".to_string(),
             key_path_docker: "test_key_path".to_string(),
         };
         bp_keys_map.insert("node0".to_string(), service_key);
-        let result = default::LedgerGenerator::generate(&network_path, &bp_keys_map);
+        let result = default::LedgerGenerator::generate(network_path, &bp_keys_map);
         println!("{:?}", result);
         assert!(result.is_ok());
 
@@ -172,18 +175,20 @@ mod tests {
 
     #[test]
     fn test_generate_replayer_input() {
-        let network_path = PathBuf::from("/tmp");
+        let tempdir = TempDir::new("test_generate_replayer_input")
+            .expect("Cannot create temporary directory");
+        let network_path = tempdir.path();
         let mut bp_keys_map: HashMap<String, NodeKey> = HashMap::new();
         let service_key = NodeKey {
             key_string: "test_key".to_string(),
             key_path_docker: "test_key_path".to_string(),
         };
         bp_keys_map.insert("node0".to_string(), service_key);
-        let result = default::LedgerGenerator::generate(&network_path, &bp_keys_map);
+        let result = default::LedgerGenerator::generate(network_path, &bp_keys_map);
         println!("{:?}", result);
         assert!(result.is_ok());
 
-        let result = default::LedgerGenerator::generate_replayer_input(&network_path);
+        let result = default::LedgerGenerator::generate_replayer_input(network_path);
         println!("{:?}", result);
         assert!(result.is_ok());
 
