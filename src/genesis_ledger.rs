@@ -17,7 +17,7 @@ use std::path::Path;
 use crate::keys::NodeKey;
 
 pub(crate) const GENESIS_LEDGER_JSON: &str = "genesis_ledger.json";
-pub(crate) const GENESIS_LEDGER_REPLAYER: &str = "genesis_ledger_replayer_format.json";
+pub(crate) const GENESIS_LEDGER_REPLAYER_JSON: &str = "genesis_ledger_replayer.json";
 
 #[derive(Serialize, Deserialize)]
 struct GenesisLedger {
@@ -46,7 +46,6 @@ struct Account {
 }
 
 pub mod default {
-    use std::path::PathBuf;
 
     use super::*;
 
@@ -94,7 +93,7 @@ pub mod default {
             Ok(())
         }
 
-        pub fn genesis_ledger_to_replayer_format(network_path: &PathBuf) -> std::io::Result<()> {
+        pub fn genesis_ledger_to_replayer_format(network_path: &Path) -> std::io::Result<()> {
             let mut replayer_format = String::new();
             let genesis_ledger_file = network_path.join(GENESIS_LEDGER_JSON);
             let genesis_ledger = serde_json::from_str::<GenesisLedger>(&std::fs::read_to_string(
@@ -107,7 +106,7 @@ pub mod default {
             )?);
             replayer_format.push_str("}}");
 
-            let output_file = network_path.join(GENESIS_LEDGER_REPLAYER);
+            let output_file = network_path.join(GENESIS_LEDGER_REPLAYER_JSON);
             let mut file = File::create(output_file)?;
             file.write_all(replayer_format.as_bytes())?;
 

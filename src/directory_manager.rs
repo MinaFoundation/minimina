@@ -10,6 +10,7 @@
 //! - `network.json`: Contains the network topology representation in JSON format.
 //! - `peer_list_file.txt`: Contains the list of libp2p peers for the network.
 
+use crate::genesis_ledger::GENESIS_LEDGER_JSON;
 use crate::service::ServiceConfig;
 use dirs::home_dir;
 use log::info;
@@ -188,7 +189,7 @@ impl DirectoryManager {
         use chrono::{prelude::*, Duration};
 
         let network_path = self.network_path(network_id);
-        let genesis_ledger_path = network_path.join("genesis_ledger.json");
+        let genesis_ledger_path = network_path.join(GENESIS_LEDGER_JSON);
         let contents = fs::read_to_string(genesis_ledger_path)?;
         let json: serde_json::Value = serde_json::from_str(&contents)?;
         let genesis = json
@@ -252,7 +253,7 @@ impl DirectoryManager {
 
     /// Returns the genesis ledger path for the given network
     pub fn genesis_ledger_path(&self, network_id: &str) -> PathBuf {
-        self.network_path(network_id).join("genesis_ledger.json")
+        self.network_path(network_id).join(GENESIS_LEDGER_JSON)
     }
 
     /// Returns the network file path for the given network
@@ -393,7 +394,7 @@ mod tests {
         let dir_manager = DirectoryManager::_new_with_base_path(base_path.into());
         let genesis_ledger_path = dir_manager
             .network_path(network_id)
-            .join("genesis_ledger.json");
+            .join(GENESIS_LEDGER_JSON);
         fs::create_dir_all(PathBuf::from(base_path).join(network_id))?;
 
         let k = 20;
