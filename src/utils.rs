@@ -82,6 +82,8 @@ pub fn fetch_schema(url: &str, network_path: PathBuf) -> Result<PathBuf, reqwest
 
 #[cfg(test)]
 mod tests {
+    use tempdir::TempDir;
+
     use super::*;
 
     #[test]
@@ -100,8 +102,9 @@ mod tests {
     #[test]
     fn test_fetch_schema() {
         let url = "https://raw.githubusercontent.com/MinaProtocol/mina/master/src/app/archive/create_schema.sql";
-        let network_path = PathBuf::from("/tmp");
-        let file_path = fetch_schema(url, network_path).unwrap();
+        let tempdir = TempDir::new("test_fetch_schema").expect("Cannot create temporary directory");
+        let network_path = tempdir.path();
+        let file_path = fetch_schema(url, network_path.to_path_buf()).unwrap();
         assert!(file_path.exists());
         assert_eq!(file_path.file_name().unwrap(), "create_schema.sql");
     }

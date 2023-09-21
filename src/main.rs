@@ -405,6 +405,8 @@ fn main() -> Result<()> {
                 let network_path = directory_manager.network_path(cmd.network_id());
                 let docker = DockerManager::new(&network_path);
 
+                check_network_exists(network_id)?;
+
                 match docker.compose_dump_precomputed_blocks(node_id, network_id) {
                     Ok(output) => {
                         if output.status.success() {
@@ -429,35 +431,52 @@ fn main() -> Result<()> {
             }
 
             NodeCommand::RunReplayer(cmd) => {
-                // TODO run mina replayer on container
-                // check if node is archive, exit with error if not
+                let start_slot = cmd.start_slot_since_genesis;
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
                 let network_path = directory_manager.network_path(cmd.network_id());
+                let network_file_path = directory_manager.network_file_path(cmd.network_id());
                 let docker = DockerManager::new(&network_path);
+                check_network_exists(network_id)?;
 
-                info!(
-                    "Node logs command with node_id '{node_id}', network_id '{network_id}', \
-                        start_slot_since_genesis '{}'.",
-                    cmd.start_slot_since_genesis(),
-                );
+                if let Err(e) = is_node_archive(&network_file_path, node_id, network_id) {
+                    return exit_with(e.to_string());
+                }
+
+                if let Err(e) = genesis_ledger::set_slot_since_genesis(&network_path, start_slot) {
+                    let error_message = format!(
+                        "Failed to set slot since genesis to '{start_slot}' for node '{node_id}' on network '{network_id}': {e}"
+                    );
+                    return exit_with(error_message);
+                }
 
                 match docker.compose_run_replayer(node_id, network_id) {
                     Ok(output) => {
-                        info!("Successfully ran replayer for '{node_id}' on '{network_id}'");
-                        println!(
-                            "{}",
-                            output::node::ReplayerLogs {
-                                logs: String::from_utf8_lossy(&output.stdout).into(), // TODO
-                                network_id: network_id.into(),
-                                node_id: node_id.into(),
-                            }
-                        )
+                        if output.status.success() {
+                            info!("Successfully ran replayer for node '{node_id}' on network '{network_id}' \
+                                    and start_slot_since_genesis '{start_slot}'");
+                            println!(
+                                "{}",
+                                output::node::ReplayerLogs {
+                                    logs: String::from_utf8_lossy(&output.stdout).into(),
+                                    network_id: network_id.into(),
+                                    node_id: node_id.into(),
+                                }
+                            )
+                        } else {
+                            let error_message = format!(
+                                "Failed to run replayer for node '{node_id}' on network '{network_id}' \
+                                  and start_slot_since_genesis '{start_slot}': {}",
+                                String::from_utf8_lossy(&output.stderr)
+                            );
+                            return exit_with(error_message);
+                        }
                     }
                     Err(e) => {
-                        error!(
-                            "Error while running replayer for '{node_id}' on '{network_id}': {e}"
-                        )
+                        return exit_with(format!(
+                            "Error while running replayer for node '{node_id}' on network '{network_id}' \
+                              and start_slot_since_genesis '{start_slot}': {e}"
+                        ));
                     }
                 }
 
@@ -477,17 +496,25 @@ fn create_network(
         Ok(_) => {
             info!("Successfully created docker-compose for network '{network_id}'!");
 
-            // if we have archive node we need to create database and apply schema scripts
+            // if we have archive node we need to:
+            //  - create input file for replayer (for run-replayer command)
+            //  - create database and apply schema scripts
             if let Some(archive_node) = ServiceConfig::get_archive_node(services) {
+                // generate input file for mina-replayer
+                default::LedgerGenerator::generate_replayer_input(
+                    &directory_manager.network_path(network_id),
+                )?;
+
+                // create archive database and apply schema scripts
                 // start postgres container
                 let postgres_name = format!("postgres-{network_id}");
                 let error_message =
-                    format!("Failed to start postgres container in '{network_id}'.");
+                    format!("Failed to start postgres container in network '{network_id}'.");
 
                 match docker.compose_start(vec![&postgres_name]) {
                     Ok(out) => {
                         if out.status.success() {
-                            info!("Successfully started postgres container in '{network_id}'!");
+                            info!("Successfully started postgres container in network '{network_id}'!");
                         } else {
                             return exit_with(format!(
                                 "{}: {}",
@@ -709,8 +736,8 @@ fn generate_default_topology(
         service_name: archive_node_name.to_string(),
         docker_image: Some(docker_image_archive.into()),
         archive_schema_files: Some(vec![
-            "https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/create_schema.sql".into(),
-            "https://raw.githubusercontent.com/MinaProtocol/mina/rampup/src/app/archive/zkapp_tables.sql".into()
+            "https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/zkapp_tables.sql".into(),
+            "https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/create_schema.sql".into(),
         ]),
         archive_port: Some(3086),
         ..Default::default()
@@ -937,7 +964,7 @@ fn is_node_archive(network_file_path: &PathBuf, node_id: &str, network_id: &str)
                 Ok(())
             } else {
                 let error =
-                    format!("Node '{node_id}' is not an archive node in network {network_id}.");
+                    format!("Node '{node_id}' is not an archive node in network '{network_id}'.");
                 Err(Error::new(ErrorKind::InvalidData, error))
             }
         }

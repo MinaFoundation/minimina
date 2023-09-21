@@ -7,7 +7,7 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::topology::GitBuild;
+use crate::{genesis_ledger::GENESIS_LEDGER_JSON, topology::GitBuild};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 pub enum ServiceType {
@@ -95,7 +95,7 @@ impl ServiceConfig {
             "-libp2p-metrics-port".to_string(),
             libp2p_metrics_port.to_string(),
             "-config-file".to_string(),
-            "/local-network/genesis_ledger.json".to_string(),
+            format!("/local-network/{}", GENESIS_LEDGER_JSON),
             "-log-json".to_string(),
             "-log-level".to_string(),
             "Trace".to_string(),
