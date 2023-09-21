@@ -134,21 +134,12 @@ pub struct StartNodeCommandArgs {
 
 #[derive(Args, Debug)]
 pub struct ReplayerArgs {
-    /// Node identifier
-    #[clap(flatten)]
-    pub node_id: NodeId,
-
-    /// Network identifier
-    #[clap(flatten)]
-    pub network_id: NetworkId,
-
     /// Global slot since genesis
     #[clap(short = 's', long)]
     pub start_slot_since_genesis: u64,
 
-    /// Log level filter
-    #[clap(short = 'l', long, default_value = "warn")]
-    pub log_level: String,
+    #[clap(flatten)]
+    pub node_args: NodeCommandArgs,
 }
 
 pub trait DefaultLogLevel {
@@ -200,15 +191,12 @@ macro_rules! node_id {
 log_level!(StartNetworkArgs);
 log_level!(CreateNetworkArgs);
 log_level!(NodeCommandArgs);
-log_level!(ReplayerArgs);
 
 network_id!(StartNetworkArgs);
 network_id!(CreateNetworkArgs);
 network_id!(NodeCommandArgs);
-network_id!(ReplayerArgs);
 
 node_id!(NodeCommandArgs);
-node_id!(ReplayerArgs);
 
 impl DefaultLogLevel for Command {
     fn log_level(&self) -> &str {
@@ -224,7 +212,7 @@ impl DefaultLogLevel for Command {
                 | NodeCommand::Logs(args)
                 | NodeCommand::Stop(args) => args.log_level(),
                 NodeCommand::Start(args) => args.node_args.log_level(),
-                NodeCommand::RunReplayer(args) => args.log_level(),
+                NodeCommand::RunReplayer(args) => args.node_args.log_level(),
             },
         }
     }

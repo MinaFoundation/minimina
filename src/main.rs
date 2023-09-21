@@ -448,10 +448,11 @@ fn main() -> Result<()> {
 
             NodeCommand::RunReplayer(cmd) => {
                 let start_slot = cmd.start_slot_since_genesis;
-                let node_id = cmd.node_id();
-                let network_id = cmd.network_id();
-                let network_path = directory_manager.network_path(cmd.network_id());
-                let network_file_path = directory_manager.network_file_path(cmd.network_id());
+                let node_id = cmd.node_args.node_id();
+                let network_id = cmd.node_args.network_id();
+                let network_path = directory_manager.network_path(cmd.node_args.network_id());
+                let network_file_path =
+                    directory_manager.network_file_path(cmd.node_args.network_id());
                 let docker = DockerManager::new(&network_path);
                 check_network_exists(network_id)?;
 
