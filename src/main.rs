@@ -251,9 +251,9 @@ fn main() -> Result<()> {
                 let docker = DockerManager::new(&network_path);
                 let nodes = docker.compose_ps(None)?;
 
-                let mut fresh_state;
+                let mut _fresh_state;
 
-                fresh_state = match docker.filter_container_by_name(nodes, &container) {
+                _fresh_state = match docker.filter_container_by_name(nodes, &container) {
                     Some(node) => match node.state {
                         ContainerState::Running => {
                             warn!("Node '{node_id}' is already running in network '{network_id}'.");
@@ -282,7 +282,7 @@ fn main() -> Result<()> {
                     info!("Starting node '{node_id}' in network '{network_id}' with fresh state.");
                     docker.compose_down(Some(container.clone()), true, false)?;
                     docker.compose_create(Some(container.clone()))?;
-                    fresh_state = true;
+                    _fresh_state = true;
                 }
 
                 match docker.compose_start(vec![&container]) {
@@ -291,7 +291,7 @@ fn main() -> Result<()> {
                             println!(
                                 "{}",
                                 node::Start {
-                                    fresh_state,
+                                    // fresh_state,
                                     node_id,
                                     network_id,
                                 }
