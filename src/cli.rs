@@ -144,7 +144,7 @@ pub struct ReplayerArgs {
 
     /// Global slot since genesis
     #[clap(short = 's', long)]
-    pub start_slot_since_genesis: u32,
+    pub start_slot_since_genesis: u64,
 
     /// Log level filter
     #[clap(short = 'l', long, default_value = "warn")]

@@ -142,6 +142,22 @@ pub fn current_timestamp() -> String {
     datetime.format("%Y-%m-%dT%H:%M:%S%.6f%Z").to_string()
 }
 
+pub fn set_slot_since_genesis(network_path: &Path, slot_since_genesis: u64) -> std::io::Result<()> {
+    let replayer_input_file = network_path.join(REPLAYER_INPUT_JSON);
+    let mut replayer_input =
+        serde_json::from_str::<ReplayerInput>(&std::fs::read_to_string(replayer_input_file)?)?;
+
+    replayer_input.start_slot_since_genesis = slot_since_genesis;
+
+    let content = serde_json::to_string_pretty(&replayer_input)?;
+
+    let output_file = network_path.join(REPLAYER_INPUT_JSON);
+    let mut file = File::create(output_file)?;
+    file.write_all(content.as_bytes())?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use tempdir::TempDir;
@@ -266,5 +282,37 @@ mod tests {
         assert_eq!(replayer_input.genesis_ledger.accounts.len(), 2);
         assert_eq!(replayer_input.genesis_ledger.accounts[0].pk, "POTATO");
         assert_eq!(replayer_input.genesis_ledger.accounts[1].pk, "TOMATO");
+    }
+
+    #[test]
+    fn test_set_slot_since_genesis() {
+        let tempdir =
+            TempDir::new("test_set_slot_since_genesis").expect("Cannot create temporary directory");
+        let network_path = tempdir.path();
+        let mut bp_keys_map: HashMap<String, NodeKey> = HashMap::new();
+        let service_key = NodeKey {
+            key_string: "test_key".to_string(),
+            key_path_docker: "test_key_path".to_string(),
+        };
+        bp_keys_map.insert("node0".to_string(), service_key);
+        let result = default::LedgerGenerator::generate(network_path, &bp_keys_map);
+        println!("{:?}", result);
+        assert!(result.is_ok());
+
+        let result = default::LedgerGenerator::generate_replayer_input(network_path);
+        println!("{:?}", result);
+        assert!(result.is_ok());
+
+        let result = set_slot_since_genesis(network_path, 100);
+        println!("{:?}", result);
+        assert!(result.is_ok());
+
+        let path = network_path.to_path_buf();
+        let path = path.join(REPLAYER_INPUT_JSON);
+        assert!(path.exists());
+        let content = std::fs::read_to_string(path).unwrap();
+        let replayer_input: ReplayerInput = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(replayer_input.start_slot_since_genesis, 100);
     }
 }

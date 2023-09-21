@@ -431,6 +431,7 @@ fn main() -> Result<()> {
             }
 
             NodeCommand::RunReplayer(cmd) => {
+                let start_slot = cmd.start_slot_since_genesis;
                 let node_id = cmd.node_id();
                 let network_id = cmd.network_id();
                 let network_path = directory_manager.network_path(cmd.network_id());
@@ -442,16 +443,18 @@ fn main() -> Result<()> {
                     return exit_with(e.to_string());
                 }
 
-                info!(
-                    "Node run-replayer command with node_id '{node_id}', network_id '{network_id}', \
-                        start_slot_since_genesis '{}'.",
-                    cmd.start_slot_since_genesis,
-                );
+                if let Err(e) = genesis_ledger::set_slot_since_genesis(&network_path, start_slot) {
+                    let error_message = format!(
+                        "Failed to set slot since genesis to '{start_slot}' for node '{node_id}' on network '{network_id}': {e}"
+                    );
+                    return exit_with(error_message);
+                }
 
                 match docker.compose_run_replayer(node_id, network_id) {
                     Ok(output) => {
                         if output.status.success() {
-                            info!("Successfully ran replayer for node '{node_id}' on network '{network_id}'");
+                            info!("Successfully ran replayer for node '{node_id}' on network '{network_id}' \
+                                    and start_slot_since_genesis '{start_slot}'");
                             println!(
                                 "{}",
                                 output::node::ReplayerLogs {
@@ -462,7 +465,8 @@ fn main() -> Result<()> {
                             )
                         } else {
                             let error_message = format!(
-                                "Failed to run replayer for node '{node_id}' on network '{network_id}': {}",
+                                "Failed to run replayer for node '{node_id}' on network '{network_id}' \
+                                  and start_slot_since_genesis '{start_slot}': {}",
                                 String::from_utf8_lossy(&output.stderr)
                             );
                             return exit_with(error_message);
@@ -470,7 +474,8 @@ fn main() -> Result<()> {
                     }
                     Err(e) => {
                         return exit_with(format!(
-                            "Error while running replayer for node '{node_id}' on network '{network_id}': {e}"
+                            "Error while running replayer for node '{node_id}' on network '{network_id}' \
+                              and start_slot_since_genesis '{start_slot}': {e}"
                         ));
                     }
                 }
