@@ -341,7 +341,15 @@ fn main() -> Result<()> {
                     Ok(output) => {
                         if output.status.success() {
                             info!("Successfully got logs for '{node_id}' on '{network_id}'");
-                            println!("{}", String::from_utf8_lossy(&output.stdout));
+                            // println!("{}", String::from_utf8_lossy(&output.stdout));
+                            println!(
+                                "{}",
+                                output::node::Logs {
+                                    logs: String::from_utf8_lossy(&output.stdout).into(),
+                                    network_id: network_id.into(),
+                                    node_id: node_id.into(),
+                                }
+                            )
                         } else {
                             let error_message = format!(
                                 "Failed to get logs for '{node_id}' on '{network_id}': {}",
@@ -411,7 +419,15 @@ fn main() -> Result<()> {
                     Ok(output) => {
                         if output.status.success() {
                             info!("Successfully dumped precomputed blocks for '{node_id}' on '{network_id}'");
-                            println!("{}", String::from_utf8_lossy(&output.stdout));
+                            // println!("{}", String::from_utf8_lossy(&output.stdout));
+                            println!(
+                                "{}",
+                                output::node::PrecomputedBlocks {
+                                    blocks: String::from_utf8_lossy(&output.stdout).into(),
+                                    network_id: network_id.into(),
+                                    node_id: node_id.into(),
+                                }
+                            )
                         } else {
                             let error_message = format!(
                                 "Failed to dump precomputed blocks for '{node_id}' on '{network_id}': {}", String::from_utf8_lossy(&output.stderr)
