@@ -120,6 +120,10 @@ pub struct NodeCommandArgs {
     /// Log level filter
     #[clap(short = 'l', long, default_value = "warn")]
     pub log_level: String,
+
+    /// Raw output (not wrapped in JSON)
+    #[clap(short = 'r', long, default_value_t = false)]
+    pub raw_output: bool,
 }
 
 #[derive(Args, Debug)]

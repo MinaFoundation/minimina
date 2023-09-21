@@ -288,14 +288,23 @@ fn main() -> Result<()> {
                 match docker.compose_start(vec![&container]) {
                     Ok(out) => {
                         if out.status.success() {
-                            println!(
-                                "{}",
-                                node::Start {
-                                    // fresh_state,
-                                    node_id,
-                                    network_id,
-                                }
-                            );
+                            if cmd.node_args.raw_output {
+                                println!(
+                                    "Node '{node_id}' on network '{network_id}' \
+                                          has been started. {}",
+                                    String::from_utf8_lossy(&out.stdout)
+                                );
+                            } else {
+                                println!(
+                                    "{}",
+                                    node::Start {
+                                        // fresh_state,
+                                        node_id,
+                                        network_id,
+                                    }
+                                )
+                            }
+
                             Ok(())
                         } else {
                             handle_start_error(&node_id, String::from_utf8_lossy(&out.stderr))
@@ -315,13 +324,21 @@ fn main() -> Result<()> {
                 match docker.compose_stop(vec![&container]) {
                     Ok(out) => {
                         if out.status.success() {
-                            println!(
-                                "{}",
-                                node::Stop {
-                                    node_id,
-                                    network_id
-                                }
-                            );
+                            if cmd.raw_output {
+                                println!(
+                                    "Node '{node_id}' on network '{network_id}' \
+                                          has been stopped. {}",
+                                    String::from_utf8_lossy(&out.stdout)
+                                );
+                            } else {
+                                println!(
+                                    "{}",
+                                    node::Stop {
+                                        node_id,
+                                        network_id,
+                                    }
+                                )
+                            }
                             Ok(())
                         } else {
                             handle_stop_error(&node_id, String::from_utf8_lossy(&out.stderr))
@@ -341,15 +358,18 @@ fn main() -> Result<()> {
                     Ok(output) => {
                         if output.status.success() {
                             info!("Successfully got logs for '{node_id}' on '{network_id}'");
-                            // println!("{}", String::from_utf8_lossy(&output.stdout));
-                            println!(
-                                "{}",
-                                output::node::Logs {
-                                    logs: String::from_utf8_lossy(&output.stdout).into(),
-                                    network_id: network_id.into(),
-                                    node_id: node_id.into(),
-                                }
-                            )
+                            if cmd.raw_output {
+                                println!("{}", String::from_utf8_lossy(&output.stdout));
+                            } else {
+                                println!(
+                                    "{}",
+                                    output::node::Logs {
+                                        logs: String::from_utf8_lossy(&output.stdout).into(),
+                                        network_id: network_id.into(),
+                                        node_id: node_id.into(),
+                                    }
+                                )
+                            }
                         } else {
                             let error_message = format!(
                                 "Failed to get logs for '{node_id}' on '{network_id}': {}",
@@ -381,14 +401,18 @@ fn main() -> Result<()> {
                     Ok(output) => {
                         if output.status.success() {
                             info!("Successfully dumped archive data for node '{node_id}', network '{network_id}'");
-                            println!(
-                                "{}",
-                                output::node::ArchiveData {
-                                    data: String::from_utf8_lossy(&output.stdout).into(),
-                                    network_id: network_id.into(),
-                                    node_id: node_id.into(),
-                                }
-                            )
+                            if cmd.raw_output {
+                                println!("{}", String::from_utf8_lossy(&output.stdout));
+                            } else {
+                                println!(
+                                    "{}",
+                                    output::node::ArchiveData {
+                                        data: String::from_utf8_lossy(&output.stdout).into(),
+                                        network_id: network_id.into(),
+                                        node_id: node_id.into(),
+                                    }
+                                )
+                            }
                         } else {
                             let error_message = format!(
                                 "Failed to dump archive data for node '{node_id}', network '{network_id}': {}",
@@ -419,15 +443,18 @@ fn main() -> Result<()> {
                     Ok(output) => {
                         if output.status.success() {
                             info!("Successfully dumped precomputed blocks for '{node_id}' on '{network_id}'");
-                            // println!("{}", String::from_utf8_lossy(&output.stdout));
-                            println!(
-                                "{}",
-                                output::node::PrecomputedBlocks {
-                                    blocks: String::from_utf8_lossy(&output.stdout).into(),
-                                    network_id: network_id.into(),
-                                    node_id: node_id.into(),
-                                }
-                            )
+                            if cmd.raw_output {
+                                println!("{}", String::from_utf8_lossy(&output.stdout));
+                            } else {
+                                println!(
+                                    "{}",
+                                    output::node::PrecomputedBlocks {
+                                        blocks: String::from_utf8_lossy(&output.stdout).into(),
+                                        network_id: network_id.into(),
+                                        node_id: node_id.into(),
+                                    }
+                                )
+                            }
                         } else {
                             let error_message = format!(
                                 "Failed to dump precomputed blocks for '{node_id}' on '{network_id}': {}", String::from_utf8_lossy(&output.stderr)
@@ -472,14 +499,18 @@ fn main() -> Result<()> {
                         if output.status.success() {
                             info!("Successfully ran replayer for node '{node_id}' on network '{network_id}' \
                                     and start_slot_since_genesis '{start_slot}'");
-                            println!(
-                                "{}",
-                                output::node::ReplayerLogs {
-                                    logs: String::from_utf8_lossy(&output.stdout).into(),
-                                    network_id: network_id.into(),
-                                    node_id: node_id.into(),
-                                }
-                            )
+                            if cmd.node_args.raw_output {
+                                println!("{}", String::from_utf8_lossy(&output.stdout));
+                            } else {
+                                println!(
+                                    "{}",
+                                    output::node::ReplayerLogs {
+                                        logs: String::from_utf8_lossy(&output.stdout).into(),
+                                        network_id: network_id.into(),
+                                        node_id: node_id.into(),
+                                    }
+                                )
+                            }
                         } else {
                             let error_message = format!(
                                 "Failed to run replayer for node '{node_id}' on network '{network_id}' \
