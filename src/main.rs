@@ -639,6 +639,17 @@ fn apply_schema_scripts(
     scripts: &Vec<String>,
     network_path: &Path,
 ) -> Result<()> {
+    // copy scripts first
+    for script in scripts {
+        let file_path = fetch_schema(script, network_path.to_path_buf()).unwrap();
+        let file_name = file_path.file_name().unwrap().to_str().unwrap();
+        let docker_file_path = Path::new("/tmp").join(file_path.file_name().unwrap());
+
+        info!("Copying schema script: {}", file_name);
+        docker.cp(postgres_name, &file_path, &docker_file_path)?;
+    }
+
+    // then apply scripts 1 by 1
     for script in scripts {
         let file_path = fetch_schema(script, network_path.to_path_buf()).unwrap();
         let file_name = file_path.file_name().unwrap().to_str().unwrap();
@@ -654,7 +665,6 @@ fn apply_schema_scripts(
         ];
 
         info!("Applying schema script: {}", file_name);
-        docker.cp(postgres_name, &file_path, &docker_file_path)?;
         docker.exec(postgres_name, &cmd)?;
     }
 
