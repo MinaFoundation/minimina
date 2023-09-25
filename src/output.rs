@@ -295,6 +295,7 @@ mod tests {
             snark_worker_proof_level: None,
             archive_schema_files: None,
             archive_port: None,
+            archive_docker_image: None,
             worker_nodes: None,
             snark_coordinator_host: None,
         };

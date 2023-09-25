@@ -55,6 +55,7 @@ pub struct ServiceConfig {
     pub snark_coordinator_port: Option<u16>,
 
     //archive node specific
+    pub archive_docker_image: Option<String>,
     pub archive_schema_files: Option<Vec<String>>,
     pub archive_port: Option<u16>,
 }
