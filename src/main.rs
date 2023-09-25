@@ -541,7 +541,14 @@ fn create_network(
     services: &[ServiceConfig],
 ) -> Result<()> {
     match docker.compose_create(None) {
-        Ok(_) => {
+        Ok(output) => {
+            if !output.status.success() {
+                let error_message = format!(
+                    "Failed to create network '{network_id}' with 'docker compose create': {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                return exit_with(error_message);
+            }
             info!("Successfully created docker-compose for network '{network_id}'!");
 
             // if we have archive node we need to:
