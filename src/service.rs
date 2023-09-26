@@ -103,7 +103,7 @@ impl ServiceConfig {
             "-file-log-level".to_string(),
             "Trace".to_string(),
             "-config-directory".to_string(),
-            format!("/config-directory/{}", self.service_name),
+            "/config-directory".to_string(),
             "-precomputed-blocks-file".to_string(),
             "/config-directory/precomputed_blocks.log".to_string(),
             // "-bind-ip".to_string(),
@@ -216,7 +216,7 @@ impl ServiceConfig {
             "-shutdown-on-disconnect".to_string(),
             "false".to_string(),
             "-config-directory".to_string(),
-            format!("/config-directory/{}", self.service_name),
+            "/config-directory".to_string(),
         ];
 
         if self.snark_coordinator_port.is_some() && self.snark_coordinator_host.is_some() {
