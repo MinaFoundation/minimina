@@ -288,6 +288,13 @@ fn main() -> Result<()> {
                 match docker.compose_start(vec![&container]) {
                     Ok(out) => {
                         if out.status.success() {
+                            import_all_accounts(
+                                &docker,
+                                &directory_manager,
+                                &node_id,
+                                &network_id,
+                            )?;
+
                             if cmd.node_args.raw_output {
                                 println!(
                                     "Node '{node_id}' on network '{network_id}' \
@@ -1053,4 +1060,41 @@ fn is_node_archive(network_file_path: &PathBuf, node_id: &str, network_id: &str)
             Err(Error::new(ErrorKind::NotFound, error))
         }
     }
+}
+
+fn import_all_accounts(
+    docker: &DockerManager,
+    directory_manager: &DirectoryManager,
+    node_id: &str,
+    network_id: &str,
+) -> Result<()> {
+    let account_files = directory_manager.get_network_keypair_files(network_id)?;
+    for account_file in account_files {
+        let out = docker.compose_import_account(node_id, network_id, &account_file);
+        match out {
+            Ok(output) => {
+                if output.status.success() {
+                    info!(
+                        "Successfully imported account from file '{account_file}' \
+                        for node '{node_id}' on network '{network_id}'",
+                    );
+                } else {
+                    let error_message = format!(
+                        "Failed to import account from file '{account_file}' \
+                        for node '{node_id}' on network '{network_id}': {}",
+                        String::from_utf8_lossy(&output.stderr),
+                    );
+                    return exit_with(error_message);
+                }
+            }
+            Err(e) => {
+                let error_message = format!(
+                    "Failed to import account from file '{account_file}' \
+                    for node '{node_id}' on network '{network_id}': {e}",
+                );
+                return exit_with(error_message);
+            }
+        }
+    }
+    Ok(())
 }

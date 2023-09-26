@@ -7,6 +7,7 @@
 //! - Shut down active services.
 //! - Handle interactions with the Docker CLI.
 
+use crate::directory_manager::NETWORK_KEYPAIRS;
 use crate::genesis_ledger::REPLAYER_INPUT_JSON;
 use crate::{docker::compose::DockerCompose, service::ServiceConfig, utils::run_command};
 use serde::{Deserialize, Serialize};
@@ -265,6 +266,28 @@ impl DockerManager {
             &pg_archive_uri,
             "--output-file",
             "/dev/null",
+        ];
+        self.run_docker_compose(cmd)
+    }
+
+    pub fn compose_import_account(
+        &self,
+        node_id: &str,
+        network_id: &str,
+        account_file: &str,
+    ) -> Result<Output> {
+        let service = format!("{node_id}-{network_id}");
+        let privkey_path = format!("/local-network/{NETWORK_KEYPAIRS}/{account_file}");
+        let cmd = &[
+            "exec",
+            &service,
+            "mina",
+            "accounts",
+            "import",
+            "--privkey-path",
+            privkey_path.as_str(),
+            "--config-directory",
+            "/config-directory",
         ];
         self.run_docker_compose(cmd)
     }
