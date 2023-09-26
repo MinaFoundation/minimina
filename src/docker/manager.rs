@@ -247,7 +247,7 @@ impl DockerManager {
         self.run_docker_compose(cmd)
     }
 
-    /// Execute archive node's replayer
+    /// Execute archive service replayer
     pub fn compose_run_replayer(&self, node_id: &str, network_id: &str) -> Result<Output> {
         // -input-file PATH (genesis ledger)
         // -output-file PATH (output ledger)

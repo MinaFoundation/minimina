@@ -494,7 +494,8 @@ fn main() -> Result<()> {
                     return exit_with(error_message);
                 }
 
-                match docker.compose_run_replayer(node_id, network_id) {
+                let archive_service_id = format!("{node_id}-service");
+                match docker.compose_run_replayer(&archive_service_id, network_id) {
                     Ok(output) => {
                         if output.status.success() {
                             info!("Successfully ran replayer for node '{node_id}' on network '{network_id}' \
