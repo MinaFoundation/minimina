@@ -22,8 +22,12 @@ pub struct ArchiveTopologyInfo {
     #[serde(rename(deserialize = "role"))]
     pub service_type: ServiceType,
     pub docker_image: Option<String>,
+    pub archive_image: Option<String>,
     pub git_build: Option<GitBuild>,
     pub schema_files: Vec<PathBuf>,
+    pub libp2p_pass: String,
+    pub libp2p_keyfile: PathBuf,
+    pub libp2p_peerid: String,
 }
 
 /// Topology info for a block producer or seed node
@@ -87,6 +91,7 @@ impl TopologyInfo {
                 service_name,
                 docker_image: archive_info.docker_image.clone(),
                 git_build: archive_info.git_build.clone(),
+                client_port: Some(client_port),
                 public_key: Some(archive_info.pk.clone()),
                 private_key: Some(archive_info.sk.clone()),
                 peer_list_file: Some(peer_list_file.to_path_buf()),
@@ -98,6 +103,9 @@ impl TopologyInfo {
                         .collect(),
                 ),
                 archive_port: Some(archive_port),
+                archive_docker_image: archive_info.archive_image.clone(),
+                libp2p_keypair_path: Some(archive_info.libp2p_keyfile.clone()),
+                libp2p_peerid: Some(archive_info.libp2p_peerid.clone()),
                 ..Default::default()
             },
             TopologyInfo::Node(node_info) => ServiceConfig {
@@ -255,13 +263,17 @@ mod tests {
                 \"sk\": \"{sk}\",
                 \"role\": \"{role}\",
                 \"docker_image\": null,
+                \"archive_image\": \"archive-image\",
                 \"git_build\": {{
                     \"commit\": \"{commit}\"
                 }},
                 \"schema_files\": [
                     \"{schema_file}\",
                     \"{zkapp_table}\"
-                ]
+                ],
+                \"libp2p_pass\": \"naughty blue potato\",
+                \"libp2p_keyfile\": \"/path/to/keyfile\",
+                \"libp2p_peerid\": \"123\"
             }}"
         ))
         .unwrap();
@@ -275,6 +287,10 @@ mod tests {
                 git_build: Some(GitBuild::Commit(commit)),
                 service_type: ServiceType::ArchiveNode,
                 schema_files: vec![schema_file.into(), zkapp_table.into()],
+                archive_image: Some("archive-image".into()),
+                libp2p_pass: "naughty blue potato".into(),
+                libp2p_keyfile: "/path/to/keyfile".into(),
+                libp2p_peerid: "123".into(),
             }
         );
     }

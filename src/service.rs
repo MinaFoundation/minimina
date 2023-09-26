@@ -55,6 +55,7 @@ pub struct ServiceConfig {
     pub snark_coordinator_port: Option<u16>,
 
     //archive node specific
+    pub archive_docker_image: Option<String>,
     pub archive_schema_files: Option<Vec<String>>,
     pub archive_port: Option<u16>,
 }
@@ -121,8 +122,29 @@ impl ServiceConfig {
         base_command.join(" ")
     }
 
+    pub fn generate_archive_command(&self, archive_service_host: String) -> String {
+        assert_eq!(self.service_type, ServiceType::ArchiveNode);
+        let mut base_command = self.generate_base_command();
+
+        // Handling multiple peers
+        self.add_peers_command(&mut base_command);
+
+        if let Some(archive_port) = &self.archive_port {
+            base_command.push("-archive-address".to_string());
+            base_command.push(format!("{}:{}", archive_service_host, archive_port));
+        } else {
+            warn!(
+                "No archive port provided for archive node '{}'. This is not recommended.",
+                self.service_name
+            );
+        }
+
+        self.add_libp2p_command(&mut base_command);
+        base_command.join(" ")
+    }
+
     /// Generate command for block producer node
-    pub fn generate_block_producer_command(&self, archive_data: Option<(String, u16)>) -> String {
+    pub fn generate_block_producer_command(&self) -> String {
         assert_eq!(self.service_type, ServiceType::BlockProducer);
 
         let mut base_command = self.generate_base_command();
@@ -146,10 +168,6 @@ impl ServiceConfig {
             );
         }
 
-        if let Some((archive_host, archive_port)) = archive_data {
-            base_command.push("-archive-address".to_string());
-            base_command.push(format!("{}:{}", archive_host, archive_port));
-        }
         self.add_libp2p_command(&mut base_command);
         base_command.join(" ")
     }

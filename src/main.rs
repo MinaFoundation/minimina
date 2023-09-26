@@ -494,7 +494,8 @@ fn main() -> Result<()> {
                     return exit_with(error_message);
                 }
 
-                match docker.compose_run_replayer(node_id, network_id) {
+                let archive_service_id = format!("{node_id}-service");
+                match docker.compose_run_replayer(&archive_service_id, network_id) {
                     Ok(output) => {
                         if output.status.success() {
                             info!("Successfully ran replayer for node '{node_id}' on network '{network_id}' \
@@ -541,7 +542,14 @@ fn create_network(
     services: &[ServiceConfig],
 ) -> Result<()> {
     match docker.compose_create(None) {
-        Ok(_) => {
+        Ok(output) => {
+            if !output.status.success() {
+                let error_message = format!(
+                    "Failed to create network '{network_id}' with 'docker compose create': {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                return exit_with(error_message);
+            }
             info!("Successfully created docker-compose for network '{network_id}'!");
 
             // if we have archive node we need to:
@@ -686,7 +694,15 @@ fn generate_default_genesis_ledger(
     let block_producers = vec!["mina-bp-1", "mina-bp-2"];
     let snark_coordinators = vec!["mina-snark-coordinator"];
     let snark_workers = vec!["mina-snark-worker-1"];
-    let all_services = [seeds, block_producers, snark_coordinators, snark_workers].concat();
+    let archive = vec!["mina-archive"];
+    let all_services = [
+        seeds,
+        block_producers,
+        snark_coordinators,
+        snark_workers,
+        archive,
+    ]
+    .concat();
 
     // generate key-pairs for default services
     let keys_manager = KeysManager::new(network_path, docker_image);
@@ -771,7 +787,7 @@ fn generate_default_topology(
         client_port: Some(7000),
         public_key: Some(bp_keys[snark_coordinator_name].key_string.clone()),
         libp2p_keypair: Some(libp2p_keys[snark_coordinator_name].key_string.clone()),
-        peers: Some(vec![peer]),
+        peers: Some(vec![peer.clone()]),
         snark_coordinator_fees: Some("0.001".into()),
         worker_nodes: Some(1),
         ..Default::default()
@@ -792,7 +808,13 @@ fn generate_default_topology(
     let archive_node = ServiceConfig {
         service_type: ServiceType::ArchiveNode,
         service_name: archive_node_name.to_string(),
-        docker_image: Some(docker_image_archive.into()),
+        docker_image: Some(docker_image.into()),
+        client_port: Some(5005),
+        public_key: Some(bp_keys[archive_node_name].key_string.clone()),
+        public_key_path: Some(bp_keys[archive_node_name].key_path_docker.clone()),
+        libp2p_keypair: Some(libp2p_keys[archive_node_name].key_string.clone()),
+        peers: Some(vec![peer]),
+        archive_docker_image: Some(docker_image_archive.into()),
         archive_schema_files: Some(vec![
             "https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/zkapp_tables.sql".into(),
             "https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/create_schema.sql".into(),
