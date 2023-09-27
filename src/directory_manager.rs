@@ -11,6 +11,7 @@
 //! - `peer_list_file.txt`: Contains the list of libp2p peers for the network.
 
 use crate::genesis_ledger::GENESIS_LEDGER_JSON;
+use crate::output;
 use crate::service::ServiceConfig;
 use dirs::home_dir;
 use log::info;
@@ -298,6 +299,35 @@ impl DirectoryManager {
         self.network_path(network_id).join("network.json")
     }
 
+    pub fn save_network_info(&self, network_id: &str, services: &[ServiceConfig]) -> Result<()> {
+        let network_file_path = self.network_file_path(network_id);
+        let contents = format!("{}", output::generate_network_info(services, network_id));
+        fs::write(network_file_path, contents)
+    }
+
+    pub fn get_network_info(&self, network_id: &str) -> Result<String> {
+        let network_file_path = self.network_file_path(network_id);
+        fs::read_to_string(network_file_path)
+    }
+
+    /// Returns the services file path for the given network
+    pub fn services_file_path(&self, network_id: &str) -> PathBuf {
+        self.network_path(network_id).join("services.json")
+    }
+
+    pub fn save_services_info(&self, network_id: &str, services: &[ServiceConfig]) -> Result<()> {
+        let services_file_path = self.services_file_path(network_id);
+        let contents = serde_json::to_string_pretty(services)?;
+        fs::write(services_file_path, contents)
+    }
+
+    pub fn get_services_info(&self, network_id: &str) -> Result<Vec<ServiceConfig>> {
+        let services_file_path = self.services_file_path(network_id);
+        let contents = fs::read_to_string(services_file_path)?;
+        let services: Vec<ServiceConfig> = serde_json::from_str(&contents)?;
+        Ok(services)
+    }
+
     /// Returns the topology file path for the given network
     pub fn topology_file_path(&self, network_id: &str) -> PathBuf {
         self.network_path(network_id).join("topology.json")
@@ -523,5 +553,76 @@ mod tests {
             .unwrap();
         assert!(files.contains(&file1.to_string()));
         assert!(!files.contains(&file2.to_string()));
+    }
+
+    #[test]
+    fn test_save_network_info() {
+        let tempdir =
+            TempDir::new("test_save_network_info").expect("Cannot create temporary directory");
+        let base_path = tempdir.path();
+        let network_id = "test_network";
+        let dir_manager = DirectoryManager::_new_with_base_path(base_path.into());
+        let services = vec![
+            ServiceConfig {
+                service_name: "test_service1".to_string(),
+                ..Default::default()
+            },
+            ServiceConfig {
+                service_name: "test_service2".to_string(),
+                ..Default::default()
+            },
+        ];
+
+        // Create the network and subdirectories
+        dir_manager.create_network_directory(network_id).unwrap();
+
+        // Save the network info
+        dir_manager
+            .save_network_info(network_id, &services)
+            .unwrap();
+
+        // Check that the network info is saved
+        let network_info = dir_manager.get_network_info(network_id).unwrap();
+        assert!(network_info.contains("test_service1"));
+        assert!(network_info.contains("test_service2"));
+
+        // Clean up
+        dir_manager.delete_network_directory(network_id).unwrap();
+    }
+
+    #[test]
+    fn test_save_services_info() {
+        let tempdir =
+            TempDir::new("test_save_services_info").expect("Cannot create temporary directory");
+        let base_path = tempdir.path();
+        let network_id = "test_network";
+        let dir_manager = DirectoryManager::_new_with_base_path(base_path.into());
+        let services = vec![
+            ServiceConfig {
+                service_name: "test_service1".to_string(),
+                ..Default::default()
+            },
+            ServiceConfig {
+                service_name: "test_service2".to_string(),
+                ..Default::default()
+            },
+        ];
+
+        // Create the network and subdirectories
+        dir_manager.create_network_directory(network_id).unwrap();
+
+        // Save the services info
+        dir_manager
+            .save_services_info(network_id, &services)
+            .unwrap();
+
+        // Check that the services info is saved
+        let services_info = dir_manager.get_services_info(network_id).unwrap();
+        assert_eq!(services_info.len(), 2);
+        assert_eq!(services_info[0].service_name, "test_service1");
+        assert_eq!(services_info[1].service_name, "test_service2");
+
+        // Clean up
+        dir_manager.delete_network_directory(network_id).unwrap();
     }
 }

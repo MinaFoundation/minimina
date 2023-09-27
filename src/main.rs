@@ -26,7 +26,7 @@ use env_logger::{Builder, Env};
 use log::{error, info, warn};
 use std::{
     collections::HashMap,
-    fs::{read_to_string, write},
+    fs::read_to_string,
     io::{Error, ErrorKind, Result},
     path::{Path, PathBuf},
     process::exit,
@@ -101,7 +101,7 @@ fn main() -> Result<()> {
                 let network_id = cmd.network_id;
                 check_network_exists(&network_id)?;
 
-                match read_to_string(directory_manager.network_file_path(&network_id)) {
+                match directory_manager.get_network_info(&network_id) {
                     Ok(json_data) => {
                         println!("{json_data}");
                         Ok(())
@@ -609,12 +609,19 @@ fn create_network(
                 docker.compose_stop(vec![&postgres_name])?;
             }
 
-            let output = format!("{}", output::generate_network_info(services, network_id));
-            if let Err(e) = write(directory_manager.network_file_path(network_id), &output) {
+            // generate network.json and services.json
+            if let Err(e) = directory_manager.save_network_info(network_id, services) {
                 error!("Error generating network.json: {e}")
             }
 
-            println!("{output}");
+            if let Err(e) = directory_manager.save_services_info(network_id, services) {
+                error!("Error generating services.json: {e}")
+            }
+
+            println!(
+                "{}",
+                format!("{}", output::generate_network_info(services, network_id))
+            );
             Ok(())
         }
         Err(e) => {

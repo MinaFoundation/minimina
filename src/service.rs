@@ -24,7 +24,7 @@ pub enum ServiceType {
     ArchiveNode,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ServiceConfig {
     pub service_type: ServiceType,
     pub service_name: String,

@@ -1,12 +1,12 @@
 use crate::service::{ServiceConfig, ServiceType};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
 
 /// Type of git build
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum GitBuild {
     #[serde(rename = "commit")]
     Commit(String),
