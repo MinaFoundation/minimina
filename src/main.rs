@@ -588,7 +588,7 @@ fn create_network(
                 };
 
                 // make sure postgres is running
-                container_is_running(docker.clone(), &postgres_name)?;
+                container_is_running(docker, &postgres_name)?;
 
                 // create database
                 let cmd = ["createdb", "-U", "postgres", "archive"];
@@ -628,7 +628,7 @@ fn create_network(
     }
 }
 
-fn container_is_running(docker: DockerManager, container_name: &str) -> Result<()> {
+fn container_is_running(docker: &DockerManager, container_name: &str) -> Result<()> {
     let mut container_running = false;
     let mut retries = 0;
 
@@ -1072,6 +1072,7 @@ fn import_all_accounts(
 ) -> Result<()> {
     let container = format!("{node_id}-{network_id}");
     docker.compose_start(vec![&container])?;
+    container_is_running(docker, &container)?;
     let account_files = directory_manager.get_network_keypair_files(network_id)?;
     for account_file in account_files {
         let out = docker.compose_import_account(node_id, network_id, &account_file);
