@@ -285,7 +285,10 @@ fn main() -> Result<()> {
                     _fresh_state = true;
                 }
 
-                import_all_accounts(&docker, &directory_manager, &node_id, &network_id)?;
+                if cmd.import_accounts {
+                    info!("Importing accounts for node '{node_id}' in network '{network_id}'.");
+                    import_all_accounts(&docker, &directory_manager, &node_id, &network_id)?;
+                }
 
                 match docker.compose_start(vec![&container]) {
                     Ok(out) => {
