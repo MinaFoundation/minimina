@@ -285,16 +285,11 @@ fn main() -> Result<()> {
                     _fresh_state = true;
                 }
 
+                import_all_accounts(&docker, &directory_manager, &node_id, &network_id)?;
+
                 match docker.compose_start(vec![&container]) {
                     Ok(out) => {
                         if out.status.success() {
-                            import_all_accounts(
-                                &docker,
-                                &directory_manager,
-                                &node_id,
-                                &network_id,
-                            )?;
-
                             if cmd.node_args.raw_output {
                                 println!(
                                     "Node '{node_id}' on network '{network_id}' \
@@ -618,10 +613,7 @@ fn create_network(
                 error!("Error generating services.json: {e}")
             }
 
-            println!(
-                "{}",
-                format!("{}", output::generate_network_info(services, network_id))
-            );
+            println!("{}", output::generate_network_info(services, network_id));
             Ok(())
         }
         Err(e) => {
@@ -1075,6 +1067,8 @@ fn import_all_accounts(
     node_id: &str,
     network_id: &str,
 ) -> Result<()> {
+    let container = format!("{node_id}-{network_id}");
+    docker.compose_start(vec![&container])?;
     let account_files = directory_manager.get_network_keypair_files(network_id)?;
     for account_file in account_files {
         let out = docker.compose_import_account(node_id, network_id, &account_file);
@@ -1103,5 +1097,6 @@ fn import_all_accounts(
             }
         }
     }
+    docker.compose_stop(vec![&container])?;
     Ok(())
 }

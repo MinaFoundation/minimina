@@ -7,7 +7,9 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::{genesis_ledger::GENESIS_LEDGER_JSON, topology::GitBuild};
+use crate::{
+    docker::compose::CONFIG_DIRECTORY, genesis_ledger::GENESIS_LEDGER_JSON, topology::GitBuild,
+};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 pub enum ServiceType {
@@ -96,16 +98,16 @@ impl ServiceConfig {
             "-libp2p-metrics-port".to_string(),
             libp2p_metrics_port.to_string(),
             "-config-file".to_string(),
-            format!("/local-network/{}", GENESIS_LEDGER_JSON),
+            format!("/local-network/{GENESIS_LEDGER_JSON}"),
             "-log-json".to_string(),
             "-log-level".to_string(),
             "Trace".to_string(),
             "-file-log-level".to_string(),
             "Trace".to_string(),
             "-config-directory".to_string(),
-            "/config-directory".to_string(),
+            format!("/{CONFIG_DIRECTORY}"),
             "-precomputed-blocks-file".to_string(),
-            "/config-directory/precomputed_blocks.log".to_string(),
+            format!("/{CONFIG_DIRECTORY}/precomputed_blocks.log"),
             // "-bind-ip".to_string(),
             // "0.0.0.0".to_string(),
         ]
@@ -216,7 +218,7 @@ impl ServiceConfig {
             "-shutdown-on-disconnect".to_string(),
             "false".to_string(),
             "-config-directory".to_string(),
-            "/config-directory".to_string(),
+            format!("/{CONFIG_DIRECTORY}"),
         ];
 
         if self.snark_coordinator_port.is_some() && self.snark_coordinator_host.is_some() {

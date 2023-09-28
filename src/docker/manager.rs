@@ -9,7 +9,10 @@
 
 use crate::directory_manager::NETWORK_KEYPAIRS;
 use crate::genesis_ledger::REPLAYER_INPUT_JSON;
-use crate::{docker::compose::DockerCompose, service::ServiceConfig, utils::run_command};
+use crate::{
+    docker::compose::DockerCompose, docker::compose::CONFIG_DIRECTORY, service::ServiceConfig,
+    utils::run_command,
+};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
@@ -234,7 +237,7 @@ impl DockerManager {
             "exec",
             &service,
             "cat",
-            "/config-directory/precomputed_blocks.log",
+            &format!("/{CONFIG_DIRECTORY}/precomputed_blocks.log"),
         ];
         self.run_docker_compose(cmd)
     }
@@ -287,7 +290,7 @@ impl DockerManager {
             "--privkey-path",
             privkey_path.as_str(),
             "--config-directory",
-            "/config-directory",
+            &format!("/{CONFIG_DIRECTORY}"),
         ];
         self.run_docker_compose(cmd)
     }
