@@ -108,8 +108,12 @@ impl ServiceConfig {
             format!("/{CONFIG_DIRECTORY}"),
             "-precomputed-blocks-file".to_string(),
             format!("/{CONFIG_DIRECTORY}/precomputed_blocks.log"),
-            // "-bind-ip".to_string(),
-            // "0.0.0.0".to_string(),
+            "-log-txn-pool-gossip".to_string(),
+            "true".to_string(),
+            "-log-snark-work-gossip".to_string(),
+            "true".to_string(),
+            "-log-precomputed-blocks".to_string(),
+            "true".to_string(),
         ]
     }
 
