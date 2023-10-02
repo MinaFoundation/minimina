@@ -298,14 +298,21 @@ fn main() -> Result<()> {
                                 .iter()
                                 .find(|node| node.service_name == node_id)
                                 .unwrap()
-                                .client_port
-                                .unwrap();
-                            wait_for_daemon(&docker, &node_id, &network_id, client_port)?;
-                            request_filtered_logs_via_graphql(
-                                &directory_manager,
-                                &node_id,
-                                &network_id,
-                            )?;
+                                .client_port;
+                            if client_port.is_some() {
+                                wait_for_daemon(
+                                    &docker,
+                                    &node_id,
+                                    &network_id,
+                                    client_port.unwrap(),
+                                )?;
+                                request_filtered_logs_via_graphql(
+                                    &directory_manager,
+                                    &node_id,
+                                    &network_id,
+                                )?;
+                            }
+
                             if cmd.node_args.raw_output {
                                 println!(
                                     "Node '{node_id}' on network '{network_id}' \
@@ -695,7 +702,19 @@ fn request_filtered_logs_via_graphql(
 
     // Define the query and the request payload
     let query = r#"{
-        "query": "mutation MyMutation { startFilteredLog(filter: []) }"
+        "query": "mutation MyMutation { startFilteredLog(filter: [\"21ccae8c619bc2666474085272d5fe1d\", 
+                                                                  \"ef1182dc30f3e0aa9f6bf11c0ab90ba6\",
+                                                                  \"64e2d3e86c37c09b15efdaf7470ce879\",
+                                                                  \"db06cb5030f39e86e84b30d033f3bc5c\", 
+                                                                  \"60076de624bf0c5fc0843b875001cf84\", 
+                                                                  \"27953f46376ba8abc0c61400e2c38f8b\", 
+                                                                  \"b4b5f5b1d1a0c457cbd13a35d1c8b57b\", 
+                                                                  \"0fc65f5594c5e9ee0b6f0ddde747c758\", 
+                                                                  \"b5a89d6d616a35fb6f73d1eaad6b2dbd\", 
+                                                                  \"1c4150aa7058a3058c4d20ae90ff7ec3\", 
+                                                                  \"f7254e63ad51092a0bd3078580ef9ce3\", 
+                                                                  \"74a81f1e2f8d548e4550faa136c68160\", 
+                                                                  \"30fe76cee159ea215fc05549e861501e\"]) }"
     }"#;
 
     // Create a client
