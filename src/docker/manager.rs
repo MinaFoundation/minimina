@@ -295,6 +295,25 @@ impl DockerManager {
         self.run_docker_compose(cmd)
     }
 
+    pub fn compose_client_status(
+        &self,
+        node_id: &str,
+        network_id: &str,
+        client_port: u16,
+    ) -> Result<Output> {
+        let service = format!("{node_id}-{network_id}");
+        let cmd = &[
+            "exec",
+            &service,
+            "mina",
+            "client",
+            "status",
+            "-daemon-port",
+            &client_port.to_string(),
+        ];
+        self.run_docker_compose(cmd)
+    }
+
     /// Filter container by service name
     /// returns Option<ContainerInfo>
     pub fn filter_container_by_name(

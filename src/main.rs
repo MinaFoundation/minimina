@@ -293,6 +293,19 @@ fn main() -> Result<()> {
                 match docker.compose_start(vec![&container]) {
                     Ok(out) => {
                         if out.status.success() {
+                            let nodes = directory_manager._get_services_info(&network_id)?;
+                            let client_port = nodes
+                                .iter()
+                                .find(|node| node.service_name == node_id)
+                                .unwrap()
+                                .client_port
+                                .unwrap();
+                            wait_for_daemon(&docker, &node_id, &network_id, client_port)?;
+                            request_filtered_logs_via_graphql(
+                                &directory_manager,
+                                &node_id,
+                                &network_id,
+                            )?;
                             if cmd.node_args.raw_output {
                                 println!(
                                     "Node '{node_id}' on network '{network_id}' \
@@ -645,6 +658,62 @@ fn container_is_running(docker: &DockerManager, container_name: &str) -> Result<
         retries += 1;
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
+
+    Ok(())
+}
+
+fn wait_for_daemon(
+    docker: &DockerManager,
+    node_id: &str,
+    network_id: &str,
+    client_port: u16,
+) -> Result<()> {
+    let mut retries = 0;
+    let mut daemon_running = false;
+    info!("Waiting for daemon to start for node '{node_id}' on network '{network_id}'...");
+    while !daemon_running && retries < 180 {
+        let out = docker.compose_client_status(node_id, network_id, client_port)?;
+        if out.status.success() {
+            daemon_running = true;
+        } else {
+            retries += 1;
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    }
+    Ok(())
+}
+
+fn request_filtered_logs_via_graphql(
+    directory_manager: &DirectoryManager,
+    node_id: &str,
+    network_id: &str,
+) -> Result<()> {
+    let nodes = directory_manager.get_network_info(network_id)?;
+    let info = serde_json::from_str::<network::Create>(&nodes)?;
+    let node = info.nodes.get(node_id).unwrap();
+    let graphql_endpoint = node.graphql_uri.as_ref().unwrap();
+
+    // Define the query and the request payload
+    let query = r#"{
+        "query": "mutation MyMutation { startFilteredLog(filter: []) }"
+    }"#;
+
+    // Create a client
+    let client = reqwest::blocking::Client::new();
+
+    // Send the request
+    let response: reqwest::blocking::Response = client
+        .post(graphql_endpoint)
+        .header("Content-Type", "application/json")
+        .body(query)
+        .send()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
+    // Read the response body
+    let response_body = response
+        .text()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    info!("Response body: {}", response_body);
 
     Ok(())
 }
