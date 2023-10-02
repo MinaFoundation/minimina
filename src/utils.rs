@@ -46,8 +46,8 @@ pub fn run_command(cmd: &str, args: &[&str]) -> io::Result<Output> {
 ///
 /// * `Option<String>` - A formatted string "UID:GID", or `None` if unable to retrieve.
 pub fn get_current_user_uid_gid() -> Option<String> {
-    let current_user = users::get_current_uid();
-    let current_group = users::get_current_gid();
+    let current_user = uzers::get_current_uid();
+    let current_group = uzers::get_current_gid();
 
     Some(format!("{current_user}:{current_group}"))
 }

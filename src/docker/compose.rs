@@ -69,7 +69,7 @@ struct Service {
     depends_on: Option<Vec<String>>,
 }
 
-const CONFIG_DIRECTORY: &str = "config-directory";
+pub const CONFIG_DIRECTORY: &str = "config-directory";
 const POSTGRES_DATA: &str = "postgres-data";
 
 impl DockerCompose {
@@ -101,8 +101,8 @@ impl DockerCompose {
                             container_name: service_name.clone(),
                             entrypoint: Some(vec!["mina".to_string()]),
                             volumes: Some(vec![
-                                format!("{}:/local-network", network_path_string),
-                                format!("{}:/{}", service_name, CONFIG_DIRECTORY),
+                                format!("{network_path_string}:/local-network"),
+                                format!("{service_name}:/{CONFIG_DIRECTORY}"),
                             ]),
                             image: config
                                 .docker_image
@@ -207,8 +207,8 @@ impl DockerCompose {
                     container_name: archive_node_name.clone(),
                     entrypoint: Some(vec!["mina".to_string()]),
                     volumes: Some(vec![
-                        format!("{}:/local-network", network_path_string),
-                        format!("{}:/{}", archive_node_name, CONFIG_DIRECTORY),
+                        format!("{network_path_string}:/local-network"),
+                        format!("{archive_node_name}:/{CONFIG_DIRECTORY}"),
                     ]),
                     image: archive_config
                         .docker_image

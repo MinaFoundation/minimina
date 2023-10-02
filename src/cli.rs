@@ -132,6 +132,10 @@ pub struct StartNodeCommandArgs {
     #[clap(short = 'f', long, default_value_t = false)]
     pub fresh_state: bool,
 
+    /// Import genesis accounts from network-keypairs
+    #[clap(short = 'a', long, default_value_t = false)]
+    pub import_accounts: bool,
+
     #[clap(flatten)]
     pub node_args: NodeCommandArgs,
 }

@@ -26,7 +26,7 @@ use env_logger::{Builder, Env};
 use log::{error, info, warn};
 use std::{
     collections::HashMap,
-    fs::{read_to_string, write},
+    fs::read_to_string,
     io::{Error, ErrorKind, Result},
     path::{Path, PathBuf},
     process::exit,
@@ -101,7 +101,7 @@ fn main() -> Result<()> {
                 let network_id = cmd.network_id;
                 check_network_exists(&network_id)?;
 
-                match read_to_string(directory_manager.network_file_path(&network_id)) {
+                match directory_manager.get_network_info(&network_id) {
                     Ok(json_data) => {
                         println!("{json_data}");
                         Ok(())
@@ -283,6 +283,11 @@ fn main() -> Result<()> {
                     docker.compose_down(Some(container.clone()), true, false)?;
                     docker.compose_create(Some(container.clone()))?;
                     _fresh_state = true;
+                }
+
+                if cmd.import_accounts {
+                    info!("Importing accounts for node '{node_id}' in network '{network_id}'.");
+                    import_all_accounts(&docker, &directory_manager, &node_id, &network_id)?;
                 }
 
                 match docker.compose_start(vec![&container]) {
@@ -583,7 +588,7 @@ fn create_network(
                 };
 
                 // make sure postgres is running
-                container_is_running(docker.clone(), &postgres_name)?;
+                container_is_running(docker, &postgres_name)?;
 
                 // create database
                 let cmd = ["createdb", "-U", "postgres", "archive"];
@@ -602,12 +607,16 @@ fn create_network(
                 docker.compose_stop(vec![&postgres_name])?;
             }
 
-            let output = format!("{}", output::generate_network_info(services, network_id));
-            if let Err(e) = write(directory_manager.network_file_path(network_id), &output) {
+            // generate network.json and services.json
+            if let Err(e) = directory_manager.save_network_info(network_id, services) {
                 error!("Error generating network.json: {e}")
             }
 
-            println!("{output}");
+            if let Err(e) = directory_manager.save_services_info(network_id, services) {
+                error!("Error generating services.json: {e}")
+            }
+
+            println!("{}", output::generate_network_info(services, network_id));
             Ok(())
         }
         Err(e) => {
@@ -619,7 +628,7 @@ fn create_network(
     }
 }
 
-fn container_is_running(docker: DockerManager, container_name: &str) -> Result<()> {
+fn container_is_running(docker: &DockerManager, container_name: &str) -> Result<()> {
     let mut container_running = false;
     let mut retries = 0;
 
@@ -1053,4 +1062,45 @@ fn is_node_archive(network_file_path: &PathBuf, node_id: &str, network_id: &str)
             Err(Error::new(ErrorKind::NotFound, error))
         }
     }
+}
+
+fn import_all_accounts(
+    docker: &DockerManager,
+    directory_manager: &DirectoryManager,
+    node_id: &str,
+    network_id: &str,
+) -> Result<()> {
+    let container = format!("{node_id}-{network_id}");
+    docker.compose_start(vec![&container])?;
+    container_is_running(docker, &container)?;
+    let account_files = directory_manager.get_network_keypair_files(network_id)?;
+    for account_file in account_files {
+        let out = docker.compose_import_account(node_id, network_id, &account_file);
+        match out {
+            Ok(output) => {
+                if output.status.success() {
+                    info!(
+                        "Successfully imported account from file '{account_file}' \
+                        for node '{node_id}' on network '{network_id}'",
+                    );
+                } else {
+                    let error_message = format!(
+                        "Failed to import account from file '{account_file}' \
+                        for node '{node_id}' on network '{network_id}': {}",
+                        String::from_utf8_lossy(&output.stderr),
+                    );
+                    return exit_with(error_message);
+                }
+            }
+            Err(e) => {
+                let error_message = format!(
+                    "Failed to import account from file '{account_file}' \
+                    for node '{node_id}' on network '{network_id}': {e}",
+                );
+                return exit_with(error_message);
+            }
+        }
+    }
+    docker.compose_stop(vec![&container])?;
+    Ok(())
 }
