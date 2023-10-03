@@ -25,6 +25,7 @@ use std::{
 pub const NETWORK_KEYPAIRS: &str = "network-keypairs";
 const LIBP2P_KEYPAIRS: &str = "libp2p-keypairs";
 
+#[derive(Clone)]
 pub struct DirectoryManager {
     pub base_path: PathBuf,
     pub subdirectories: [&'static str; 2],

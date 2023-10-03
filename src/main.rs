@@ -2,6 +2,7 @@ mod cli;
 mod directory_manager;
 mod docker;
 mod genesis_ledger;
+mod graphql;
 mod keys;
 mod output;
 mod service;
@@ -23,6 +24,7 @@ use cli::{
 use directory_manager::DirectoryManager;
 use docker::manager::{ContainerState, DockerManager};
 use env_logger::{Builder, Env};
+use graphql::GraphQl;
 use log::{error, info, warn};
 use std::{
     collections::HashMap,
@@ -296,19 +298,10 @@ fn main() -> Result<()> {
                 match docker.compose_start(vec![&container]) {
                     Ok(out) => {
                         if out.status.success() {
-                            let nodes = directory_manager._get_services_info(&network_id)?;
-                            let client_port = nodes
-                                .iter()
-                                .find(|node| node.service_name == node_id)
-                                .unwrap()
-                                .client_port;
-                            if client_port.is_some() {
-                                wait_for_graphql(&directory_manager, &node_id, &network_id)?;
-                                request_filtered_logs_via_graphql(
-                                    &directory_manager,
-                                    &node_id,
-                                    &network_id,
-                                )?;
+                            let gql = GraphQl::new(directory_manager.clone());
+                            if let Some(gql_ep) = gql.get_endpoint(&node_id, &network_id) {
+                                gql.wait_for_server(&gql_ep)?;
+                                gql.request_filtered_logs(&gql_ep)?;
                             }
 
                             if cmd.node_args.raw_output {
@@ -697,94 +690,6 @@ fn wait_for_daemon(
             "Failed to start daemon for node '{node_id}' on network '{network_id}' within {TIMEOUT_IN_SECS}s",
         ));
     }
-    Ok(())
-}
-
-fn wait_for_graphql(
-    directory_manager: &DirectoryManager,
-    node_id: &str,
-    network_id: &str,
-) -> Result<()> {
-    let nodes = directory_manager.get_network_info(network_id)?;
-    let info = serde_json::from_str::<network::Create>(&nodes)?;
-    let node = info.nodes.get(node_id).unwrap();
-    let graphql_endpoint = node.graphql_uri.as_ref().unwrap();
-    let mut retries = 0;
-    let mut graphql_running = false;
-    info!("Waiting for graphql to start for node '{node_id}' on network '{network_id}'...");
-    let client = reqwest::blocking::Client::new();
-
-    while !graphql_running && retries < TIMEOUT_IN_SECS {
-        let response = client
-            .get(graphql_endpoint)
-            .header("Content-Type", "application/json")
-            .send();
-
-        if response.is_ok() {
-            graphql_running = true;
-        } else {
-            retries += 1;
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-    }
-    if !graphql_running {
-        return exit_with(format!(
-            "Failed to start graphql for node '{node_id}' on network '{network_id}' within {TIMEOUT_IN_SECS}s",
-        ));
-    }
-    Ok(())
-}
-
-fn request_filtered_logs_via_graphql(
-    directory_manager: &DirectoryManager,
-    node_id: &str,
-    network_id: &str,
-) -> Result<()> {
-    let nodes = directory_manager.get_network_info(network_id)?;
-    let info = serde_json::from_str::<network::Create>(&nodes)?;
-    let node = info.nodes.get(node_id).unwrap();
-    let graphql_endpoint = node.graphql_uri.as_ref().unwrap();
-
-    // Define the query and the request payload
-    let query = r#"{
-        "query": "mutation MyMutation 
-                    { startFilteredLog(filter: [\"21ccae8c619bc2666474085272d5fe1d\", 
-                                                \"ef1182dc30f3e0aa9f6bf11c0ab90ba6\",
-                                                \"64e2d3e86c37c09b15efdaf7470ce879\",
-                                                \"db06cb5030f39e86e84b30d033f3bc5c\", 
-                                                \"60076de624bf0c5fc0843b875001cf84\", 
-                                                \"27953f46376ba8abc0c61400e2c38f8b\", 
-                                                \"b4b5f5b1d1a0c457cbd13a35d1c8b57b\", 
-                                                \"0fc65f5594c5e9ee0b6f0ddde747c758\", 
-                                                \"b5a89d6d616a35fb6f73d1eaad6b2dbd\", 
-                                                \"1c4150aa7058a3058c4d20ae90ff7ec3\", 
-                                                \"f7254e63ad51092a0bd3078580ef9ce3\", 
-                                                \"74a81f1e2f8d548e4550faa136c68160\", 
-                                                \"30fe76cee159ea215fc05549e861501e\"]) }"
-    }"#;
-
-    let client = reqwest::blocking::Client::new();
-    info!("Sending request to: {graphql_endpoint}");
-    let response = client
-        .post(graphql_endpoint)
-        .header("Content-Type", "application/json")
-        .body(query)
-        .send();
-    if let Err(e) = response {
-        return exit_with(format!(
-            "Failed to send request to graphql endpoint '{graphql_endpoint}': {e}",
-        ));
-    }
-
-    // Read the response body
-    let response_body = response.unwrap().text();
-    if let Err(e) = response_body {
-        return exit_with(format!(
-            "Failed to read response body from graphql endpoint '{graphql_endpoint}': {e}",
-        ));
-    }
-    info!("Response body: {}", response_body.unwrap());
-
     Ok(())
 }
 
