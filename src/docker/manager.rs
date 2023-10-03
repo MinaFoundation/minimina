@@ -295,6 +295,7 @@ impl DockerManager {
         self.run_docker_compose(cmd)
     }
 
+    #[allow(dead_code)]
     pub fn compose_client_status(
         &self,
         node_id: &str,

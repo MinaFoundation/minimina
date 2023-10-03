@@ -43,6 +43,9 @@ const DEFAULT_DAEMON_DOCKER_IMAGE: &str =
 const DEFAULT_ARCHIVE_DOCKER_IMAGE: &str =
     "gcr.io/o1labs-192920/mina-archive:2.0.0rampup4-14047c5-bullseye";
 
+// Timeout in seconds for waiting operations
+const TIMEOUT_IN_SECS: u16 = 180;
+
 fn main() -> Result<()> {
     let cli: Cli = Cli::parse();
     Builder::from_env(Env::default().default_filter_or(cli.command.log_level())).init();
@@ -300,12 +303,7 @@ fn main() -> Result<()> {
                                 .unwrap()
                                 .client_port;
                             if client_port.is_some() {
-                                wait_for_daemon(
-                                    &docker,
-                                    &node_id,
-                                    &network_id,
-                                    client_port.unwrap(),
-                                )?;
+                                wait_for_graphql(&directory_manager, &node_id, &network_id)?;
                                 request_filtered_logs_via_graphql(
                                     &directory_manager,
                                     &node_id,
@@ -652,7 +650,7 @@ fn container_is_running(docker: &DockerManager, container_name: &str) -> Result<
     let mut container_running = false;
     let mut retries = 0;
 
-    while !container_running && retries < 10 {
+    while !container_running && retries < TIMEOUT_IN_SECS {
         let containers = docker.compose_ps(None)?;
         let container = docker.filter_container_by_name(containers, container_name);
 
@@ -666,9 +664,16 @@ fn container_is_running(docker: &DockerManager, container_name: &str) -> Result<
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
+    if !container_running {
+        return exit_with(format!(
+            "Failed to start container '{container_name}' within {TIMEOUT_IN_SECS}s",
+        ));
+    }
+
     Ok(())
 }
 
+#[allow(dead_code)]
 fn wait_for_daemon(
     docker: &DockerManager,
     node_id: &str,
@@ -678,7 +683,7 @@ fn wait_for_daemon(
     let mut retries = 0;
     let mut daemon_running = false;
     info!("Waiting for daemon to start for node '{node_id}' on network '{network_id}'...");
-    while !daemon_running && retries < 180 {
+    while !daemon_running && retries < TIMEOUT_IN_SECS {
         let out = docker.compose_client_status(node_id, network_id, client_port)?;
         if out.status.success() {
             daemon_running = true;
@@ -686,6 +691,46 @@ fn wait_for_daemon(
             retries += 1;
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
+    }
+    if !daemon_running {
+        return exit_with(format!(
+            "Failed to start daemon for node '{node_id}' on network '{network_id}' within {TIMEOUT_IN_SECS}s",
+        ));
+    }
+    Ok(())
+}
+
+fn wait_for_graphql(
+    directory_manager: &DirectoryManager,
+    node_id: &str,
+    network_id: &str,
+) -> Result<()> {
+    let nodes = directory_manager.get_network_info(network_id)?;
+    let info = serde_json::from_str::<network::Create>(&nodes)?;
+    let node = info.nodes.get(node_id).unwrap();
+    let graphql_endpoint = node.graphql_uri.as_ref().unwrap();
+    let mut retries = 0;
+    let mut graphql_running = false;
+    info!("Waiting for graphql to start for node '{node_id}' on network '{network_id}'...");
+    let client = reqwest::blocking::Client::new();
+
+    while !graphql_running && retries < TIMEOUT_IN_SECS {
+        let response = client
+            .get(graphql_endpoint)
+            .header("Content-Type", "application/json")
+            .send();
+
+        if response.is_ok() {
+            graphql_running = true;
+        } else {
+            retries += 1;
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    }
+    if !graphql_running {
+        return exit_with(format!(
+            "Failed to start graphql for node '{node_id}' on network '{network_id}' within {TIMEOUT_IN_SECS}s",
+        ));
     }
     Ok(())
 }
@@ -702,37 +747,43 @@ fn request_filtered_logs_via_graphql(
 
     // Define the query and the request payload
     let query = r#"{
-        "query": "mutation MyMutation { startFilteredLog(filter: [\"21ccae8c619bc2666474085272d5fe1d\", 
-                                                                  \"ef1182dc30f3e0aa9f6bf11c0ab90ba6\",
-                                                                  \"64e2d3e86c37c09b15efdaf7470ce879\",
-                                                                  \"db06cb5030f39e86e84b30d033f3bc5c\", 
-                                                                  \"60076de624bf0c5fc0843b875001cf84\", 
-                                                                  \"27953f46376ba8abc0c61400e2c38f8b\", 
-                                                                  \"b4b5f5b1d1a0c457cbd13a35d1c8b57b\", 
-                                                                  \"0fc65f5594c5e9ee0b6f0ddde747c758\", 
-                                                                  \"b5a89d6d616a35fb6f73d1eaad6b2dbd\", 
-                                                                  \"1c4150aa7058a3058c4d20ae90ff7ec3\", 
-                                                                  \"f7254e63ad51092a0bd3078580ef9ce3\", 
-                                                                  \"74a81f1e2f8d548e4550faa136c68160\", 
-                                                                  \"30fe76cee159ea215fc05549e861501e\"]) }"
+        "query": "mutation MyMutation 
+                    { startFilteredLog(filter: [\"21ccae8c619bc2666474085272d5fe1d\", 
+                                                \"ef1182dc30f3e0aa9f6bf11c0ab90ba6\",
+                                                \"64e2d3e86c37c09b15efdaf7470ce879\",
+                                                \"db06cb5030f39e86e84b30d033f3bc5c\", 
+                                                \"60076de624bf0c5fc0843b875001cf84\", 
+                                                \"27953f46376ba8abc0c61400e2c38f8b\", 
+                                                \"b4b5f5b1d1a0c457cbd13a35d1c8b57b\", 
+                                                \"0fc65f5594c5e9ee0b6f0ddde747c758\", 
+                                                \"b5a89d6d616a35fb6f73d1eaad6b2dbd\", 
+                                                \"1c4150aa7058a3058c4d20ae90ff7ec3\", 
+                                                \"f7254e63ad51092a0bd3078580ef9ce3\", 
+                                                \"74a81f1e2f8d548e4550faa136c68160\", 
+                                                \"30fe76cee159ea215fc05549e861501e\"]) }"
     }"#;
 
-    // Create a client
     let client = reqwest::blocking::Client::new();
-
-    // Send the request
-    let response: reqwest::blocking::Response = client
+    info!("Sending request to: {graphql_endpoint}");
+    let response = client
         .post(graphql_endpoint)
         .header("Content-Type", "application/json")
         .body(query)
-        .send()
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        .send();
+    if let Err(e) = response {
+        return exit_with(format!(
+            "Failed to send request to graphql endpoint '{graphql_endpoint}': {e}",
+        ));
+    }
 
     // Read the response body
-    let response_body = response
-        .text()
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-    info!("Response body: {}", response_body);
+    let response_body = response.unwrap().text();
+    if let Err(e) = response_body {
+        return exit_with(format!(
+            "Failed to read response body from graphql endpoint '{graphql_endpoint}': {e}",
+        ));
+    }
+    info!("Response body: {}", response_body.unwrap());
 
     Ok(())
 }
