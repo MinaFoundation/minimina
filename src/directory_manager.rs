@@ -13,7 +13,7 @@
 use crate::genesis_ledger::GENESIS_LEDGER_JSON;
 use crate::output;
 use crate::service::ServiceConfig;
-use dirs::home_dir;
+// use dirs::home_dir;
 use log::info;
 use std::os::unix::fs::PermissionsExt;
 use std::{
@@ -33,7 +33,7 @@ pub struct DirectoryManager {
 
 impl DirectoryManager {
     pub fn new() -> Self {
-        let mut base_path = home_dir().expect("Home directory not found");
+        let mut base_path = PathBuf::from("./");
         base_path.push(".minimina");
         DirectoryManager {
             base_path,
