@@ -57,6 +57,7 @@ $ tree -p ~/.minimina/default/
     ├── [-rw-------]  mina-snark-worker-1
     └── [-rw-r--r--]  mina-snark-worker-1.pub
 ```
+ :information_source: By default minimina stores files in `$HOME\.minimina`. You can set env variable `$MINIMINA_HOME` if you want it to store files in `$MINIMINA_HOME\.minimina`.
 
 The default network can be started, stopped, and deleted
 

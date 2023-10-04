@@ -13,8 +13,9 @@
 use crate::genesis_ledger::GENESIS_LEDGER_JSON;
 use crate::output;
 use crate::service::ServiceConfig;
-// use dirs::home_dir;
+use dirs::home_dir;
 use log::info;
+use std::env;
 use std::os::unix::fs::PermissionsExt;
 use std::{
     fs,
@@ -24,6 +25,7 @@ use std::{
 
 pub const NETWORK_KEYPAIRS: &str = "network-keypairs";
 const LIBP2P_KEYPAIRS: &str = "libp2p-keypairs";
+const MINIMINA_HOME: &str = "MINIMINA_HOME";
 
 #[derive(Clone)]
 pub struct DirectoryManager {
@@ -33,7 +35,11 @@ pub struct DirectoryManager {
 
 impl DirectoryManager {
     pub fn new() -> Self {
-        let mut base_path = PathBuf::from("./");
+        let mut base_path = if let Ok(env_path) = env::var(MINIMINA_HOME) {
+            PathBuf::from(env_path)
+        } else {
+            home_dir().expect("Home directory not found")
+        };
         base_path.push(".minimina");
         DirectoryManager {
             base_path,
