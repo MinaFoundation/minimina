@@ -39,7 +39,7 @@ jobs:
     - name: 📤 Upload 
       run: |
           sudo apt-get update
-          sudo apt-get install -y gem
+          sudo apt-get install -y rubygems
           gem install deb-s3
           deb-s3 upload --s3-region=us-west-2 --bucket packages.o1test.net --lock --preserve-versions --cache-control=max-age=120 --component "stable" --codename "ubuntu" ./target/debian/*.deb
 
