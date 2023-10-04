@@ -2,6 +2,7 @@ mod cli;
 mod directory_manager;
 mod docker;
 mod genesis_ledger;
+mod graphql;
 mod keys;
 mod output;
 mod service;
@@ -23,6 +24,7 @@ use cli::{
 use directory_manager::DirectoryManager;
 use docker::manager::{ContainerState, DockerManager};
 use env_logger::{Builder, Env};
+use graphql::GraphQl;
 use log::{error, info, warn};
 use std::{
     collections::HashMap,
@@ -42,6 +44,9 @@ const DEFAULT_DAEMON_DOCKER_IMAGE: &str =
 // Hardcoded archive image for default network
 const DEFAULT_ARCHIVE_DOCKER_IMAGE: &str =
     "gcr.io/o1labs-192920/mina-archive:2.0.0rampup4-14047c5-bullseye";
+
+// Timeout in seconds for waiting operations
+const TIMEOUT_IN_SECS: u16 = 180;
 
 fn main() -> Result<()> {
     let cli: Cli = Cli::parse();
@@ -286,13 +291,22 @@ fn main() -> Result<()> {
                 }
 
                 if cmd.import_accounts {
-                    info!("Importing accounts for node '{node_id}' in network '{network_id}'.");
+                    warn!("Importing accounts for node '{node_id}' in network '{network_id}'. This can take a moment...");
                     import_all_accounts(&docker, &directory_manager, &node_id, &network_id)?;
                 }
 
                 match docker.compose_start(vec![&container]) {
                     Ok(out) => {
                         if out.status.success() {
+                            if cmd.graphql_filtered_logs {
+                                warn!("Waiting for graphql server to be operational so I can request filtered logs. This can take a moment...");
+                                let gql = GraphQl::new(directory_manager.clone());
+                                if let Some(gql_ep) = gql.get_endpoint(&node_id, &network_id) {
+                                    gql.wait_for_server(&gql_ep)?;
+                                    gql.request_filtered_logs(&gql_ep)?;
+                                }
+                            }
+
                             if cmd.node_args.raw_output {
                                 println!(
                                     "Node '{node_id}' on network '{network_id}' \
@@ -632,7 +646,7 @@ fn container_is_running(docker: &DockerManager, container_name: &str) -> Result<
     let mut container_running = false;
     let mut retries = 0;
 
-    while !container_running && retries < 10 {
+    while !container_running && retries < TIMEOUT_IN_SECS {
         let containers = docker.compose_ps(None)?;
         let container = docker.filter_container_by_name(containers, container_name);
 
@@ -646,6 +660,39 @@ fn container_is_running(docker: &DockerManager, container_name: &str) -> Result<
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
+    if !container_running {
+        return exit_with(format!(
+            "Failed to start container '{container_name}' within {TIMEOUT_IN_SECS}s",
+        ));
+    }
+
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn wait_for_daemon(
+    docker: &DockerManager,
+    node_id: &str,
+    network_id: &str,
+    client_port: u16,
+) -> Result<()> {
+    let mut retries = 0;
+    let mut daemon_running = false;
+    info!("Waiting for daemon to start for node '{node_id}' on network '{network_id}'...");
+    while !daemon_running && retries < TIMEOUT_IN_SECS {
+        let out = docker.compose_client_status(node_id, network_id, client_port)?;
+        if out.status.success() {
+            daemon_running = true;
+        } else {
+            retries += 1;
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    }
+    if !daemon_running {
+        return exit_with(format!(
+            "Failed to start daemon for node '{node_id}' on network '{network_id}' within {TIMEOUT_IN_SECS}s",
+        ));
+    }
     Ok(())
 }
 

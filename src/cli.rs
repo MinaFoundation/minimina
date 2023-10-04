@@ -136,6 +136,10 @@ pub struct StartNodeCommandArgs {
     #[clap(short = 'a', long, default_value_t = false)]
     pub import_accounts: bool,
 
+    /// Start node with GraphQL filtered logs enabled
+    #[clap(short = 'g', long, default_value_t = false)]
+    pub graphql_filtered_logs: bool,
+
     #[clap(flatten)]
     pub node_args: NodeCommandArgs,
 }
