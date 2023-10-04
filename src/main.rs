@@ -855,7 +855,7 @@ fn generate_default_topology(
         service_name: snark_worker_1_name.to_string(),
         docker_image: Some(docker_image.into()),
         snark_coordinator_port: Some(7000),
-        snark_worker_proof_level: Some("none".into()),
+        snark_worker_proof_level: Some("full".into()),
         snark_coordinator_host: Some(snark_coordinator.service_name.clone()),
         ..Default::default()
     };
