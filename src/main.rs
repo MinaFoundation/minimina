@@ -291,17 +291,20 @@ fn main() -> Result<()> {
                 }
 
                 if cmd.import_accounts {
-                    info!("Importing accounts for node '{node_id}' in network '{network_id}'.");
+                    warn!("Importing accounts for node '{node_id}' in network '{network_id}'. This can take a moment...");
                     import_all_accounts(&docker, &directory_manager, &node_id, &network_id)?;
                 }
 
                 match docker.compose_start(vec![&container]) {
                     Ok(out) => {
                         if out.status.success() {
-                            let gql = GraphQl::new(directory_manager.clone());
-                            if let Some(gql_ep) = gql.get_endpoint(&node_id, &network_id) {
-                                gql.wait_for_server(&gql_ep)?;
-                                gql.request_filtered_logs(&gql_ep)?;
+                            if cmd.graphql_filtered_logs {
+                                warn!("Waiting for graphql server to be operational so I can request filtered logs. This can take a moment...");
+                                let gql = GraphQl::new(directory_manager.clone());
+                                if let Some(gql_ep) = gql.get_endpoint(&node_id, &network_id) {
+                                    gql.wait_for_server(&gql_ep)?;
+                                    gql.request_filtered_logs(&gql_ep)?;
+                                }
                             }
 
                             if cmd.node_args.raw_output {
