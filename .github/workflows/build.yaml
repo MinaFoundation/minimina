@@ -2,17 +2,21 @@ name: Build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: 
+      - main
+    tags:
+      - '*'
   pull_request:
-    branches: [ "main" ]
+    branches: 
+      - main
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    environment: package
+  build_and_deploy:
     runs-on: minafoundation-default-runners
+    environment: package
 
     steps:
 
@@ -27,21 +31,24 @@ jobs:
 
     - name: 🛠️ Build
       run: |
-        if [[ ${{ github.ref }} == "refs/heads/main" ]]; then
-          cargo build --verbose --release
-        else
-          cargo build --verbose
-        fi
-     
+          if [[ ${{ github.ref }} == "refs/heads/main" ]] || [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            cargo build --verbose --release
+          else
+            cargo build --verbose
+          fi
+
+
     - name: 🧪 Test
       run: cargo test --verbose
 
     - name: 📦 Package
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
       run: | 
           cargo install cargo-deb
           cargo deb
 
     - name: 📤 Upload 
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
       env:
         ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
         SECRET_ACCESS_KEY: ${{ secrets.SECRET_ACCESS_KEY }}
@@ -49,7 +56,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rubygems locales
           sudo gem install deb-s3
-          if [[ ${{ github.ref }} == "refs/heads/main" ]]; then
+
+          if startsWith(${{ github.ref }}, 'refs/tags/'); then
             RELEASE=stable
           else
             RELEASE=unstable
