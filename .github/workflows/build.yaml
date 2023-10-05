@@ -26,8 +26,13 @@ jobs:
       run: cargo clippy --all-targets --all-features -- -D warnings
 
     - name: 🛠️ Build
-      run: cargo build --verbose --release
-
+      run: |
+        if [[ ${{ github.ref }} == "refs/heads/main" ]]; then
+          cargo build --verbose --release
+        else
+          cargo build --verbose
+        fi
+     
     - name: 🧪 Test
       run: cargo test --verbose
 
@@ -41,7 +46,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rubygems
           sudo gem install deb-s3
-          deb-s3 upload --s3-region=us-west-2 --bucket packages.o1test.net --lock --preserve-versions --cache-control=max-age=120 --component "stable" --codename "ubuntu" ./target/debian/*.deb
+          if [[ ${{ github.ref }} == "refs/heads/main" ]]; then
+            RELEASE=stable
+          else
+            RELEASE=unstable
+          fi
+
+          deb-s3 upload --s3-region=us-west-2 --bucket packages.o1test.net --lock --preserve-versions --cache-control=max-age=120 --component $RELEASE --codename "ubuntu" ./target/debian/*.deb
+
+
 
 
 
