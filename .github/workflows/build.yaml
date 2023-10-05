@@ -55,8 +55,8 @@ jobs:
             RELEASE=unstable
           fi
 
-          locale-gen en_US.UTF-8
+          sudo locale-gen en_US.UTF-8
           export LANG=en_US.UTF-8
           export LANGUAGE=en_US.UTF-8
           export LC_ALL=en_US.UTF-8
-          echo "deb-s3 upload --s3-region=us-west-2 --bucket packages.o1test.net --lock --preserve-versions --access-key-id=$ACCESS_KEY_ID --secret-access-key=$SECRET_ACCESS_KEY --cache-control=max-age=120 --component $RELEASE --codename "ubuntu" ./target/debian/*.deb"
+          deb-s3 upload --s3-region=us-west-2 --bucket packages.o1test.net --lock --preserve-versions --access-key-id=$ACCESS_KEY_ID --secret-access-key=$SECRET_ACCESS_KEY --cache-control=max-age=120 --component $RELEASE --codename "ubuntu" ./target/debian/*.deb
