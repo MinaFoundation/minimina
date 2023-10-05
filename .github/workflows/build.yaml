@@ -47,7 +47,7 @@ jobs:
         SECRET_ACCESS_KEY: ${{ secrets.SECRET_ACCESS_KEY }}
       run: |
           sudo apt-get update
-          sudo apt-get install -y rubygems
+          sudo apt-get install -y rubygems locales
           sudo gem install deb-s3
           if [[ ${{ github.ref }} == "refs/heads/main" ]]; then
             RELEASE=stable
