@@ -11,7 +11,7 @@ env:
 
 jobs:
   build:
-
+    environment: package
     runs-on: minafoundation-default-runners
 
     steps:
