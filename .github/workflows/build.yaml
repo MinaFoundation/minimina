@@ -37,7 +37,6 @@ jobs:
             cargo build --verbose
           fi
 
-
     - name: 🧪 Test
       run: cargo test --verbose
 

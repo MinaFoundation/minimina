@@ -6,23 +6,54 @@
 
 MiniMina is a command line tool aimed at providing the capability to spin up Mina networks locally on a user's computer. For more more information see [Minimina RFC](https://www.notion.so/minafoundation/MiniMina-v2-19775eec3c604476894633f8fe84a2d0).
 
-:warning: **It is still a work in progress and things may not work as expected.** :warning:
+### Prerequisites
+
+MiniMina requires `docker` to be present on user's machine. See [docker install](https://docs.docker.com/engine/install/).
+
+For building and testing MiniMina requires Rust compiler and its package manager `cargo`. See [Rust official website](https://www.rust-lang.org/tools/install) for installation details.
 
 ## Getting Started
 
-To start using MiniMina, clone the GitHub repository:
+To set up and use MiniMina, you have a couple of options: building from source or using the provided deb package.
+
+### Building from Source
 
 ```bash
 git clone https://github.com/MinaFoundation/minimina.git
 cd minimina
+cargo build --release
+cp target/release/minimina ~/.local/bin
 ```
+Assuming `~/.local/bin` is on your `$PATH` you will have `minimina` available for execution directly from the command line.
+
+### Installing from the Deb Package
+
+If you'd prefer a simpler installation or are not interested in building from source, MiniMina is available as deb package.
+
+```bash
+echo "deb [trusted=yes] http://packages.o1test.net ubuntu stable" | sudo tee /etc/apt/sources.list.d/mina.list
+sudo apt-get update
+sudo apt-get install -y minimina
+```
+**Note:**  The `stable` repository contains the release version of MiniMina, while `unstable` mirrors the current state of the `main` branch in the repository. Choose accordingly based on your needs.
+
+## Usage
+
+MiniMina provides functionalities to manage both the entire network and individual nodes within it. To explore the available commands, use:
+
+```bash
+minimina --help
+minimina network --help
+minimina node --help
+```
+Below are a few fundamental examples to get you started:
 
 ### Default network
 
 Create a network with default settings called `default`
 
 ```bash
-cargo run -- network create
+minimina network create
 ```
 
 Investigate the network directory `~/.minimina/default/`
@@ -31,50 +62,56 @@ Investigate the network directory `~/.minimina/default/`
 $ tree -p ~/.minimina/default/
 
 ~/.minimina/default/
-├── [-rw-r--r--]  docker-compose.yaml
-├── [-rw-r--r--]  genesis_ledger.json
+├── [-rw-rw-r--]  create_schema.sql
+├── [-rw-rw-r--]  docker-compose.yaml
+├── [-rw-rw-r--]  genesis_ledger.json
 ├── [drwx------]  libp2p-keypairs
-│   ├── [-rw-------]  mina-bp-1
-│   ├── [-rw-r--r--]  mina-bp-1.peerid
-│   ├── [-rw-------]  mina-bp-2
-│   ├── [-rw-r--r--]  mina-bp-2.peerid
-│   ├── [-rw-------]  mina-seed-1
-│   ├── [-rw-r--r--]  mina-seed-1.peerid
-│   ├── [-rw-------]  mina-snark-coordinator
-│   ├── [-rw-r--r--]  mina-snark-coordinator.peerid
-│   ├── [-rw-------]  mina-snark-worker-1
-│   └── [-rw-r--r--]  mina-snark-worker-1.peerid
-├── [-rw-r--r--]  network.json
-└── [drwx------]  network-keypairs
-    ├── [-rw-------]  mina-bp-1
-    ├── [-rw-r--r--]  mina-bp-1.pub
-    ├── [-rw-------]  mina-bp-2
-    ├── [-rw-r--r--]  mina-bp-2.pub
-    ├── [-rw-------]  mina-seed-1
-    ├── [-rw-r--r--]  mina-seed-1.pub
-    ├── [-rw-------]  mina-snark-coordinator
-    ├── [-rw-r--r--]  mina-snark-coordinator.pub
-    ├── [-rw-------]  mina-snark-worker-1
-    └── [-rw-r--r--]  mina-snark-worker-1.pub
+│   ├── [-rw-------]  mina-archive
+│   ├── [-rw-r--r--]  mina-archive.peerid
+│   ├── [-rw-------]  mina-bp-1
+│   ├── [-rw-r--r--]  mina-bp-1.peerid
+│   ├── [-rw-------]  mina-bp-2
+│   ├── [-rw-r--r--]  mina-bp-2.peerid
+│   ├── [-rw-------]  mina-seed-1
+│   ├── [-rw-r--r--]  mina-seed-1.peerid
+│   ├── [-rw-------]  mina-snark-coordinator
+│   ├── [-rw-r--r--]  mina-snark-coordinator.peerid
+│   ├── [-rw-------]  mina-snark-worker-1
+│   └── [-rw-r--r--]  mina-snark-worker-1.peerid
+├── [-rw-rw-r--]  network.json
+├── [drwx------]  network-keypairs
+│   ├── [-rw-------]  mina-archive
+│   ├── [-rw-r--r--]  mina-archive.pub
+│   ├── [-rw-------]  mina-bp-1
+│   ├── [-rw-r--r--]  mina-bp-1.pub
+│   ├── [-rw-------]  mina-bp-2
+│   ├── [-rw-r--r--]  mina-bp-2.pub
+│   ├── [-rw-------]  mina-seed-1
+│   ├── [-rw-r--r--]  mina-seed-1.pub
+│   ├── [-rw-------]  mina-snark-coordinator
+│   ├── [-rw-r--r--]  mina-snark-coordinator.pub
+│   ├── [-rw-------]  mina-snark-worker-1
+│   └── [-rw-r--r--]  mina-snark-worker-1.pub
+├── [-rw-rw-r--]  replayer_input.json
+├── [-rw-rw-r--]  services.json
+└── [-rw-rw-r--]  zkapp_tables.sql
 ```
- :information_source: By default minimina stores files in `$HOME\.minimina`. You can set env variable `$MINIMINA_HOME` if you want it to store files in `$MINIMINA_HOME\.minimina`.
+**Note:** By default minimina stores files in `$HOME\.minimina`. You can set env variable `$MINIMINA_HOME` if you want it to store files in `$MINIMINA_HOME\.minimina`.
 
 The default network can be started, stopped, and deleted
 
 ```bash
-cargo run -- network start
-cargo run -- network stop
-cargo run -- network delete
+minimina network start
+minimina network stop
+minimina network delete
 ```
 
 Default network info and status can be queried
 
 ```bash
-cargo run -- network info
-cargo run -- network status
+minimina network info
+minimina network status
 ```
-
-For debug log info, run any of these commands with the prefix `RUST_LOG=debug`
 
 ### Networks based on Lucy-generated genesis and topology
 
@@ -82,55 +119,39 @@ We also provide two example networks in `./tests/data/`, `small_network` and `la
 
 ```bash
 # create large-network's docker compose file
-cargo run -- network create \
+minimina network create \
   -g ./tests/data/large_network/genesis_ledger.json \
   -t ./tests/data/large_network/topology.json \
   -n large-network
 
 # start large-network
-cargo run -- network start -n large-network
+minimina network start -n large-network
 
 # stop large-network
-cargo run -- network stop -n large-network
+minimina network stop -n large-network
 
 # delete large-network
-cargo run -- network delete -n large-network
+minimina network delete -n large-network
 ```
 
 ```bash
 # create small-network's docker compose file
-cargo run -- network create \
+minimina network create \
   -g ./tests/data/small_network/genesis_ledger.json \
   -t ./tests/data/small_network/topology.json \
   -n small-network
 
 # start small-network
-cargo run -- network start -n small-network
+minimina network start -n small-network
 
 # stop small-network
-cargo run -- network stop -n small-network
+minimina network stop -n small-network
 
 # delete small-network
-cargo run -- network delete -n small-network
+minimina network delete -n small-network
 ```
 
 To monitor the action, you will want to use a resource monitor, like [`bpytop`](https://github.com/aristocratos/bpytop).
-
-### Prerequisites
-
-MiniMina is written in Rust and requires the Rust compiler and its package manager, `cargo`. If you don't have Rust installed, you can install it from the [official website](https://www.rust-lang.org/tools/install).
-
-MiniMina uses `docker` and requires it to be installed on user's machine. See [docker install](https://docs.docker.com/engine/install/).
-
-### Building
-
-To build MiniMina, use the `cargo build --release` command in the root directory of the repository:
-
-```bash
-cargo build --release
-```
-
-This will produce an executable file in the `target/release/` directory.
 
 ### Testing
 
@@ -141,14 +162,6 @@ cargo test
 ```
 
 This will run all tests in the project and output the results.
-
-## Usage
-
-As MiniMina is a work in progress, for information on usage, please refer to the built-in help:
-
-```bash
-minimina --help
-```
 
 ## Contributing
 
