@@ -52,9 +52,4 @@ jobs:
             RELEASE=unstable
           fi
 
-          deb-s3 upload --s3-region=us-west-2 --bucket packages.o1test.net --lock --preserve-versions --cache-control=max-age=120 --component $RELEASE --codename "ubuntu" ./target/debian/*.deb
-
-
-
-
-
+          deb-s3 upload --s3-region=us-west-2 --bucket packages.o1test.net --lock --preserve-versions --access-key-id=$ACCESS_KEY_ID --secret-access-key=$SECRET_ACCESS_KEY --cache-control=max-age=120 --component $RELEASE --codename "ubuntu" ./target/debian/*.deb
