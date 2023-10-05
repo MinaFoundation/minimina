@@ -42,6 +42,9 @@ jobs:
           cargo deb
 
     - name: 📤 Upload 
+      env:
+        ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
+        SECRET_ACCESS_KEY: ${{ secrets.SECRET_ACCESS_KEY }}
       run: |
           sudo apt-get update
           sudo apt-get install -y rubygems
