@@ -1117,9 +1117,6 @@ fn import_all_accounts(
     node_id: &str,
     network_id: &str,
 ) -> Result<()> {
-    let container = format!("{node_id}-{network_id}");
-    docker.compose_start(vec![&container])?;
-    container_is_running(docker, &container)?;
     let account_files = directory_manager.get_network_keypair_files(network_id)?;
     for account_file in account_files {
         let out = docker.compose_import_account(node_id, network_id, &account_file);
@@ -1148,6 +1145,5 @@ fn import_all_accounts(
             }
         }
     }
-    docker.compose_stop(vec![&container])?;
     Ok(())
 }
