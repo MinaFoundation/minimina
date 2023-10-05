@@ -282,9 +282,11 @@ impl DockerManager {
         let service = format!("{node_id}-{network_id}");
         let privkey_path = format!("/local-network/{NETWORK_KEYPAIRS}/{account_file}");
         let cmd = &[
-            "exec",
-            &service,
+            "run",
+            "--rm",
+            "--entrypoint",
             "mina",
+            &service,
             "accounts",
             "import",
             "--privkey-path",
