@@ -35,7 +35,9 @@ echo "deb [trusted=yes] http://packages.o1test.net ubuntu stable" | sudo tee /et
 sudo apt-get update
 sudo apt-get install -y minimina
 ```
-**Note:**  The `stable` repository contains the release version of MiniMina, while `unstable` mirrors the current state of the `main` branch in the repository. Choose accordingly based on your needs.
+**Note 1:**  The `stable` repository contains the release version of MiniMina, while `unstable` mirrors the current state of the `main` branch in the repository. Choose accordingly based on your needs.
+
+**Note 2:** MiniMina deb package is known to work on Ubuntu 18.04, Ubuntu 20.04, Debian 10, Debian 11. Installing it on other systems may necessitate adjusting or installing additional dependent libraries or packages.
 
 ## Usage
 
@@ -96,7 +98,7 @@ $ tree -p ~/.minimina/default/
 ├── [-rw-rw-r--]  services.json
 └── [-rw-rw-r--]  zkapp_tables.sql
 ```
-**Note:** By default minimina stores files in `$HOME\.minimina`. You can set env variable `$MINIMINA_HOME` if you want it to store files in `$MINIMINA_HOME\.minimina`.
+**Note:** By default, minimina saves files in `$HOME\.minimina`. To customize this location, set the `$MINIMINA_HOME` environment variable, and files will be stored in `$MINIMINA_HOME\.minimina`.
 
 The default network can be started, stopped, and deleted
 
