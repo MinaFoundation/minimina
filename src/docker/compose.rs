@@ -304,7 +304,8 @@ mod tests {
             ServiceConfig {
                 service_name: "mina-archive555".to_string(),
                 service_type: ServiceType::ArchiveNode,
-                docker_image: Some("archive-image".into()),
+                docker_image: Some("archive-node-image".into()),
+                archive_docker_image: Some("archive-service-image".into()),
                 archive_port: Some(8304),
                 ..Default::default()
             },
@@ -320,6 +321,12 @@ mod tests {
         assert!(docker_compose.contains("postgres"));
         assert!(docker_compose.contains("postgres-data"));
         assert!(docker_compose.contains("-archive-address"));
+        assert!(docker_compose.contains("archive-node-image"));
+        assert!(docker_compose.contains("archive-service-image"));
+        assert!(docker_compose.contains("worker-image"));
+        assert!(docker_compose.contains("snark-image"));
+        assert!(docker_compose.contains("bp-image"));
+        assert!(docker_compose.contains("seed-image"));
     }
 
     #[test]
