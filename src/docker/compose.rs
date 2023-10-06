@@ -3,10 +3,7 @@
 //! This module facilitates the generation contents of `docker-compose.yaml` for
 //! deploying various Mina services in a Docker environment.
 
-use crate::{
-    service::{ServiceConfig, ServiceType},
-    DEFAULT_ARCHIVE_DOCKER_IMAGE, DEFAULT_DAEMON_DOCKER_IMAGE,
-};
+use crate::service::{ServiceConfig, ServiceType};
 use log::debug;
 use serde::ser::{SerializeStruct, Serializer};
 use serde::Serialize;
@@ -107,7 +104,7 @@ impl DockerCompose {
                             image: config
                                 .docker_image
                                 .clone()
-                                .unwrap_or(DEFAULT_DAEMON_DOCKER_IMAGE.into()),
+                                .expect("Failed to get mina daemon docker image"),
                             command: Some(match config.service_type {
                                 ServiceType::Seed => config.generate_seed_command(),
                                 ServiceType::BlockProducer => {
@@ -185,7 +182,7 @@ impl DockerCompose {
                     image: archive_config
                         .archive_docker_image
                         .clone()
-                        .unwrap_or(DEFAULT_ARCHIVE_DOCKER_IMAGE.into()),
+                        .expect("Failed to get mina archive docker image"),
                     command: Some(archive_command),
                     volumes: Some(vec![
                         format!("{}:/data", archive_node_name),
@@ -213,7 +210,7 @@ impl DockerCompose {
                     image: archive_config
                         .docker_image
                         .clone()
-                        .unwrap_or(DEFAULT_DAEMON_DOCKER_IMAGE.into()),
+                        .expect("Failed to get mina daemon docker image"),
                     command: Some(archive_command),
                     ports: match archive_config.client_port {
                         Some(port) => {
