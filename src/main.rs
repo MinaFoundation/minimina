@@ -39,11 +39,11 @@ const LEAST_COMPOSE_VERSION: &str = "2.21.0";
 
 // Hardcoded daemon image for default network
 const DEFAULT_DAEMON_DOCKER_IMAGE: &str =
-    "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup4-14047c5-bullseye-berkeley";
+    "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup5-55b7818-bullseye-berkeley";
 
 // Hardcoded archive image for default network
 const DEFAULT_ARCHIVE_DOCKER_IMAGE: &str =
-    "gcr.io/o1labs-192920/mina-archive:2.0.0rampup4-14047c5-bullseye";
+    "gcr.io/o1labs-192920/mina-archive:2.0.0rampup5-55b7818-bullseye";
 
 // Timeout in seconds for waiting operations
 const TIMEOUT_IN_SECS: u16 = 180;
