@@ -24,6 +24,8 @@ pub enum ServiceType {
     SnarkCoordinator,
     #[serde(rename = "Archive_node")]
     ArchiveNode,
+    #[serde(rename = "Uptime_service_backend")]
+    UptimeServiceBackend,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -60,6 +62,11 @@ pub struct ServiceConfig {
     pub archive_docker_image: Option<String>,
     pub archive_schema_files: Option<Vec<String>>,
     pub archive_port: Option<u16>,
+
+    //uptime service backend specific
+    pub uptime_service_backend_app_config: Option<PathBuf>,
+    pub uptime_service_backend_aws_config: Option<PathBuf>,
+    pub uptime_service_backend_minasheets: Option<PathBuf>,
 }
 
 impl ServiceConfig {

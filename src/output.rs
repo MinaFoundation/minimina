@@ -298,6 +298,7 @@ mod tests {
             archive_docker_image: None,
             worker_nodes: None,
             snark_coordinator_host: None,
+            ..Default::default()
         };
         let services = vec![bp_service.clone()];
 
