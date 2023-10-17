@@ -104,6 +104,9 @@ impl DockerCompose {
                     // We'll handle ArchiveNode outside of this map operation
                     // because it requires adding additional services: postgres, mina-archive-service
                     ServiceType::ArchiveNode => None,
+                    // We'll handle UptimeServiceBackend outside of this map operation
+                    // because it has different shape than other daemon services
+                    ServiceType::UptimeServiceBackend => None,
                     _ => {
                         let service_name =
                             format!("{}-{network_name}", config.service_name.clone());
@@ -156,10 +159,8 @@ impl DockerCompose {
             })
             .collect();
 
-        if let Some(archive_config) = configs
-            .iter()
-            .find(|config| config.service_type == ServiceType::ArchiveNode)
-        {
+        // Add ArchiveNode service bits
+        if let Some(archive_config) = ServiceConfig::get_archive_node(configs) {
             // Add postgres service
             volumes.insert(POSTGRES_DATA.to_string(), None);
             let mut postgres_environment = HashMap::new();
@@ -245,6 +246,60 @@ impl DockerCompose {
             );
         }
 
+        // Add UptimeServiceBackend service
+        if let Some(uptime_service_backend) = ServiceConfig::get_uptime_service_backend(configs) {
+            let uptime_service_name = format!(
+                "{}-{network_name}",
+                uptime_service_backend.service_name.clone()
+            );
+            let mut uptime_service_env = HashMap::new();
+            let aws_config = Self::get_filename(
+                uptime_service_backend
+                    .uptime_service_backend_aws_config
+                    .as_ref()
+                    .expect("Cannot get uptime_service_backend_aws_config"),
+            );
+            let app_config = Self::get_filename(
+                uptime_service_backend
+                    .uptime_service_backend_app_config
+                    .as_ref()
+                    .expect("Cannot get uptime_service_backend_app_config"),
+            );
+            let minasheets_config = Self::get_filename(
+                uptime_service_backend
+                    .uptime_service_backend_minasheets
+                    .as_ref()
+                    .expect("Cannot get uptime_service_backend_minasheets"),
+            );
+            uptime_service_env.insert(
+                "AWS_CREDENTIALS_FILE".to_string(),
+                format!("/local-network/uptime_service_config/{aws_config}"),
+            );
+            uptime_service_env.insert(
+                "CONFIG_FILE".to_string(),
+                format!("/local-network/uptime_service_config/{app_config}"),
+            );
+            uptime_service_env.insert(
+                "GOOGLE_APPLICATION_CREDENTIALS".to_string(),
+                format!("/local-network/uptime_service_config/{minasheets_config}"),
+            );
+
+            services.insert(
+                uptime_service_name.clone(),
+                Service {
+                    container_name: uptime_service_name.clone(),
+                    volumes: Some(vec![format!("{network_path_string}:/local-network")]),
+                    environment: Some(uptime_service_env),
+                    image: uptime_service_backend
+                        .docker_image
+                        .clone()
+                        .expect("Failed to get uptime_service docker image"),
+                    ports: Some(vec!["8080:8080".to_string()]),
+                    ..Default::default()
+                },
+            );
+        }
+
         let compose = DockerCompose {
             version: "3.8".to_string(),
             x_defaults: Defaults {
@@ -283,6 +338,14 @@ impl DockerCompose {
         .replace("uptime_privkey_pass", "UPTIME_PRIVKEY_PASS")
         .replace("mina_client_trustlist", "MINA_CLIENT_TRUSTLIST")
         .replace("null", "")
+    }
+
+    fn get_filename(path: &Path) -> String {
+        path.file_name()
+            .expect("Failed to get filename")
+            .to_str()
+            .expect("Failed to convert filename to str")
+            .to_string()
     }
 }
 
