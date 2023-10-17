@@ -380,7 +380,7 @@ impl DirectoryManager {
         fs::write(services_file_path, contents)
     }
 
-    pub fn _get_services_info(&self, network_id: &str) -> Result<Vec<ServiceConfig>> {
+    pub fn get_services_info(&self, network_id: &str) -> Result<Vec<ServiceConfig>> {
         let services_file_path = self.services_file_path(network_id);
         let contents = fs::read_to_string(services_file_path)?;
         let services: Vec<ServiceConfig> = serde_json::from_str(&contents)?;
@@ -676,7 +676,7 @@ mod tests {
             .unwrap();
 
         // Check that the services info is saved
-        let services_info = dir_manager._get_services_info(network_id).unwrap();
+        let services_info = dir_manager.get_services_info(network_id).unwrap();
         assert_eq!(services_info.len(), 2);
         assert_eq!(services_info[0].service_name, "test_service1");
         assert_eq!(services_info[1].service_name, "test_service2");

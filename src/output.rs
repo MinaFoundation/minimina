@@ -147,16 +147,6 @@ pub mod node {
         pub node_type: ServiceType,
     }
 
-    impl Info {
-        pub fn is_type_of(&self, node_type: &ServiceType) -> bool {
-            self.node_type == *node_type
-        }
-
-        pub fn is_archive(&self) -> bool {
-            self.is_type_of(&ServiceType::ArchiveNode)
-        }
-    }
-
     #[derive(Debug, Serialize, PartialEq)]
     pub struct Status {
         pub id: String,
@@ -235,10 +225,6 @@ pub fn generate_network_info(services: &[ServiceConfig], network_id: &str) -> ne
         network_id: network_id.to_string(),
         nodes,
     }
-}
-
-pub fn deserialize_network_info(network_info: &str) -> Result<network::Create, serde_json::Error> {
-    serde_json::from_str(network_info)
 }
 
 macro_rules! impl_display {
@@ -323,62 +309,5 @@ mod tests {
             &serde_json::to_value("Block_producer").unwrap()
         );
         assert_eq!(expect, generate_network_info(&services, network_id));
-    }
-
-    #[test]
-    fn test_deserialize_network_info() {
-        let network_info_str = "{
-            \"network_id\": \"test_deserialize\",
-            \"nodes\": {
-                \"mina-archive\": {
-                    \"graphql_uri\": null,
-                    \"private_key\": null,
-                    \"node_type\": \"Archive_node\"
-                },
-                \"mina-snark-coordinator\": {
-                    \"graphql_uri\": \"http://localhost:7001/graphql\",
-                    \"private_key\": null,
-                    \"node_type\": \"Snark_coordinator\"
-                },
-                \"mina-bp-1\": {
-                    \"graphql_uri\": \"http://localhost:4001/graphql\",
-                    \"private_key\": null,
-                    \"node_type\": \"Block_producer\"
-                },
-                \"mina-bp-2\": {
-                    \"graphql_uri\": \"http://localhost:4006/graphql\",
-                    \"private_key\": null,
-                    \"node_type\": \"Block_producer\"
-                },
-                \"mina-seed-1\": {
-                    \"graphql_uri\": \"http://localhost:3101/graphql\",
-                    \"private_key\": null,
-                    \"node_type\": \"Seed_node\"
-                },
-                \"mina-snark-worker-1\": {
-                    \"graphql_uri\": null,
-                    \"private_key\": null,
-                    \"node_type\": \"Snark_worker\"
-                }
-            }
-        }";
-        let network_info = deserialize_network_info(network_info_str).unwrap();
-        assert_eq!(network_info.network_id, "test_deserialize");
-        assert_eq!(network_info.nodes.len(), 6);
-        assert!(network_info.nodes.get("mina-archive").unwrap().is_archive());
-        assert_eq!(
-            network_info.nodes.get("mina-bp-1").unwrap().node_type,
-            ServiceType::BlockProducer
-        );
-        assert_eq!(
-            network_info
-                .nodes
-                .get("mina-snark-coordinator")
-                .unwrap()
-                .graphql_uri
-                .as_ref()
-                .unwrap(),
-            "http://localhost:7001/graphql"
-        );
     }
 }

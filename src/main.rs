@@ -28,9 +28,8 @@ use graphql::GraphQl;
 use log::{error, info, warn};
 use std::{
     collections::HashMap,
-    fs::read_to_string,
     io::{Error, ErrorKind, Result},
-    path::{Path, PathBuf},
+    path::Path,
     process::exit,
 };
 
@@ -372,18 +371,26 @@ fn main() -> Result<()> {
                 let network_id = cmd.network_id();
                 let network_path = directory_manager.network_path(network_id);
                 let docker = DockerManager::new(&network_path);
-
+                let services = directory_manager
+                    .get_services_info(network_id)
+                    .expect("Failed to get services info");
                 match docker.run_docker_logs(node_id, network_id) {
                     Ok(output) => {
                         if output.status.success() {
                             info!("Successfully got logs for '{node_id}' on '{network_id}'");
+                            // uptime service logs to stderr
+                            let out = if is_node_uptime_service(services, node_id) {
+                                &output.stderr
+                            } else {
+                                &output.stdout
+                            };
                             if cmd.raw_output {
-                                println!("{}", String::from_utf8_lossy(&output.stdout));
+                                println!("{}", String::from_utf8_lossy(out));
                             } else {
                                 println!(
                                     "{}",
                                     output::node::Logs {
-                                        logs: String::from_utf8_lossy(&output.stdout).into(),
+                                        logs: String::from_utf8_lossy(out).into(),
                                         network_id: network_id.into(),
                                         node_id: node_id.into(),
                                     }
@@ -407,13 +414,18 @@ fn main() -> Result<()> {
                 let network_id = cmd.network_id();
                 let node_id = cmd.node_id();
                 let network_path = directory_manager.network_path(cmd.network_id());
-                let network_file_path = directory_manager.network_file_path(cmd.network_id());
                 let docker = DockerManager::new(&network_path);
+                let services = directory_manager
+                    .get_services_info(network_id)
+                    .expect("Failed to get services info");
 
                 check_network_exists(network_id)?;
 
-                if let Err(e) = is_node_archive(&network_file_path, node_id, network_id) {
-                    return exit_with(e.to_string());
+                if !is_node_archive(services, node_id) {
+                    let error_message = format!(
+                        "Node '{node_id}' is not an archive node in '{network_id}' network."
+                    );
+                    return exit_with(error_message);
                 }
 
                 match docker.compose_dump_archive_data(network_id) {
@@ -497,13 +509,17 @@ fn main() -> Result<()> {
                 let node_id = cmd.node_args.node_id();
                 let network_id = cmd.node_args.network_id();
                 let network_path = directory_manager.network_path(cmd.node_args.network_id());
-                let network_file_path =
-                    directory_manager.network_file_path(cmd.node_args.network_id());
                 let docker = DockerManager::new(&network_path);
+                let services = directory_manager
+                    .get_services_info(network_id)
+                    .expect("Failed to get services info");
                 check_network_exists(network_id)?;
 
-                if let Err(e) = is_node_archive(&network_file_path, node_id, network_id) {
-                    return exit_with(e.to_string());
+                if !is_node_archive(services, node_id) {
+                    let error_message = format!(
+                        "Node '{node_id}' is not an archive node in '{network_id}' network."
+                    );
+                    return exit_with(error_message);
                 }
 
                 if let Err(e) = genesis_ledger::set_slot_since_genesis(&network_path, start_slot) {
@@ -872,13 +888,12 @@ fn generate_default_topology(
         peers: Some(vec![peer]),
         archive_docker_image: Some(docker_image_archive.into()),
         archive_schema_files: Some(vec![
-            "https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/zkapp_tables.sql".into(),
-            "https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/create_schema.sql".into(),
+            "https://raw.githubusercontent.com/MinaProtocol/mina/55b78189c46e1811b8bdb78864cfa95409aeb96a/src/app/archive/zkapp_tables.sql".into(),
+            "https://raw.githubusercontent.com/MinaProtocol/mina/55b78189c46e1811b8bdb78864cfa95409aeb96a/src/app/archive/create_schema.sql".into(),
         ]),
         archive_port: Some(3086),
         ..Default::default()
     };
-
     vec![
         seed,
         bp_1,
@@ -1105,24 +1120,22 @@ fn handle_start_error(node_id: &str, error: impl ToString) -> Result<()> {
     exit_with(error_message)
 }
 
-fn is_node_archive(network_file_path: &PathBuf, node_id: &str, network_id: &str) -> Result<()> {
-    let network_info = read_to_string(network_file_path).unwrap();
-    let network_info_data = output::deserialize_network_info(&network_info)?;
-    match network_info_data.nodes.get(node_id) {
-        Some(node) => {
-            if node.is_archive() {
-                Ok(())
-            } else {
-                let error =
-                    format!("Node '{node_id}' is not an archive node in network '{network_id}'.");
-                Err(Error::new(ErrorKind::InvalidData, error))
-            }
-        }
-        None => {
-            let error = format!("Node '{node_id}' does not exist in network '{network_id}'.",);
-            Err(Error::new(ErrorKind::NotFound, error))
+fn is_node_uptime_service(services: Vec<ServiceConfig>, node_id: &str) -> bool {
+    if let Some(uptime) = ServiceConfig::get_uptime_service_backend(&services) {
+        if uptime.service_name == node_id {
+            return true;
         }
     }
+    false
+}
+
+fn is_node_archive(services: Vec<ServiceConfig>, node_id: &str) -> bool {
+    if let Some(archive) = ServiceConfig::get_archive_node(&services) {
+        if archive.service_name == node_id {
+            return true;
+        }
+    }
+    false
 }
 
 fn import_all_accounts(
