@@ -708,7 +708,7 @@ mod tests {
         }];
         let uptime_service = ServiceConfig::get_uptime_service_backend(&services).unwrap();
         dir_manager.create_network_directory(network_id).unwrap();
-        let res = dir_manager.copy_uptime_service_config(network_id, &uptime_service);
+        let res = dir_manager.copy_uptime_service_config(network_id, uptime_service);
         assert!(res.is_ok());
         assert!(dir_manager
             .network_path(network_id)
