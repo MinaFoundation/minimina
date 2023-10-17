@@ -305,8 +305,30 @@ impl ServiceConfig {
     }
 
     pub fn get_archive_node(services: &[Self]) -> Option<&Self> {
-        services
+        let mut archive_nodes = services
             .iter()
-            .find(|s| s.service_type == ServiceType::ArchiveNode)
+            .filter(|s| s.service_type == ServiceType::ArchiveNode);
+
+        let first_node = archive_nodes.next();
+
+        if archive_nodes.next().is_some() {
+            panic!("There can only be one archive node in topology");
+        }
+
+        first_node
+    }
+
+    pub fn get_uptime_service_backend(services: &[Self]) -> Option<&Self> {
+        let mut uptime_service_backends = services
+            .iter()
+            .filter(|s| s.service_type == ServiceType::UptimeServiceBackend);
+
+        let first_backend = uptime_service_backends.next();
+
+        if uptime_service_backends.next().is_some() {
+            panic!("There can only be one uptime service backend in topology");
+        }
+
+        first_backend
     }
 }

@@ -91,9 +91,9 @@
     "uptime-service-backend": {
         "role": "Uptime_service_backend",
         "app_config_path": "./tests/data/uptime_service_network/uptime_service_config/app_config.json",
-        "aws_credentials_path": "./tests/data/uptime_service_network/uptime_service_config/app_creds.json",
+        "aws_credentials_path": "./tests/data/uptime_service_network/uptime_service_config/aws_creds.json",
         "minasheets_path": "./tests/data/uptime_service_network/uptime_service_config/minasheets.json",
-        "docker_image": "uptime-service-backend-test"
+        "docker_image": "673156464838.dkr.ecr.us-west-2.amazonaws.com/block-producers-uptime:test"
     },
     "default-seed": {
         "pk": "B62qk1U7rBJ7oxoYcY3qwTSdgfmPaZvhV1UbHyxCd2fqwteXwZ3u1et",

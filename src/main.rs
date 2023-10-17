@@ -982,6 +982,20 @@ fn create_services(
             let peers: Vec<&ServiceConfig> = ServiceConfig::get_seeds(&services);
             directory_manager.create_peer_list_file(network_id, &peers)?;
 
+            if let Some(uptime_service_backend) =
+                ServiceConfig::get_uptime_service_backend(&services)
+            {
+                match directory_manager
+                    .copy_uptime_service_config(network_id, uptime_service_backend)
+                {
+                    Ok(_) => info!("Successfully copied uptime service config."),
+                    Err(e) => {
+                        let error_message = format!("Failed to copy uptime service config: {e}");
+                        exit_with(error_message)?;
+                    }
+                }
+            }
+
             if peers.is_empty() {
                 error!("There are no seed nodes declared in this network. You must include seed nodes.");
                 exit(1);
