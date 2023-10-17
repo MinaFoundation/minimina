@@ -159,7 +159,10 @@ impl ServiceConfig {
     }
 
     /// Generate command for block producer node
-    pub fn generate_block_producer_command(&self) -> String {
+    pub fn generate_block_producer_command(
+        &self,
+        uptime_service_hostname: Option<String>,
+    ) -> String {
         assert_eq!(self.service_type, ServiceType::BlockProducer);
 
         let mut base_command = self.generate_base_command();
@@ -167,15 +170,31 @@ impl ServiceConfig {
         // Handling multiple peers
         self.add_peers_command(&mut base_command);
 
+        if let Some(uptime_service_host) = &uptime_service_hostname {
+            base_command.push("-uptime-url".to_string());
+            base_command.push(format!("http://{}:8080/v1/submit", uptime_service_host));
+        }
+
         if self.private_key_path.is_some() {
             base_command.push("-block-producer-key".to_string());
             base_command.push(format!(
                 "/local-network/network-keypairs/{}.json",
                 self.service_name
             ));
+            if uptime_service_hostname.is_some() {
+                base_command.push("-uptime-submitter-key".to_string());
+                base_command.push(format!(
+                    "/local-network/network-keypairs/{}.json",
+                    self.service_name
+                ));
+            }
         } else if let Some(public_key_path) = &self.public_key_path {
             base_command.push("-block-producer-key".to_string());
             base_command.push(public_key_path.clone());
+            if uptime_service_hostname.is_some() {
+                base_command.push("-uptime-submitter-key".to_string());
+                base_command.push(public_key_path.clone());
+            }
         } else {
             warn!(
                 "No public or private key path provided for block producer node '{}'. This is not recommended.",

@@ -85,6 +85,18 @@ impl DockerCompose {
             acc
         });
 
+        let uptime_service_hostname = if let Some(uptime_service_backend) =
+            ServiceConfig::get_uptime_service_backend(configs)
+        {
+            let uptime_service_name = format!(
+                "{}-{network_name}",
+                uptime_service_backend.service_name.clone()
+            );
+            Some(uptime_service_name)
+        } else {
+            None
+        };
+
         let mut services: HashMap<String, Service> = configs
             .iter()
             .filter_map(|config| {
@@ -109,9 +121,10 @@ impl DockerCompose {
                                 .expect("Failed to get mina daemon docker image"),
                             command: Some(match config.service_type {
                                 ServiceType::Seed => config.generate_seed_command(),
-                                ServiceType::BlockProducer => {
-                                    config.generate_block_producer_command()
-                                }
+                                ServiceType::BlockProducer => config
+                                    .generate_block_producer_command(
+                                        uptime_service_hostname.clone(),
+                                    ),
                                 ServiceType::SnarkCoordinator => {
                                     config.generate_snark_coordinator_command()
                                 }
