@@ -14,7 +14,7 @@ use crate::genesis_ledger::GENESIS_LEDGER_JSON;
 use crate::output;
 use crate::service::ServiceConfig;
 use dirs::home_dir;
-use log::info;
+use log::{debug, info};
 use std::env;
 use std::os::unix::fs::PermissionsExt;
 use std::{
@@ -205,6 +205,58 @@ impl DirectoryManager {
         Ok(())
     }
 
+    pub fn copy_uptime_service_config(
+        &self,
+        network_id: &str,
+        service: &ServiceConfig,
+    ) -> Result<()> {
+        info!("Copying uptime service config for {}", service.service_name);
+        let uptime_service_config_path =
+            self.network_path(network_id).join("uptime_service_config");
+        fs::create_dir_all(&uptime_service_config_path)?;
+        if let Some(uptime_service_backend_app_config) = &service.uptime_service_backend_app_config
+        {
+            let dest_path = uptime_service_config_path.join(
+                uptime_service_backend_app_config
+                    .file_name()
+                    .expect("Failed to extract filename from source path"),
+            );
+            debug!(
+                "Copying uptime service backend from {:?} app config to {:?}",
+                uptime_service_backend_app_config, dest_path
+            );
+            fs::copy(uptime_service_backend_app_config, dest_path)?;
+        }
+        if let Some(uptime_service_backend_minasheets) = &service.uptime_service_backend_minasheets
+        {
+            let dest_path = uptime_service_config_path.join(
+                uptime_service_backend_minasheets
+                    .file_name()
+                    .expect("Failed to extract filename from source path"),
+            );
+            debug!(
+                "Copying uptime service backend from {:?} app config to {:?}",
+                uptime_service_backend_minasheets, dest_path
+            );
+            fs::copy(uptime_service_backend_minasheets, dest_path)?;
+        }
+        if let Some(uptime_service_backend_aws_config) = &service.uptime_service_backend_aws_config
+        {
+            let dest_path = uptime_service_config_path.join(
+                uptime_service_backend_aws_config
+                    .file_name()
+                    .expect("Failed to extract filename from source path"),
+            );
+            debug!(
+                "Copying uptime service backend from {:?} app config to {:?}",
+                uptime_service_backend_aws_config, dest_path
+            );
+            fs::copy(uptime_service_backend_aws_config, dest_path)?;
+        }
+
+        Ok(())
+    }
+
     pub fn peer_list_file(&self, network_id: &str) -> PathBuf {
         self.network_path(network_id).join("peer_list_file.txt")
     }
@@ -328,7 +380,7 @@ impl DirectoryManager {
         fs::write(services_file_path, contents)
     }
 
-    pub fn _get_services_info(&self, network_id: &str) -> Result<Vec<ServiceConfig>> {
+    pub fn get_services_info(&self, network_id: &str) -> Result<Vec<ServiceConfig>> {
         let services_file_path = self.services_file_path(network_id);
         let contents = fs::read_to_string(services_file_path)?;
         let services: Vec<ServiceConfig> = serde_json::from_str(&contents)?;
@@ -624,12 +676,59 @@ mod tests {
             .unwrap();
 
         // Check that the services info is saved
-        let services_info = dir_manager._get_services_info(network_id).unwrap();
+        let services_info = dir_manager.get_services_info(network_id).unwrap();
         assert_eq!(services_info.len(), 2);
         assert_eq!(services_info[0].service_name, "test_service1");
         assert_eq!(services_info[1].service_name, "test_service2");
 
         // Clean up
+        dir_manager.delete_network_directory(network_id).unwrap();
+    }
+
+    #[test]
+    fn test_copy_uptime_service_config() {
+        let tempdir = TempDir::new("test_copy_uptime_service_config")
+            .expect("Cannot create temporary directory");
+        let base_path = tempdir.path();
+        let network_id = "test_network";
+        let dir_manager = DirectoryManager::_new_with_base_path(base_path.into());
+        let services = vec![ServiceConfig {
+            service_name: "test_service1".to_string(),
+            service_type: crate::service::ServiceType::UptimeServiceBackend,
+            uptime_service_backend_app_config: Some(PathBuf::from(
+                "./tests/data/uptime_service_network/uptime_service_config_test/app_config.json",
+            )),
+            uptime_service_backend_minasheets: Some(PathBuf::from(
+                "./tests/data/uptime_service_network/uptime_service_config_test/minasheets.json",
+            )),
+            uptime_service_backend_aws_config: Some(PathBuf::from(
+                "./tests/data/uptime_service_network/uptime_service_config_test/aws_creds.json",
+            )),
+            ..Default::default()
+        }];
+        let uptime_service = ServiceConfig::get_uptime_service_backend(&services).unwrap();
+        dir_manager.create_network_directory(network_id).unwrap();
+        let res = dir_manager.copy_uptime_service_config(network_id, uptime_service);
+        assert!(res.is_ok());
+        assert!(dir_manager
+            .network_path(network_id)
+            .join("uptime_service_config")
+            .exists());
+        assert!(dir_manager
+            .network_path(network_id)
+            .join("uptime_service_config")
+            .join("app_config.json")
+            .exists());
+        assert!(dir_manager
+            .network_path(network_id)
+            .join("uptime_service_config")
+            .join("minasheets.json")
+            .exists());
+        assert!(dir_manager
+            .network_path(network_id)
+            .join("uptime_service_config")
+            .join("aws_creds.json")
+            .exists());
         dir_manager.delete_network_directory(network_id).unwrap();
     }
 }

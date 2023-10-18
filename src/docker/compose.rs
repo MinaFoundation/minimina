@@ -42,6 +42,8 @@ struct Environment {
     mina_privkey_pass: String,
     mina_libp2p_pass: String,
     mina_client_trustlist: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    uptime_privkey_pass: Option<String>,
 }
 
 #[derive(Default, Serialize)]
@@ -83,6 +85,18 @@ impl DockerCompose {
             acc
         });
 
+        let uptime_service_hostname = if let Some(uptime_service_backend) =
+            ServiceConfig::get_uptime_service_backend(configs)
+        {
+            let uptime_service_name = format!(
+                "{}-{network_name}",
+                uptime_service_backend.service_name.clone()
+            );
+            Some(uptime_service_name)
+        } else {
+            None
+        };
+
         let mut services: HashMap<String, Service> = configs
             .iter()
             .filter_map(|config| {
@@ -90,6 +104,9 @@ impl DockerCompose {
                     // We'll handle ArchiveNode outside of this map operation
                     // because it requires adding additional services: postgres, mina-archive-service
                     ServiceType::ArchiveNode => None,
+                    // We'll handle UptimeServiceBackend outside of this map operation
+                    // because it has different shape than other daemon services
+                    ServiceType::UptimeServiceBackend => None,
                     _ => {
                         let service_name =
                             format!("{}-{network_name}", config.service_name.clone());
@@ -107,9 +124,10 @@ impl DockerCompose {
                                 .expect("Failed to get mina daemon docker image"),
                             command: Some(match config.service_type {
                                 ServiceType::Seed => config.generate_seed_command(),
-                                ServiceType::BlockProducer => {
-                                    config.generate_block_producer_command()
-                                }
+                                ServiceType::BlockProducer => config
+                                    .generate_block_producer_command(
+                                        uptime_service_hostname.clone(),
+                                    ),
                                 ServiceType::SnarkCoordinator => {
                                     config.generate_snark_coordinator_command()
                                 }
@@ -141,10 +159,8 @@ impl DockerCompose {
             })
             .collect();
 
-        if let Some(archive_config) = configs
-            .iter()
-            .find(|config| config.service_type == ServiceType::ArchiveNode)
-        {
+        // Add ArchiveNode service bits
+        if let Some(archive_config) = ServiceConfig::get_archive_node(configs) {
             // Add postgres service
             volumes.insert(POSTGRES_DATA.to_string(), None);
             let mut postgres_environment = HashMap::new();
@@ -230,12 +246,73 @@ impl DockerCompose {
             );
         }
 
+        // Add UptimeServiceBackend service
+        if let Some(uptime_service_backend) = ServiceConfig::get_uptime_service_backend(configs) {
+            let uptime_service_name = format!(
+                "{}-{network_name}",
+                uptime_service_backend.service_name.clone()
+            );
+            let mut uptime_service_env = HashMap::new();
+            let aws_config = Self::get_filename(
+                uptime_service_backend
+                    .uptime_service_backend_aws_config
+                    .as_ref()
+                    .expect("Cannot get uptime_service_backend_aws_config"),
+            );
+            let app_config = Self::get_filename(
+                uptime_service_backend
+                    .uptime_service_backend_app_config
+                    .as_ref()
+                    .expect("Cannot get uptime_service_backend_app_config"),
+            );
+            let minasheets_config = Self::get_filename(
+                uptime_service_backend
+                    .uptime_service_backend_minasheets
+                    .as_ref()
+                    .expect("Cannot get uptime_service_backend_minasheets"),
+            );
+            uptime_service_env.insert(
+                "AWS_CREDENTIALS_FILE".to_string(),
+                format!("/local-network/uptime_service_config/{aws_config}"),
+            );
+            uptime_service_env.insert(
+                "CONFIG_FILE".to_string(),
+                format!("/local-network/uptime_service_config/{app_config}"),
+            );
+            uptime_service_env.insert(
+                "GOOGLE_APPLICATION_CREDENTIALS".to_string(),
+                format!("/local-network/uptime_service_config/{minasheets_config}"),
+            );
+
+            services.insert(
+                uptime_service_name.clone(),
+                Service {
+                    container_name: uptime_service_name.clone(),
+                    volumes: Some(vec![format!("{network_path_string}:/local-network")]),
+                    environment: Some(uptime_service_env),
+                    image: uptime_service_backend
+                        .docker_image
+                        .clone()
+                        .expect("Failed to get uptime_service docker image"),
+                    ports: Some(vec!["8080:8080".to_string()]),
+                    ..Default::default()
+                },
+            );
+        }
+
         let compose = DockerCompose {
             version: "3.8".to_string(),
             x_defaults: Defaults {
                 environment: Environment {
                     mina_privkey_pass: "naughty blue worm".to_string(),
                     mina_libp2p_pass: "naughty blue worm".to_string(),
+                    uptime_privkey_pass: if ServiceConfig::get_uptime_service_backend(configs)
+                        .is_some()
+                    {
+                        Some("naughty blue worm".to_string())
+                    } else {
+                        None
+                    },
                     mina_client_trustlist: "0.0.0.0/0".to_string(),
                 },
             },
@@ -258,8 +335,17 @@ impl DockerCompose {
         .replace("<<: '*default-attributes'", "<<: *default-attributes")
         .replace("mina_privkey_pass", "MINA_PRIVKEY_PASS")
         .replace("mina_libp2p_pass", "MINA_LIBP2P_PASS")
+        .replace("uptime_privkey_pass", "UPTIME_PRIVKEY_PASS")
         .replace("mina_client_trustlist", "MINA_CLIENT_TRUSTLIST")
         .replace("null", "")
+    }
+
+    fn get_filename(path: &Path) -> String {
+        path.file_name()
+            .expect("Failed to get filename")
+            .to_str()
+            .expect("Failed to convert filename to str")
+            .to_string()
     }
 }
 

@@ -61,6 +61,17 @@ pub struct SnarkCoordinatorTopologyInfo {
     pub libp2p_peerid: String,
 }
 
+/// Topology info for uptime service backend
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct UptimeServiceTopologyInfo {
+    #[serde(rename(deserialize = "role"))]
+    pub service_type: ServiceType,
+    pub docker_image: Option<String>,
+    pub app_config_path: PathBuf,
+    pub aws_credentials_path: PathBuf,
+    pub minasheets_path: PathBuf,
+}
+
 /// Each node variant's topology info
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(untagged)]
@@ -68,6 +79,7 @@ pub enum TopologyInfo {
     Archive(ArchiveTopologyInfo),
     SnarkCoordinator(SnarkCoordinatorTopologyInfo),
     Node(NodeTopologyInfo),
+    UptimeServiceBackend(UptimeServiceTopologyInfo),
 }
 
 /// Full network topology
@@ -86,6 +98,21 @@ impl TopologyInfo {
         archive_port: u16,
     ) -> ServiceConfig {
         match self {
+            TopologyInfo::UptimeServiceBackend(uptime_service_info) => ServiceConfig {
+                service_type: ServiceType::UptimeServiceBackend,
+                service_name,
+                docker_image: uptime_service_info.docker_image.clone(),
+                uptime_service_backend_app_config: Some(
+                    uptime_service_info.app_config_path.clone(),
+                ),
+                uptime_service_backend_aws_config: Some(
+                    uptime_service_info.aws_credentials_path.clone(),
+                ),
+                uptime_service_backend_minasheets: Some(
+                    uptime_service_info.minasheets_path.clone(),
+                ),
+                ..Default::default()
+            },
             TopologyInfo::Archive(archive_info) => ServiceConfig {
                 service_type: ServiceType::ArchiveNode,
                 service_name,

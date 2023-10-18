@@ -30,8 +30,8 @@
     "archive_image": "gcr.io/o1labs-192920/mina-archive:2.0.0rampup5-55b7818-bullseye",
     "git_build": null,
     "schema_files": [
-      "https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/create_schema.sql",
-      "https://raw.githubusercontent.com/MinaProtocol/mina/14047c55517cf3587fc9a6ac55c8f7e80a419571/src/app/archive/zkapp_tables.sql"
+      "https://raw.githubusercontent.com/MinaProtocol/mina/55b78189c46e1811b8bdb78864cfa95409aeb96a/src/app/archive/create_schema.sql",
+      "https://raw.githubusercontent.com/MinaProtocol/mina/55b78189c46e1811b8bdb78864cfa95409aeb96a/src/app/archive/zkapp_tables.sql"
     ],
     "libp2p_pass": "naughty blue worm",
     "libp2p_keyfile": "./tests/data/large_network/libp2p_keys/archive_node.json",
