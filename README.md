@@ -4,7 +4,7 @@
 
 ## Overview
 
-MiniMina is a command line tool aimed at providing the capability to spin up Mina networks locally on a user's computer. For more more information see [Minimina RFC](https://www.notion.so/minafoundation/MiniMina-v2-19775eec3c604476894633f8fe84a2d0).
+MiniMina is a command line tool aimed at providing the capability to spin up Mina networks locally on a user's computer. For more more information see [Minimina RFC](/docs/rfc/README.md).
 
 ### Prerequisites
 
