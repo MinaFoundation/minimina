@@ -300,7 +300,7 @@ impl DockerCompose {
                         .clone()
                         .expect("Failed to get uptime_service docker image"),
                     ports: Some(vec!["8080:8080".to_string()]),
-                    pull_policy: Some("if_not_present".to_string()),
+                    pull_policy: Some("never".to_string()),
                     ..Default::default()
                 },
             );
