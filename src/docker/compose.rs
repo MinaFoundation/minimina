@@ -66,6 +66,8 @@ struct Service {
     ports: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     depends_on: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pull_policy: Option<String>,
 }
 
 pub const CONFIG_DIRECTORY: &str = "config-directory";
@@ -148,6 +150,7 @@ impl DockerCompose {
                                 }
                                 None => None,
                             },
+                            pull_policy: Some("if_not_present".to_string()),
                             ..Default::default()
                         };
                         Some((
@@ -206,6 +209,7 @@ impl DockerCompose {
                     ]),
                     ports: Some(vec![archive_port.to_string()]),
                     depends_on: Some(vec![postgres_name]),
+                    pull_policy: Some("if_not_present".to_string()),
                     ..Default::default()
                 },
             );
@@ -241,6 +245,7 @@ impl DockerCompose {
                         None => None,
                     },
                     depends_on: Some(vec![archive_service_name]),
+                    pull_policy: Some("if_not_present".to_string()),
                     ..Default::default()
                 },
             );
@@ -295,6 +300,7 @@ impl DockerCompose {
                         .clone()
                         .expect("Failed to get uptime_service docker image"),
                     ports: Some(vec!["8080:8080".to_string()]),
+                    pull_policy: Some("if_not_present".to_string()),
                     ..Default::default()
                 },
             );
