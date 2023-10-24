@@ -52,7 +52,7 @@ jobs:
           REF_NAME=$(echo ${GITHUB_REF#refs/*/})
         fi
         echo "Extracted reference name: $REF_NAME"
-        echo "::set-output name=ref::${REF_NAME}"
+        echo "ref=$REF_NAME" >> $GITHUB_OUTPUT
 
     - name: 🤌 Get MiniMina from source
       uses: MinaFoundation/install-minimina-action@v1
