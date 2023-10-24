@@ -66,7 +66,7 @@ jobs:
           minimina network create
           minimina network start
           minimina network status
-          minimina netowork info
+          minimina network info
           minimina node stop -i mina-bp-1
           minimina node start -i mina-bp-1
           minimina network stop
@@ -79,7 +79,7 @@ jobs:
           minimina network create -n large -t tests/data/large_network/topology.json -g tests/data/large_network/genesis_ledger.json
           minimina network start -n large
           minimina network status -n large
-          minimina netowork info -n large
+          minimina network info -n large
           minimina node stop -n large -i empty_node-1
           minimina node start -n large -i empty_node-1
           minimina network stop -n large
