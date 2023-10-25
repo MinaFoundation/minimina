@@ -19,7 +19,7 @@ jobs:
 
     steps:
     - name: 📥 Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: ✅ Format
       run: cargo fmt --all -- --check
@@ -38,9 +38,58 @@ jobs:
     - name: 🧪 Test
       run: cargo test --verbose
 
+  integration:
+    runs-on: minafoundation-default-runners
+
+    steps:
+    - name: 🪄 Extract reference name
+      id: extract_ref
+      shell: bash
+      run: |
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          REF_NAME=${{ github.head_ref }}
+        else
+          REF_NAME=$(echo ${GITHUB_REF#refs/*/})
+        fi
+        echo "Extracted reference name: $REF_NAME"
+        echo "ref=$REF_NAME" >> $GITHUB_OUTPUT
+
+    - name: 🤌 Get MiniMina from source
+      uses: MinaFoundation/install-minimina-action@v1
+      with:
+        # Current commit or branch to use for MiniMina
+        commit_or_branch: ${{ steps.extract_ref.outputs.ref }}
+
+    - name: 🧪 Test default network
+      shell: bash
+      run: |
+          minimina network create
+          minimina network start
+          minimina network status
+          minimina network info
+          minimina node stop -i mina-bp-1
+          minimina node start -i mina-bp-1
+          minimina network stop
+          minimina network delete
+
+    - name: 🧪 Test network from topology
+      shell: bash
+      run: |
+          cd minimina
+          minimina network create -n large -t tests/data/large_network/topology.json -g tests/data/large_network/genesis_ledger.json
+          minimina network start -n large
+          minimina network status -n large
+          minimina network info -n large
+          minimina node stop -n large -i empty_node-1
+          minimina node start -n large -i empty_node-1
+          minimina network stop -n large
+          minimina network delete -n large
+
   deploy:
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-    needs: build
+    needs: 
+      - build
+      - integration
     runs-on: minafoundation-default-runners
     environment: package
 

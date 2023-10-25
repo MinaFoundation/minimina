@@ -14,7 +14,11 @@ For building and testing MiniMina requires Rust compiler and its package manager
 
 ## Getting Started
 
-To set up and use MiniMina, you have a couple of options: building from source or using the provided deb package.
+To set up and use MiniMina, you have a couple of options: 
+ - building from source
+ - using the provided deb package
+
+**Tip:** Integrating MiniMina into your GitHub workflow is straightforward with the [MinaFoundation/install-minimina-action](https://github.com/MinaFoundation/install-minimina-action).
 
 ### Building from Source
 
