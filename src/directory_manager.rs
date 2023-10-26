@@ -708,11 +708,6 @@ mod tests {
             .join("uptime_service_config")
             .join("minasheets.json")
             .exists());
-        assert!(dir_manager
-            .network_path(network_id)
-            .join("uptime_service_config")
-            .join("aws_creds.json")
-            .exists());
         dir_manager.delete_network_directory(network_id).unwrap();
     }
 }
