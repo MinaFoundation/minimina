@@ -6,6 +6,9 @@
   "delegation_whitelist_column": "E",
   "aws": {
     "account_id": "",
-    "region": ""
+    "bucket_name_suffix": "",
+    "region": "",
+    "access_key_id": "",
+    "secret_access_key": ""
   }
 }

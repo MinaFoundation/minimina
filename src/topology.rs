@@ -68,7 +68,6 @@ pub struct UptimeServiceTopologyInfo {
     pub service_type: ServiceType,
     pub docker_image: Option<String>,
     pub app_config_path: PathBuf,
-    pub aws_credentials_path: PathBuf,
     pub minasheets_path: PathBuf,
 }
 
@@ -104,9 +103,6 @@ impl TopologyInfo {
                 docker_image: uptime_service_info.docker_image.clone(),
                 uptime_service_backend_app_config: Some(
                     uptime_service_info.app_config_path.clone(),
-                ),
-                uptime_service_backend_aws_config: Some(
-                    uptime_service_info.aws_credentials_path.clone(),
                 ),
                 uptime_service_backend_minasheets: Some(
                     uptime_service_info.minasheets_path.clone(),
