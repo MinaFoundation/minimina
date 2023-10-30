@@ -240,19 +240,6 @@ impl DirectoryManager {
             );
             fs::copy(uptime_service_backend_minasheets, dest_path)?;
         }
-        if let Some(uptime_service_backend_aws_config) = &service.uptime_service_backend_aws_config
-        {
-            let dest_path = uptime_service_config_path.join(
-                uptime_service_backend_aws_config
-                    .file_name()
-                    .expect("Failed to extract filename from source path"),
-            );
-            debug!(
-                "Copying uptime service backend from {:?} app config to {:?}",
-                uptime_service_backend_aws_config, dest_path
-            );
-            fs::copy(uptime_service_backend_aws_config, dest_path)?;
-        }
 
         Ok(())
     }
@@ -701,9 +688,6 @@ mod tests {
             uptime_service_backend_minasheets: Some(PathBuf::from(
                 "./tests/data/uptime_service_network/uptime_service_config_test/minasheets.json",
             )),
-            uptime_service_backend_aws_config: Some(PathBuf::from(
-                "./tests/data/uptime_service_network/uptime_service_config_test/aws_creds.json",
-            )),
             ..Default::default()
         }];
         let uptime_service = ServiceConfig::get_uptime_service_backend(&services).unwrap();
@@ -723,11 +707,6 @@ mod tests {
             .network_path(network_id)
             .join("uptime_service_config")
             .join("minasheets.json")
-            .exists());
-        assert!(dir_manager
-            .network_path(network_id)
-            .join("uptime_service_config")
-            .join("aws_creds.json")
             .exists());
         dir_manager.delete_network_directory(network_id).unwrap();
     }

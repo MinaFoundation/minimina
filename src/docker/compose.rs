@@ -253,12 +253,6 @@ impl DockerCompose {
                 uptime_service_backend.service_name.clone()
             );
             let mut uptime_service_env = HashMap::new();
-            let aws_config = Self::get_filename(
-                uptime_service_backend
-                    .uptime_service_backend_aws_config
-                    .as_ref()
-                    .expect("Cannot get uptime_service_backend_aws_config"),
-            );
             let app_config = Self::get_filename(
                 uptime_service_backend
                     .uptime_service_backend_app_config
@@ -270,10 +264,6 @@ impl DockerCompose {
                     .uptime_service_backend_minasheets
                     .as_ref()
                     .expect("Cannot get uptime_service_backend_minasheets"),
-            );
-            uptime_service_env.insert(
-                "AWS_CREDENTIALS_FILE".to_string(),
-                format!("/local-network/uptime_service_config/{aws_config}"),
             );
             uptime_service_env.insert(
                 "CONFIG_FILE".to_string(),

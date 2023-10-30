@@ -65,7 +65,6 @@ pub struct ServiceConfig {
 
     //uptime service backend specific
     pub uptime_service_backend_app_config: Option<PathBuf>,
-    pub uptime_service_backend_aws_config: Option<PathBuf>,
     pub uptime_service_backend_minasheets: Option<PathBuf>,
 }
 

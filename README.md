@@ -18,7 +18,7 @@ To set up and use MiniMina, you have a couple of options:
  - building from source
  - using the provided deb package
 
-**Tip:** Integrating MiniMina into your GitHub workflow is straightforward with the [MinaFoundation/install-minimina-action](https://github.com/MinaFoundation/install-minimina-action).
+> 💡 **Tip:** Integrating MiniMina into your GitHub workflow is straightforward with the [MinaFoundation/install-minimina-action](https://github.com/MinaFoundation/install-minimina-action).
 
 ### Building from Source
 
@@ -39,9 +39,9 @@ echo "deb [trusted=yes] http://packages.o1test.net ubuntu stable" | sudo tee /et
 sudo apt-get update
 sudo apt-get install -y minimina
 ```
-**Note 1:**  The `stable` repository contains the release version of MiniMina, while `unstable` mirrors the current state of the `main` branch in the repository. Choose accordingly based on your needs.
+> 🗒️ **Note 1:**  The `stable` repository contains the release version of MiniMina, while `unstable` mirrors the current state of the `main` branch in the repository. Choose accordingly based on your needs.
 
-**Note 2:** MiniMina deb package is known to work on Ubuntu 18.04, Ubuntu 20.04, Debian 10, Debian 11. Installing it on other systems may necessitate adjusting or installing additional dependent libraries or packages.
+> 🗒️ **Note 2:** MiniMina deb package should work on most Debian/Ubuntu-based distros. However, it hasn't undergone extensive testing.
 
 ## Usage
 
