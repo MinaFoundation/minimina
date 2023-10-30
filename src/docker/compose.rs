@@ -278,7 +278,10 @@ impl DockerCompose {
                 uptime_service_name.clone(),
                 Service {
                     container_name: uptime_service_name.clone(),
-                    volumes: Some(vec![format!("{network_path_string}:/local-network")]),
+                    volumes: Some(vec![
+                        format!("{network_path_string}:/local-network"),
+                        format!("{network_path_string}/uptime-storage:/uptime-storage"),
+                    ]),
                     environment: Some(uptime_service_env),
                     image: uptime_service_backend
                         .docker_image
