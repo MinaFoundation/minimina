@@ -71,6 +71,7 @@ pub mod network {
     pub struct Status {
         pub network_id: String,
         pub status: String,
+        pub network_dir: String,
         pub docker_compose_file: String,
         pub services: Vec<super::node::Status>,
     }
@@ -80,6 +81,7 @@ pub mod network {
             Status {
                 network_id: network_id.to_string(),
                 status: "unknown".to_string(),
+                network_dir: "unknown".to_string(),
                 docker_compose_file: "unknown".to_string(),
                 services: vec![],
             }

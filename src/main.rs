@@ -149,6 +149,7 @@ fn main() -> Result<()> {
                 let mut status = network::Status::new(&network_id);
                 status.update_from_compose_ls(ls_out, compose_file_path);
                 status.update_from_compose_ps(ps_out);
+                status.network_dir = network_path.into_os_string().into_string().unwrap();
 
                 println!("{status}");
                 Ok(())
