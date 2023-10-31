@@ -1,6 +1,6 @@
 [package]
 name = "minimina"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "LICENSE"
 description = """\
