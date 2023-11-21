@@ -138,7 +138,7 @@ impl DirectoryManager {
     ) -> Result<Vec<String>> {
         let path = self.network_path(network_id).join(subdir);
         let mut files = vec![];
-        for entry in fs::read_dir(&path)? {
+        for entry in fs::read_dir(path)? {
             let entry = entry?;
             if entry.file_type()?.is_file() {
                 if let Some(file_name) = entry.file_name().to_str() {
