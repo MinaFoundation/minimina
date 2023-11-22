@@ -71,6 +71,7 @@ struct Service {
 
 pub const CONFIG_DIRECTORY: &str = "config-directory";
 const POSTGRES_DATA: &str = "postgres-data";
+const RAYON_NUM_THREADS: u32 = 2;
 
 impl DockerCompose {
     pub fn generate(configs: &[ServiceConfig], network_path: &Path) -> String {
@@ -308,7 +309,7 @@ impl DockerCompose {
                         None
                     },
                     mina_client_trustlist: "0.0.0.0/0".to_string(),
-                    rayon_num_threads: 4,
+                    rayon_num_threads: RAYON_NUM_THREADS,
                 },
             },
             volumes,
