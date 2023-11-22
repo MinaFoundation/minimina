@@ -44,6 +44,7 @@ struct Environment {
     mina_client_trustlist: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     uptime_privkey_pass: Option<String>,
+    rayon_num_threads: u32,
 }
 
 #[derive(Default, Serialize)]
@@ -307,6 +308,7 @@ impl DockerCompose {
                         None
                     },
                     mina_client_trustlist: "0.0.0.0/0".to_string(),
+                    rayon_num_threads: 4,
                 },
             },
             volumes,
@@ -330,6 +332,7 @@ impl DockerCompose {
         .replace("mina_libp2p_pass", "MINA_LIBP2P_PASS")
         .replace("uptime_privkey_pass", "UPTIME_PRIVKEY_PASS")
         .replace("mina_client_trustlist", "MINA_CLIENT_TRUSTLIST")
+        .replace("rayon_num_threads", "RAYON_NUM_THREADS")
         .replace("null", "")
     }
 
