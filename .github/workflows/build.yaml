@@ -100,7 +100,14 @@ jobs:
     - name: 📦 Package
       run: | 
           cargo install cargo-deb
-          cargo deb
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+              cargo deb
+          else
+              # add -main suffix to version
+              version=$(grep "^version" Cargo.toml | head -1 | awk -F '"' '{print $2}')
+              modified_version="${version}-main"
+              cargo deb --deb-version="$modified_version"
+          fi
 
     - name: 📤 Upload 
       env:
