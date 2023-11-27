@@ -44,6 +44,16 @@ struct Account {
     sk: Option<String>,
     balance: String,
     delegate: Option<String>,
+    timing: Option<Timing>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Timing {
+    initial_minimum_balance: String,
+    cliff_time: String,
+    cliff_amount: String,
+    vesting_period: String,
+    vesting_increment: String,
 }
 
 /// Replayer input format
@@ -81,6 +91,7 @@ pub mod default {
                     sk: None,
                     balance: "11550000.000000000".into(),
                     delegate: None,
+                    timing: None,
                 })
                 .collect();
 
@@ -236,7 +247,14 @@ mod tests {
                   "pk": "TOMATO",
                   "sk": null,
                   "balance": "11550000.000000000",
-                  "delegate": null
+                  "delegate": null,
+                  "timing": {
+                    "initial_minimum_balance": "10000",
+                    "cliff_time": "8",
+                    "cliff_amount": "0",
+                    "vesting_period": "4",
+                    "vesting_increment": "5000"
+                  }
                 }
               ]
             }
@@ -253,6 +271,46 @@ mod tests {
         assert_eq!(genesis_ledger.ledger.accounts.len(), 2);
         assert_eq!(genesis_ledger.ledger.accounts[0].pk, "POTATO");
         assert_eq!(genesis_ledger.ledger.accounts[1].pk, "TOMATO");
+        assert_eq!(
+            genesis_ledger.ledger.accounts[1]
+                .timing
+                .as_ref()
+                .unwrap()
+                .initial_minimum_balance,
+            "10000"
+        );
+        assert_eq!(
+            genesis_ledger.ledger.accounts[1]
+                .timing
+                .as_ref()
+                .unwrap()
+                .cliff_time,
+            "8"
+        );
+        assert_eq!(
+            genesis_ledger.ledger.accounts[1]
+                .timing
+                .as_ref()
+                .unwrap()
+                .cliff_amount,
+            "0"
+        );
+        assert_eq!(
+            genesis_ledger.ledger.accounts[1]
+                .timing
+                .as_ref()
+                .unwrap()
+                .vesting_period,
+            "4"
+        );
+        assert_eq!(
+            genesis_ledger.ledger.accounts[1]
+                .timing
+                .as_ref()
+                .unwrap()
+                .vesting_increment,
+            "5000"
+        );
     }
 
     #[test]
