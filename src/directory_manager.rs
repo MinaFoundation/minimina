@@ -240,6 +240,19 @@ impl DirectoryManager {
             );
             fs::copy(uptime_service_backend_minasheets, dest_path)?;
         }
+        if let Some(other_files) = &service.uptime_service_other_config_files {
+            for file in other_files {
+                let dest_path = uptime_service_config_path.join(
+                    file.file_name()
+                        .expect("Failed to extract filename from source path"),
+                );
+                debug!(
+                    "Copying uptime service backend from {:?} app config to {:?}",
+                    file, dest_path
+                );
+                fs::copy(file, dest_path)?;
+            }
+        }
 
         Ok(())
     }
