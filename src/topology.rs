@@ -69,6 +69,7 @@ pub struct UptimeServiceTopologyInfo {
     pub docker_image: Option<String>,
     pub app_config_path: PathBuf,
     pub minasheets_path: PathBuf,
+    pub other_config_files: Option<Vec<PathBuf>>,
 }
 
 /// Each node variant's topology info
@@ -107,6 +108,8 @@ impl TopologyInfo {
                 uptime_service_backend_minasheets: Some(
                     uptime_service_info.minasheets_path.clone(),
                 ),
+                uptime_service_other_config_files: uptime_service_info.other_config_files.clone(),
+
                 ..Default::default()
             },
             TopologyInfo::Archive(archive_info) => ServiceConfig {

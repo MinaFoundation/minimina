@@ -66,6 +66,7 @@ pub struct ServiceConfig {
     //uptime service backend specific
     pub uptime_service_backend_app_config: Option<PathBuf>,
     pub uptime_service_backend_minasheets: Option<PathBuf>,
+    pub uptime_service_other_config_files: Option<Vec<PathBuf>>,
 }
 
 impl ServiceConfig {
