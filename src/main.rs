@@ -38,11 +38,13 @@ const LEAST_COMPOSE_VERSION: &str = "2.21.0";
 
 // Hardcoded daemon image for default network
 const DEFAULT_DAEMON_DOCKER_IMAGE: &str =
-    "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup6-4061884-bullseye-berkeley";
+    "gcr.io/o1labs-192920/mina-daemon:2.0.0rampup7-4a0fff9-bullseye-berkeley";
 
 // Hardcoded archive image for default network
 const DEFAULT_ARCHIVE_DOCKER_IMAGE: &str =
-    "gcr.io/o1labs-192920/mina-archive:2.0.0rampup6-4061884-bullseye";
+    "gcr.io/o1labs-192920/mina-archive:2.0.0rampup7-4a0fff9-bullseye";
+
+const IMAGE_COMMIT_HASH: &str = "4a0fff9";
 
 // Timeout in seconds for waiting operations
 const TIMEOUT_IN_SECS: u16 = 180;
@@ -889,8 +891,8 @@ fn generate_default_topology(
         peers: Some(vec![peer]),
         archive_docker_image: Some(docker_image_archive.into()),
         archive_schema_files: Some(vec![
-            "https://raw.githubusercontent.com/MinaProtocol/mina/4061884b18137c1182c7fcfa80f52804008a2509/src/app/archive/zkapp_tables.sql".into(),
-            "https://raw.githubusercontent.com/MinaProtocol/mina/4061884b18137c1182c7fcfa80f52804008a2509/src/app/archive/create_schema.sql".into(),
+            format!("https://raw.githubusercontent.com/MinaProtocol/mina/{IMAGE_COMMIT_HASH}/src/app/archive/zkapp_tables.sql"),
+            format!("https://raw.githubusercontent.com/MinaProtocol/mina/{IMAGE_COMMIT_HASH}/src/app/archive/create_schema.sql"),
         ]),
         archive_port: Some(3086),
         ..Default::default()
