@@ -4,14 +4,14 @@
 #  1. Update the variables below to the desired versions
 #  2. ./scripts/update_mina.sh
 
-daemon_old="gcr.io/o1labs-192920/mina-daemon:2.0.0rampup6-4061884-bullseye-berkeley"
-daemon_new="gcr.io/o1labs-192920/mina-daemon:2.0.0rampup7-4a0fff9-bullseye-berkeley"
+daemon_old="gcr.io/o1labs-192920/mina-daemon:2.0.0rampup7-4a0fff9-bullseye-berkeley"
+daemon_new="gcr.io/o1labs-192920/mina-daemon:2.0.0berkeley-rc1-1551e2f-bullseye-berkeley"
 
-archive_old="gcr.io/o1labs-192920/mina-archive:2.0.0rampup6-4061884-bullseye"
-archive_new="gcr.io/o1labs-192920/mina-archive:2.0.0rampup7-4a0fff9-bullseye"
+archive_old="gcr.io/o1labs-192920/mina-archive:2.0.0rampup7-4a0fff9-bullseye"
+archive_new="gcr.io/o1labs-192920/mina-archive:2.0.0berkeley-rc1-1551e2f-bullseye"
 
-commit_old="4061884"
-commit_new="4a0fff9"
+commit_old="4a0fff9"
+commit_new="1551e2f"
 
 escape_slashes() {
     echo "$1" | sed 's_/_\\/_g'
