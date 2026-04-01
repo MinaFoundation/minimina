@@ -1,3 +1,6 @@
+> ⚠️ **This repository is no longer maintained.**
+> Please refer to the actively maintained version at [https://github.com/o1-labs/minimina](https://github.com/o1-labs/minimina).
+
 # MiniMina
 
 [![Build](https://github.com/MinaFoundation/minimina/actions/workflows/build.yaml/badge.svg)](https://github.com/MinaFoundation/minimina/actions/workflows/build.yaml)
